@@ -1,21 +1,33 @@
 package com.example.gamehub.ui
 
 import android.app.Activity
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.gamehub.lobby.LobbyService
 import com.example.gamehub.navigation.NavRoutes
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 @Composable
 fun MainMenu(navController: NavController) {
     // Grab the Activity so we can call finish()
     val activity = (LocalContext.current as? Activity)
+
+    LaunchedEffect(Unit) {
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            FirebaseAuth.getInstance().signInAnonymously()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -23,6 +35,7 @@ fun MainMenu(navController: NavController) {
             .padding(32.dp),
         verticalArrangement   = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
+
     ) {
         Button(
             onClick = { navController.navigate(NavRoutes.GAMES_LIST) },
@@ -59,3 +72,4 @@ fun MainMenu(navController: NavController) {
         }
     }
 }
+

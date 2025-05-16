@@ -1,5 +1,6 @@
 package com.example.gamehub.ui
 
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,10 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.example.gamehub.model.Game
+import com.example.gamehub.navigation.NavRoutes
 
 @Composable
-fun GamesListScreen() {
+fun GamesListScreen(navController: NavController) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -27,7 +30,24 @@ fun GamesListScreen() {
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { /* TODO: navController.navigate("game/${game.id}") */ }
+                    .clickable {
+                        if (game.online) {
+                            // go to lobby menu for this game
+                            navController.navigate(
+                                NavRoutes.LOBBY_MENU
+                                    .replace("{gameId}", game.id)
+                            )
+                        } else {
+                            // single-player: dispatch to its own screen
+                            val route = when (game.id) {
+                                "spy"         -> NavRoutes.SPY_GAME
+                                "jorisjump"   -> NavRoutes.JORISJUMP_GAME
+                                "screamosaur" -> NavRoutes.SCREAMOSAUR_GAME
+                                else          -> NavRoutes.SPY_GAME
+                            }
+                            navController.navigate(route)
+                        }
+                    }
             ) {
                 Row(modifier = Modifier.padding(16.dp)) {
                     Image(

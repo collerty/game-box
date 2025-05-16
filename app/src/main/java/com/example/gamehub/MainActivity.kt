@@ -4,63 +4,111 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.example.gamehub.navigation.NavRoutes
-//Main menu screens
-import com.example.gamehub.ui.MainMenu
-import com.example.gamehub.ui.GamesListScreen
-import com.example.gamehub.ui.SettingsScreen
-import com.example.gamehub.ui.TestSensorsScreen
-//Test sensors screens
-import com.example.gamehub.ui.AccelerometerTestScreen
-import com.example.gamehub.ui.GyroscopeTestScreen
-import com.example.gamehub.ui.ProximityTestScreen
-import com.example.gamehub.ui.VibrationTestScreen
-import com.example.gamehub.ui.MicrophoneTestScreen
-import com.example.gamehub.ui.CameraTestScreen
-
-import com.example.gamehub.ui.theme.GameHubTheme
+import com.example.gamehub.ui.*                                 // LobbyMenuScreen, HostLobbyScreen, GuestGameScreen, MainMenu, GamesListScreen, SettingsScreen, TestSensorsScreen
+import com.example.gamehub.features.battleships.ui.BattleshipsScreen
+import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
+import com.example.gamehub.features.spy.ui.SpyScreen
+import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
+import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            GameHubTheme {
-                // If you don’t need a top bar, you can skip Scaffold and call NavHost() directly here.
-                Scaffold { innerPadding ->
-                    AppNavHost(Modifier.padding(innerPadding))
-                }
-            }
+            GameHubApp()
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppNavHost(modifier: Modifier = Modifier) {
+fun GameHubApp() {
     val navController = rememberNavController()
-    NavHost(
-        navController = navController,
-        startDestination = NavRoutes.MAIN_MENU,
-        modifier = modifier
-    ) {
-        composable(NavRoutes.MAIN_MENU)  { MainMenu(navController) }
-        composable(NavRoutes.GAMES_LIST) { GamesListScreen() }
-        composable(NavRoutes.SETTINGS)   { SettingsScreen() }
-        composable(NavRoutes.TEST_SENSORS)   { TestSensorsScreen(navController) }
 
-        composable(NavRoutes.ACCEL_TEST)     { AccelerometerTestScreen(navController) }
-        composable(NavRoutes.GYRO_TEST)      { GyroscopeTestScreen(navController) }
-        composable(NavRoutes.PROXIMITY_TEST) { ProximityTestScreen(navController) }
-        composable(NavRoutes.VIBRATION_TEST) { VibrationTestScreen(navController) }
-        composable(NavRoutes.MIC_TEST)       { MicrophoneTestScreen(navController) }
-        composable(NavRoutes.CAMERA_TEST)    { CameraTestScreen(navController) }
+    Scaffold { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = NavRoutes.MAIN_MENU,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            // 1) Main menu / sensor tests
+            composable(NavRoutes.MAIN_MENU)    { MainMenu(navController) }
+            composable(NavRoutes.GAMES_LIST)   { GamesListScreen(navController) }
+            composable(NavRoutes.SETTINGS)     { SettingsScreen() }
+            composable(NavRoutes.TEST_SENSORS) { TestSensorsScreen(navController) }
+
+            // 2) Lobby flow
+            composable(
+                NavRoutes.LOBBY_MENU,
+                arguments = listOf(navArgument("gameId") { type = NavType.StringType })
+            ) { back ->
+                val gameId = back.arguments!!.getString("gameId")!!
+                LobbyMenuScreen(navController, gameId)
+            }
+
+            composable(
+                NavRoutes.HOST_LOBBY,
+                arguments = listOf(
+                    navArgument("gameId") { type = NavType.StringType },
+                    navArgument("code")   { type = NavType.StringType }
+                )
+            ) { back ->
+                val gameId = back.arguments!!.getString("gameId")!!
+                val code   = back.arguments!!.getString("code")!!
+                HostLobbyScreen(navController, gameId, code)
+            }
+
+            composable(
+                NavRoutes.GUEST_GAME,
+                arguments = listOf(
+                    navArgument("gameId")   { type = NavType.StringType },
+                    navArgument("code")     { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { back ->
+                val gameId   = back.arguments!!.getString("gameId")!!
+                val code     = back.arguments!!.getString("code")!!
+                val userName = back.arguments!!.getString("userName")!!
+                GuestGameScreen(navController, gameId, code, userName)
+            }
+
+            // 3) After “Start Game” you land in the real game screen
+            composable(
+                NavRoutes.BATTLESHIPS_GAME,
+                arguments = listOf(
+                    navArgument("code")     { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { back ->
+                val code     = back.arguments!!.getString("code")!!
+                val userName = back.arguments!!.getString("userName")!!
+                BattleshipsScreen(navController, code, userName)
+            }
+
+            composable(
+                NavRoutes.OHPARDON_GAME,
+                arguments = listOf(
+                    navArgument("code")     { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { back ->
+                val code     = back.arguments!!.getString("code")!!
+                val userName = back.arguments!!.getString("userName")!!
+                OhPardonScreen(navController, code, userName)
+            }
+
+            // 4) Local single-player games
+            composable(NavRoutes.SPY_GAME)        { SpyScreen() }
+            composable(NavRoutes.JORISJUMP_GAME)  { JorisJumpScreen() }
+            composable(NavRoutes.SCREAMOSAUR_GAME){ ScreamosaurScreen() }
+        }
     }
 }

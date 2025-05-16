@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.gamehub.navigation.NavRoutes
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
@@ -20,15 +21,17 @@ fun HostLobbyScreen(
     roomId: String
 ) {
     val db = Firebase.firestore
+    val auth = Firebase.auth
     val scope = rememberCoroutineScope()
 
     var roomName by remember { mutableStateOf<String?>(null) }
     var hostName by remember { mutableStateOf<String?>(null) }
-    var players by remember { mutableStateOf<List<String>>(emptyList()) }
+    var players by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var maxPlayers by remember { mutableStateOf(0) }
     var status by remember { mutableStateOf("waiting") }
     var showExitDialog by remember { mutableStateOf(false) }
 
+    // 🔄 Listen to lobby document
     LaunchedEffect(roomId) {
         db.collection("rooms").document(roomId)
             .addSnapshotListener { snap, _ ->
@@ -41,13 +44,12 @@ fun HostLobbyScreen(
                     status = snap.getString("status") ?: "waiting"
 
                     @Suppress("UNCHECKED_CAST")
-                    players = (snap.get("players") as? List<Map<String, Any>>)
-                        ?.mapNotNull { it["name"] as? String }
-                        ?: emptyList()
+                    players = snap.get("players") as? List<Map<String, Any>> ?: emptyList()
                 }
             }
     }
 
+    // 🛑 BackHandler: confirm exit
     BackHandler {
         showExitDialog = true
     }
@@ -90,7 +92,8 @@ fun HostLobbyScreen(
             Spacer(Modifier.height(8.dp))
             Text("Players: ${players.size} / $maxPlayers")
             Spacer(Modifier.height(12.dp))
-            players.forEach { name ->
+            players.forEach { player ->
+                val name = player["name"] as? String ?: ""
                 Text("• $name")
             }
             Spacer(Modifier.height(24.dp))
@@ -98,17 +101,49 @@ fun HostLobbyScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        db.collection("rooms")
-                            .document(roomId)
-                            .update("status", "started")
+                        val startingPlayerUid = players.firstOrNull()?.get("uid") as? String
+                        val hostUid = auth.currentUser?.uid
+                        if (startingPlayerUid.isNullOrEmpty() || hostUid.isNullOrEmpty()) return@launch
+
+                        val initialGameState = when (gameId) {
+                            "battleships" -> mapOf(
+                                "currentTurn" to startingPlayerUid,
+                                "moves" to emptyList<String>(),
+                                "gameResult" to null
+                            )
+                            "ohpardon" -> mapOf(
+                                "currentPlayer" to startingPlayerUid,
+                                "scores" to emptyMap<String, Int>(),
+                                "gameResult" to null
+                            )
+                            else -> emptyMap()
+                        }
+
+                        val rematchVotes = players.associate {
+                            val uid = it["uid"] as? String ?: ""
+                            uid to false
+                        }
+
+                        try {
+                            db.collection("rooms").document(roomId).update(
+                                mapOf(
+                                    "status" to "started",
+                                    "gameState.$gameId" to initialGameState,
+                                    "rematchVotes" to rematchVotes
+                                )
+                            ).addOnSuccessListener {
+                                println("✅ Game started successfully")
+                            }.addOnFailureListener {
+                                println("❌ Failed to start game: ${it.message}")
+                            }
+                        } catch (e: Exception) {
+                            println("🔥 Exception during game start: ${e.message}")
+                        }
                     }
                 },
                 enabled = players.size >= 2
             ) {
-                Text(
-                    if (players.size >= 2) "Start Game"
-                    else "Waiting for players…"
-                )
+                Text(if (players.size >= 2) "Start Game" else "Waiting for players…")
             }
 
             Spacer(Modifier.height(16.dp))
@@ -120,6 +155,7 @@ fun HostLobbyScreen(
                 Text("Close Room")
             }
 
+            // 🚀 Navigate to actual game screen when status flips
             LaunchedEffect(status) {
                 if (status == "started" && hostName != null) {
                     val route = when (gameId) {

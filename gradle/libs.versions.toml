@@ -26,6 +26,6 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 
 [plugins]
-android-application = { id = "com.android.application", version = "8.6.1" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version = "1.9.23" }
+android-application = { id = "com.android.application", version = "8.10.0" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version = "1.9.0" }
 

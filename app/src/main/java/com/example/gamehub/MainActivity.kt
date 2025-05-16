@@ -1,6 +1,7 @@
 package com.example.gamehub
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
@@ -11,17 +12,28 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.gamehub.navigation.NavRoutes
-import com.example.gamehub.ui.*                                 // LobbyMenuScreen, HostLobbyScreen, GuestGameScreen, MainMenu, GamesListScreen, SettingsScreen, TestSensorsScreen
+import com.example.gamehub.ui.*
 import com.example.gamehub.features.battleships.ui.BattleshipsScreen
 import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
 import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
 import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Anonymous sign-in to fix Firestore permission errors
+        FirebaseAuth.getInstance().signInAnonymously()
+            .addOnSuccessListener {
+                Log.d("Auth", "Signed in anonymously: ${it.user?.uid}")
+            }
+            .addOnFailureListener {
+                Log.e("Auth", "Anonymous sign-in failed", it)
+            }
+
         setContent {
             GameHubApp()
         }
@@ -39,23 +51,21 @@ fun GameHubApp() {
             startDestination = NavRoutes.MAIN_MENU,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // 1) Main menu / sensor tests
+            // Screens
             composable(NavRoutes.MAIN_MENU)    { MainMenu(navController) }
             composable(NavRoutes.GAMES_LIST)   { GamesListScreen(navController) }
             composable(NavRoutes.SETTINGS)     { SettingsScreen() }
             composable(NavRoutes.TEST_SENSORS) { TestSensorsScreen(navController) }
 
-            // 2) Lobby flow
-            composable(
-                NavRoutes.LOBBY_MENU,
+            // Lobby flow
+            composable(NavRoutes.LOBBY_MENU,
                 arguments = listOf(navArgument("gameId") { type = NavType.StringType })
             ) { back ->
                 val gameId = back.arguments!!.getString("gameId")!!
                 LobbyMenuScreen(navController, gameId)
             }
 
-            composable(
-                NavRoutes.HOST_LOBBY,
+            composable(NavRoutes.HOST_LOBBY,
                 arguments = listOf(
                     navArgument("gameId") { type = NavType.StringType },
                     navArgument("code")   { type = NavType.StringType }
@@ -66,8 +76,7 @@ fun GameHubApp() {
                 HostLobbyScreen(navController, gameId, code)
             }
 
-            composable(
-                NavRoutes.GUEST_GAME,
+            composable(NavRoutes.GUEST_GAME,
                 arguments = listOf(
                     navArgument("gameId")   { type = NavType.StringType },
                     navArgument("code")     { type = NavType.StringType },
@@ -80,9 +89,8 @@ fun GameHubApp() {
                 GuestGameScreen(navController, gameId, code, userName)
             }
 
-            // 3) After “Start Game” you land in the real game screen
-            composable(
-                NavRoutes.BATTLESHIPS_GAME,
+            // Multiplayer game screens
+            composable(NavRoutes.BATTLESHIPS_GAME,
                 arguments = listOf(
                     navArgument("code")     { type = NavType.StringType },
                     navArgument("userName") { type = NavType.StringType }
@@ -93,8 +101,7 @@ fun GameHubApp() {
                 BattleshipsScreen(navController, code, userName)
             }
 
-            composable(
-                NavRoutes.OHPARDON_GAME,
+            composable(NavRoutes.OHPARDON_GAME,
                 arguments = listOf(
                     navArgument("code")     { type = NavType.StringType },
                     navArgument("userName") { type = NavType.StringType }
@@ -105,10 +112,10 @@ fun GameHubApp() {
                 OhPardonScreen(navController, code, userName)
             }
 
-            // 4) Local single-player games
-            composable(NavRoutes.SPY_GAME)        { SpyScreen() }
-            composable(NavRoutes.JORISJUMP_GAME)  { JorisJumpScreen() }
-            composable(NavRoutes.SCREAMOSAUR_GAME){ ScreamosaurScreen() }
+            // Local games
+            composable(NavRoutes.SPY_GAME)         { SpyScreen() }
+            composable(NavRoutes.JORISJUMP_GAME)   { JorisJumpScreen() }
+            composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
         }
     }
 }

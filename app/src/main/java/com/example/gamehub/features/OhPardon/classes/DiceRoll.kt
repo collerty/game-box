@@ -1,4 +1,4 @@
-package com.example.gamehub.features.OhPardon
+package com.example.gamehub.features.ohpardon.classes
 
 import kotlin.random.Random
 

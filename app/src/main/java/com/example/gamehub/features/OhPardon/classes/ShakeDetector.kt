@@ -1,4 +1,4 @@
-package com.example.gamehub.features.OhPardon
+package com.example.gamehub.features.ohpardon.classes
 
 import android.hardware.Sensor
 import android.hardware.SensorEvent

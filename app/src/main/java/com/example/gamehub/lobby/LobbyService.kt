@@ -20,7 +20,8 @@ object LobbyService {
         gameId: String,
         roomName: String,
         hostName: String,
-        password: String?
+        password: String?,
+        selectedColor: String?,
     ): String {
         val hostUid = auth.currentUser?.uid ?: throw IllegalStateException("Must be signed in to host")
         val code = UUID.randomUUID().toString().replace("-", "").take(6).uppercase()
@@ -46,7 +47,10 @@ object LobbyService {
             "maxPlayers" to maxPlayers,
             "status" to "waiting",
             "players" to listOf(
-                mapOf("uid" to hostUid, "name" to hostName)
+                if (gameId == "ohpardon")
+                    mapOf("uid" to hostUid, "name" to hostName, "color" to selectedColor)
+                else
+                    mapOf("uid" to hostUid, "name" to hostName)
             ),
             "gameState" to initialGameState,
             "rematchVotes" to emptyMap<String, Boolean>(),
@@ -60,7 +64,8 @@ object LobbyService {
     suspend fun join(
         code: String,
         userName: String,
-        password: String?
+        password: String?,
+        selectedColor: String?
     ): String? {
         val user = auth.currentUser ?: return null
         val snap = rooms.document(code).get().await()
@@ -69,15 +74,29 @@ object LobbyService {
         val expectedHash = snap.getLong("password")?.toInt()
         if (expectedHash != null && expectedHash != password?.hashCode()) return null
 
+        val gameId = snap.getString("gameId") ?: return null
         val maxPlayers = snap.getLong("maxPlayers")?.toInt() ?: return null
-        val currentPlayers = (snap.get("players") as? List<*>)?.size ?: 0
-        if (currentPlayers >= maxPlayers) return null
+        val currentPlayers = (snap.get("players") as? List<Map<String, Any>>)?.toMutableList() ?: return null
+        if (currentPlayers.size >= maxPlayers) return null
 
-        val playerData = mapOf("uid" to user.uid, "name" to userName)
+        // 🔴 Color conflict check
+        if (gameId == "ohpardon") {
+            if (selectedColor == null) return null
+            val takenColors = currentPlayers.mapNotNull { it["color"] as? String }
+            if (takenColors.contains(selectedColor)) {
+                throw IllegalStateException("ColorAlreadyTaken")
+            }
+        }
+
+        val playerData = if (gameId == "ohpardon")
+            mapOf("uid" to user.uid, "name" to userName, "color" to selectedColor)
+        else
+            mapOf("uid" to user.uid, "name" to userName)
+
         rooms.document(code).update("players", FieldValue.arrayUnion(playerData)).await()
-
-        return snap.getString("gameId")
+        return gameId
     }
+
 
     fun publicRoomsFlow(gameId: String): Flow<List<RoomSummary>> = callbackFlow {
         val registration = rooms

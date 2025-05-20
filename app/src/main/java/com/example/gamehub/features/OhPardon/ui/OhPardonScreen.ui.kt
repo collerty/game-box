@@ -12,9 +12,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
-import com.example.gamehub.features.OhPardon.DiceRoll
-import com.example.gamehub.features.OhPardon.ShakeDetector
-
+import com.example.gamehub.features.ohpardon.classes.DiceRoll
+import com.example.gamehub.features.ohpardon.classes.ShakeDetector
+import androidx.compose.foundation.Image
+import coil.ImageLoader
+import coil.compose.rememberAsyncImagePainter
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
+import com.example.gamehub.R
 
 @Composable
 fun OhPardonScreen(
@@ -65,27 +70,37 @@ fun OhPardonScreen(
 
     // UI
     Scaffold { padding ->
-        Column(
+        Box(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text(
-                text = "🙊 Oh Pardon started!",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(Modifier.height(8.dp))
-            Text("Room code: $code", style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(8.dp))
-            Text("You are: $userName", style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(16.dp))
+            val context = LocalContext.current
 
-            if (diceResult != null) {
-                Text("🎲 You rolled: $diceResult", style = MaterialTheme.typography.titleLarge)
-            } else {
-                Text("Shake your device to roll the dice!", style = MaterialTheme.typography.bodyMedium)
-            }
+            // Use an image loader that supports SVG
+            val imageLoader = ImageLoader.Builder(context)
+                .components {
+                    add(SvgDecoder.Factory())
+                }
+                .build()
+
+
+            val painter = rememberAsyncImagePainter(
+                model = ImageRequest.Builder(context)
+                    .data("android.resource://${context.packageName}/${R.raw.ohpardon_board}")
+                    .crossfade(true)
+                    .build(),
+                imageLoader = imageLoader
+            )
+
+            Image(
+                painter = painter,
+                contentDescription = "Game Board",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f) // Square
+            )
         }
     }
 }

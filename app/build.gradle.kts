@@ -73,5 +73,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
     implementation ("com.google.firebase:firebase-auth-ktx:21.1.0")
     implementation ("com.google.firebase:firebase-firestore-ktx:24.1.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-svg:2.4.0")
 
 }

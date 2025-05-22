@@ -37,6 +37,9 @@ fun LobbyMenuScreen(
     var roomName by remember { mutableStateOf("") }
     var roomCode by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val availableColors = listOf("Red", "Blue", "Green", "Yellow")
+    var selectedColor by remember { mutableStateOf("Red") }
+
 
     // live list of waiting rooms for this game
     val rooms by LobbyService
@@ -104,13 +107,28 @@ fun LobbyMenuScreen(
         )
         Spacer(Modifier.height(16.dp))
 
-        // 5️⃣ Action button
+        if (gameId == "ohpardon") {
+
+            Text("Pick a Color:")
+            availableColors.forEach { color ->
+                Row {
+                    RadioButton(
+                        selected = selectedColor == color,
+                        onClick = { selectedColor = color }
+                    )
+                    Text(color)
+                }
+            }
+        }
+
+// 5️⃣ Action button
         Button(
             onClick = {
                 if (username.isBlank()) {
                     Toast.makeText(context, "Enter a username", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
+
                 scope.launch {
                     try {
                         if (mode == Mode.HOST) {
@@ -118,14 +136,17 @@ fun LobbyMenuScreen(
                                 Toast.makeText(context, "Room name is required", Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
+
                             // host & get code
                             val code = LobbyService.host(
                                 gameId   = gameId,
                                 roomName = roomName,
                                 hostName = username,
-                                password = password.takeIf { it.isNotBlank() }
+                                password = password.takeIf { it.isNotBlank() },
+                                selectedColor = selectedColor
                             )
-                            // navigate into host lobby (carrying gameId + code)
+
+                            // ✅ Only navigates if host succeeds
                             navController.navigate(
                                 NavRoutes.HOST_LOBBY
                                     .replace("{gameId}", gameId)
@@ -136,16 +157,36 @@ fun LobbyMenuScreen(
                                 Toast.makeText(context, "Enter the room code", Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
-                            val joinedGame = LobbyService.join(
-                                code     = roomCode,
-                                userName = username,
-                                password = password.takeIf { it.isNotBlank() }
-                            )
-                            if (joinedGame != gameId) {
-                                Toast.makeText(context, "Bad code or password, or room full", Toast.LENGTH_SHORT).show()
+
+                            try {
+                                val joinedGame = LobbyService.join(
+                                    code = roomCode,
+                                    userName = username,
+                                    password = password.takeIf { it.isNotBlank() },
+                                    selectedColor = selectedColor
+                                )
+
+                                if (joinedGame != gameId) {
+                                    Toast.makeText(
+                                        context,
+                                        "Bad code or password, or room full",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    return@launch
+                                }
+                            } catch (e: IllegalStateException) {
+                                when (e.message) {
+                                    "ColorAlreadyTaken" -> {
+                                        Toast.makeText(context, "Color already taken", Toast.LENGTH_SHORT).show()
+                                    }
+                                    else -> {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                                 return@launch
                             }
-                            // navigate into guest UI (carrying gameId, code, userName)
+
+                            // ✅ Only navigates if join succeeds
                             val safeName = URLEncoder.encode(username, StandardCharsets.UTF_8.toString())
                             navController.navigate(
                                 NavRoutes.GUEST_GAME
@@ -163,6 +204,7 @@ fun LobbyMenuScreen(
         ) {
             Text(if (mode == Mode.HOST) "Create Room" else "Join Room")
         }
+
 
         Spacer(Modifier.height(24.dp))
         Divider()

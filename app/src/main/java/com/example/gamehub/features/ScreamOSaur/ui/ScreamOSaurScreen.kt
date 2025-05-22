@@ -115,8 +115,8 @@ data class Obstacle(
     var passed: Boolean = false
 )
 
-private const val MIN_AMPLITUDE_THRESHOLD = 800 // Sounds below this won't show on meter
-private const val JUMP_AMPLITUDE_THRESHOLD = 2500 // Sounds above this trigger a jump
+private const val MIN_AMPLITUDE_THRESHOLD = 1800 // Sounds below this won't show on meter
+private const val JUMP_AMPLITUDE_THRESHOLD = 4500 // Sounds above this trigger a jump
 
 @Composable
 private fun GameContent() {
@@ -280,16 +280,13 @@ private fun GameContent() {
                     context, Manifest.permission.RECORD_AUDIO
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                // Handle missing permission if it was revoked mid-game (unlikely but good practice)
-                withContext(Dispatchers.Main) { gameState = GameState.READY } // Or PAUSED if coming from there
+                withContext(Dispatchers.Main) { gameState = GameState.READY }
                 return@LaunchedEffect
             }
 
             var audioRecord: AudioRecord? = null
             try {
-                // Validate bufferSize
                 if (bufferSize == AudioRecord.ERROR_BAD_VALUE || bufferSize == AudioRecord.ERROR) {
-                    // Handle error, perhaps by setting a default or logging
                     withContext(Dispatchers.Main) { gameState = GameState.READY }
                     return@LaunchedEffect
                 }
@@ -299,9 +296,8 @@ private fun GameContent() {
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize
                 )
 
-                // Check if AudioRecord initialized properly
                 if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
-                    audioRecord.release() // Release if not initialized
+                    audioRecord.release()
                     withContext(Dispatchers.Main) { gameState = GameState.READY }
                     return@LaunchedEffect
                 }
@@ -314,8 +310,6 @@ private fun GameContent() {
                         val read = audioRecord.read(buffer, 0, buffer.size)
                         if (read > 0) {
                             val maxAmplitudeRaw = buffer.take(read).maxOfOrNull { it.toInt().absoluteValue } ?: 0
-
-                            // Apply threshold for sound meter display
                             currentAmplitude = if (maxAmplitudeRaw >= MIN_AMPLITUDE_THRESHOLD) {
                                 maxAmplitudeRaw
                             } else {
@@ -325,7 +319,7 @@ private fun GameContent() {
                             if (maxAmplitudeRaw > JUMP_AMPLITUDE_THRESHOLD && !isJumping) {
                                 isJumping = true
                                 coroutineScope.launch {
-                                    jumpAnim.snapTo(0f) // Ensure jump starts from ground
+                                    jumpAnim.snapTo(0f)
                                     jumpAnim.animateTo(
                                         targetValue = 1f,
                                         animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
@@ -338,26 +332,23 @@ private fun GameContent() {
                                 }
                             }
                         }
-                        delay(50) // Audio processing interval
+                        delay(50)
                     }
                 } finally {
-                    // Ensure AudioRecord is stopped and released
                     if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                         audioRecord.stop()
                     }
                     audioRecord.release()
                 }
             } catch (e: SecurityException) {
-                // Handle SecurityException (e.g., permission denied during recording)
-                audioRecord?.release() // Attempt to release if not null
+                audioRecord?.release()
                 withContext(Dispatchers.Main) { gameState = GameState.READY }
             } catch (e: IllegalStateException) {
-                // Handle IllegalStateException (e.g., AudioRecord not properly initialized or used)
                 audioRecord?.release()
                 withContext(Dispatchers.Main) { gameState = GameState.READY }
             }
         } else {
-            currentAmplitude = 0 // Reset amplitude if not playing
+            currentAmplitude = 0
         }
     }
 
@@ -374,30 +365,159 @@ private fun GameContent() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(gameHeightDp)
-                .background(Color(0xFFE0F7FA)) // Light blue background for the game
+                .background(Color(0xFFE0F7FA)) // Light blue background for the game (sky)
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
+                // Draw Sun
+                val sunRadius = 25.dp.toPx()
+                val sunCenter = Offset(size.width * 0.15f, size.height * 0.15f) // Top-left
+                drawCircle(
+                    color = Color(0xFFFFD54F), // Lighter Yellow
+                    radius = sunRadius,
+                    center = sunCenter
+                )
+                // Sun rays
+                val numRays = 8
+                for (i in 0 until numRays) {
+                    val angle = Math.toRadians((i * (360.0 / numRays)) + 15.0) // Offset angle
+                    val rayStartOffset = sunRadius * 1.1f
+                    val rayEndOffset = sunRadius * 1.6f
+                    drawLine(
+                        color = Color(0xFFFFB74D).copy(alpha = 0.7f), // Lighter Orange, semi-transparent
+                        start = Offset(
+                            sunCenter.x + rayStartOffset * kotlin.math.cos(angle).toFloat(),
+                            sunCenter.y + rayStartOffset * kotlin.math.sin(angle).toFloat()
+                        ),
+                        end = Offset(
+                            sunCenter.x + rayEndOffset * kotlin.math.cos(angle).toFloat(),
+                            sunCenter.y + rayEndOffset * kotlin.math.sin(angle).toFloat()
+                        ),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                }
+
                 // Draw ground
+                val groundBaseColor = Color(0xFFBCAAA4) // A sandy brown
+                val groundDarkerColor = Color(0xFF8D6E63) // Darker shade for texture
+                val groundTopY = size.height - groundHeightPx
                 drawRect(
-                    color = Color(0xFF795548), // Brown color for ground
-                    topLeft = Offset(0f, size.height - groundHeightPx),
+                    color = groundBaseColor,
+                    topLeft = Offset(0f, groundTopY),
                     size = Size(size.width, groundHeightPx)
                 )
-                // Draw obstacles
-                obstacles.forEach { obstacle ->
+                // Add some texture to the ground (horizontal dashes)
+                val numGroundPatches = 30
+                for (i in 0..numGroundPatches) {
+                    val patchY = groundTopY + (Random.nextFloat() * (groundHeightPx - 4.dp.toPx())) + 2.dp.toPx()
+                    val patchX = Random.nextFloat() * size.width
+                    val patchWidth = Random.nextFloat() * 20.dp.toPx() + 10.dp.toPx()
+                    val patchHeight = Random.nextFloat() * 2.dp.toPx() + 1.dp.toPx()
                     drawRect(
-                        color = Color(0xFF4CAF50), // Green obstacles
-                        topLeft = Offset(
-                            obstacle.xPosition,
-                            // Y position is from top, so subtract ground and obstacle height
-                            gameHeightPx - groundHeightPx - obstacle.height
-                        ),
-                        size = Size(obstacle.width, obstacle.height)
+                        color = groundDarkerColor.copy(alpha = Random.nextFloat() * 0.3f + 0.2f), // Vary alpha
+                        topLeft = Offset(patchX, patchY),
+                        size = Size(patchWidth, patchHeight)
                     )
+                }
+
+                // Draw obstacles (Cacti)
+                obstacles.forEach { obstacle ->
+                    val cactusColor = Color(0xFF4CAF50) // Brighter green for cactus body
+                    val cactusDarkerColor = Color(0xFF388E3C) // Darker green for details
+
+                    // Obstacle properties (hitbox)
+                    val obX = obstacle.xPosition
+                    val obY = gameHeightPx - groundHeightPx - obstacle.height
+                    val obW = obstacle.width
+                    val obH = obstacle.height
+
+                    // Main Body of the cactus (centered within obstacle's width)
+                    val bodyW = obW * 0.4f // Cactus body is 40% of the hitbox width
+                    val bodyH = obH        // Cactus body is full height of the hitbox
+                    val bodyX = obX + (obW - bodyW) / 2 // Center the body horizontally
+                    val bodyBaseY = obY
+
+                    drawRoundRect(
+                        color = cactusColor,
+                        topLeft = Offset(bodyX, bodyBaseY),
+                        size = Size(bodyW, bodyH),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(bodyW * 0.25f)
+                    )
+
+                    // Cactus Arms
+                    val armBaseHeight = bodyH * 0.4f // General height for arm segments
+                    val armBaseWidth = bodyW * 0.8f  // General width for arm segments
+
+                    // Right Arm (if cactus is tall enough)
+                    if (obH > 30.dp.toPx()) {
+                        val armAttachY = bodyBaseY + bodyH * 0.2f // Attach point on body
+                        val horizontalSegmentW = armBaseWidth * 0.5f
+                        val horizontalSegmentH = armBaseHeight * 0.3f
+                        val verticalSegmentW = armBaseWidth * 0.3f
+                        val verticalSegmentH = armBaseHeight * 0.8f
+
+                        // Horizontal part of right arm
+                        val rArmHorizX = bodyX + bodyW - horizontalSegmentW * 0.2f // Start slightly inside body
+                        drawRoundRect(
+                            color = cactusColor,
+                            topLeft = Offset(rArmHorizX, armAttachY),
+                            size = Size(horizontalSegmentW, horizontalSegmentH),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f)
+                        )
+                        // Vertical part of right arm (pointing up)
+                        val rArmVertX = rArmHorizX + horizontalSegmentW - verticalSegmentW * 0.5f // Centered on end of horizontal
+                        val rArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH // Positioned above horizontal
+                        drawRoundRect(
+                            color = cactusColor,
+                            topLeft = Offset(rArmVertX, rArmVertY),
+                            size = Size(verticalSegmentW, verticalSegmentH),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f)
+                        )
+                    }
+
+                    // Left Arm (if cactus is taller and wider)
+                    if (obH > 40.dp.toPx() && obW > 20.dp.toPx()) {
+                        val armAttachY = bodyBaseY + bodyH * 0.45f // Different attach point
+                        val horizontalSegmentW = armBaseWidth * 0.5f
+                        val horizontalSegmentH = armBaseHeight * 0.3f
+                        val verticalSegmentW = armBaseWidth * 0.3f
+                        val verticalSegmentH = armBaseHeight * 0.8f
+
+                        // Horizontal part of left arm
+                        val lArmHorizX = bodyX - horizontalSegmentW + horizontalSegmentW * 0.2f // Start from left, slightly inside
+                        drawRoundRect(
+                            color = cactusColor,
+                            topLeft = Offset(lArmHorizX, armAttachY),
+                            size = Size(horizontalSegmentW, horizontalSegmentH),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f)
+                        )
+                        // Vertical part of left arm (pointing up)
+                        val lArmVertX = lArmHorizX + horizontalSegmentW * 0.5f - verticalSegmentW * 0.5f // Centered on start of horizontal
+                        val lArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH // Positioned above horizontal
+                        drawRoundRect(
+                            color = cactusColor,
+                            topLeft = Offset(lArmVertX, lArmVertY),
+                            size = Size(verticalSegmentW, verticalSegmentH),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f)
+                        )
+                    }
+
+                    // Texture on main body (vertical lines)
+                    val numLines = (bodyW / 6.dp.toPx()).toInt().coerceIn(2, 5)
+                    if (numLines > 1) {
+                        for (i in 1 until numLines) {
+                            val lineX = bodyX + (bodyW / numLines) * i
+                            drawLine(
+                                color = cactusDarkerColor,
+                                start = Offset(lineX, bodyBaseY + bodyH * 0.05f),
+                                end = Offset(lineX, bodyBaseY + bodyH * 0.95f),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        }
+                    }
                 }
             }
 
-            // Dinosaur
+            // Dinosaur (drawing logic unchanged)
             val currentDinoTopYDp = with(density) { (dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)).toDp() }
             Box(
                 modifier = Modifier
@@ -427,21 +547,21 @@ private fun GameContent() {
                     )
                     drawCircle(
                         color = Color.Black,
-                        center = Offset(size.width * 0.78f, size.height * 0.27f), // Slightly offset for pupil
+                        center = Offset(size.width * 0.78f, size.height * 0.27f),
                         radius = size.width * 0.05f
                     )
                     // Legs
                     val legWidth = size.width * 0.15f
                     val legHeight = size.height * 0.35f
-                    val legYPos = size.height * 0.75f // Position legs towards the bottom
+                    val legYPos = size.height * 0.75f
 
                     val legOffsetFactor = when {
-                        isJumping -> 0.15f // Legs splayed during jump
-                        else -> when (runningAnimState.value) { // Running animation
-                            0 -> 0.0f    // Both legs centered
-                            1 -> 0.05f   // One leg forward
-                            2 -> 0.1f    // Other leg forward
-                            else -> 0.05f// Cycle back
+                        isJumping -> 0.15f
+                        else -> when (runningAnimState.value) {
+                            0 -> 0.0f
+                            1 -> 0.05f
+                            2 -> 0.1f
+                            else -> 0.05f
                         }
                     }
                     // Back Leg
@@ -461,14 +581,14 @@ private fun GameContent() {
                     // Tail
                     drawRoundRect(
                         color = Color(0xFFF44336), // Red
-                        topLeft = Offset(size.width * 0.0f, size.height * 0.4f), // Tail from the back
+                        topLeft = Offset(size.width * 0.0f, size.height * 0.4f),
                         size = Size(size.width * 0.3f, size.height * 0.2f),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.05f)
                     )
                 }
             }
 
-            // Game State Overlays
+            // Game State Overlays (logic unchanged)
             when (gameState) {
                 GameState.READY -> {
                     Column(
@@ -479,14 +599,13 @@ private fun GameContent() {
                         Text("ROAR to make the dinosaur jump!", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = {
-                            // Reset game state for a new game
-                            coroutineScope.launch { jumpAnim.snapTo(0f) } // Reset jump animation
+                            coroutineScope.launch { jumpAnim.snapTo(0f) }
                             isJumping = false
                             score = 0
                             obstacles = emptyList()
-                            gameSpeed = 5f // Reset speed
-                            initialDelayHasOccurred = false // Reset initial delay flag
-                            gameStartTime = System.currentTimeMillis() // Set for initial delay calculation
+                            gameSpeed = 5f
+                            initialDelayHasOccurred = false
+                            gameStartTime = System.currentTimeMillis()
                             gameState = GameState.PLAYING
                         }) { Text("Start Game") }
                     }
@@ -502,14 +621,13 @@ private fun GameContent() {
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = {
-                                // Reset game state for a new game
                                 coroutineScope.launch { jumpAnim.snapTo(0f) }
                                 isJumping = false
                                 score = 0
                                 obstacles = emptyList()
                                 gameSpeed = 5f
                                 initialDelayHasOccurred = false
-                                gameStartTime = System.currentTimeMillis() // Set for initial delay
+                                gameStartTime = System.currentTimeMillis()
                                 gameState = GameState.PLAYING
                             }
                         ) { Text("Play Again") }
@@ -527,20 +645,19 @@ private fun GameContent() {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp)) // Space between game area and sound meter
+        Spacer(modifier = Modifier.height(16.dp))
         SoundMeter(amplitude = currentAmplitude)
-        Spacer(modifier = Modifier.height(24.dp)) // Space before Pause/Resume button
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Pause/Resume Button
         if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
             Button(
                 onClick = {
                     if (gameState == GameState.PLAYING) {
                         timeAtPause = System.currentTimeMillis()
                         gameState = GameState.PAUSED
-                    } else { // gameState == GameState.PAUSED
+                    } else {
                         val pausedDuration = System.currentTimeMillis() - timeAtPause
-                        gameStartTime += pausedDuration // Adjust gameStartTime to account for the pause
+                        gameStartTime += pausedDuration
                         gameState = GameState.PLAYING
                     }
                 },
@@ -549,7 +666,7 @@ private fun GameContent() {
                 Text(if (gameState == GameState.PLAYING) "Pause Game" else "Resume Game")
             }
         }
-        Spacer(modifier = Modifier.height(16.dp)) // Optional space below button
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -557,15 +674,13 @@ private fun GameContent() {
 private fun SoundMeter(
     modifier: Modifier = Modifier,
     amplitude: Int,
-    maxMeterAmplitude: Int = 7500 // Max expected amplitude for meter scaling
+    maxMeterAmplitude: Int = 7500
 ) {
-    // Ensure amplitude for meter doesn't exceed maxMeterAmplitude if it was already thresholded
     val displayAmplitude = amplitude.coerceAtMost(maxMeterAmplitude)
     val normalizedAmplitude = (displayAmplitude.toFloat() / maxMeterAmplitude).coerceIn(0f, 1f)
 
     val barColor = when {
-        // Check original amplitude for true zero, normalized for meter display
-        amplitude == 0 -> MaterialTheme.colorScheme.surfaceVariant // Use a neutral/track color if truly zero
+        amplitude == 0 -> MaterialTheme.colorScheme.surfaceVariant
         normalizedAmplitude < 0.4f -> Color(0xFF4CAF50) // Green
         normalizedAmplitude < 0.75f -> Color(0xFFFFEB3B) // Yellow
         else -> Color(0xFFF44336) // Red
@@ -573,7 +688,7 @@ private fun SoundMeter(
     val meterHeight = 20.dp
 
     Column(
-        modifier = modifier.fillMaxWidth(), // Occupy available width for centering
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -582,25 +697,25 @@ private fun SoundMeter(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
         Spacer(modifier = Modifier.height(4.dp))
-        Box( // Outer track for the meter
+        Box(
             modifier = Modifier
                 .height(meterHeight)
-                .fillMaxWidth(0.8f) // Meter takes 80% of available width
+                .fillMaxWidth(0.8f)
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant, // Background of the track
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(meterHeight / 2)
                 )
-                .clip(RoundedCornerShape(meterHeight / 2)) // Clip inner content to rounded shape
+                .clip(RoundedCornerShape(meterHeight / 2))
                 .border(
                     1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), // Subtle border
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                     RoundedCornerShape(meterHeight / 2)
                 )
         ) {
-            Box( // Inner bar representing sound level
+            Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(normalizedAmplitude) // Width based on sound level
+                    .fillMaxWidth(normalizedAmplitude)
                     .background(barColor)
             )
         }

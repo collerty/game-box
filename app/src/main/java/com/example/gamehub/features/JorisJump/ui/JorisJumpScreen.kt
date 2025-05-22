@@ -28,7 +28,7 @@ private const val GRAVITY = 0.4f
 private const val INITIAL_JUMP_VELOCITY = -11.5f
 private const val PLATFORM_HEIGHT_DP = 15f
 private const val PLATFORM_WIDTH_DP = 70f
-private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.35f // When player is above 35% from top of *visible screen*, scroll
+private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.6f // When player is above 55% from top of *visible screen*, scroll
 private const val MAX_PLATFORMS_ON_SCREEN = 15 // Max platforms to manage
 private const val INITIAL_PLATFORM_COUNT = 5 // Start with a few platforms
 

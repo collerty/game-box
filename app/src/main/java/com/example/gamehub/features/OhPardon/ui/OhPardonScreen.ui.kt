@@ -35,7 +35,7 @@ fun OhPardonScreen(
     val application = context.applicationContext as Application
 
     val viewModel: OhPardonViewModel = viewModel(
-        factory = OhPardonViewModelFactory(application, code)
+        factory = OhPardonViewModelFactory(application, code, userName)
     )
 
     val gameRoom by viewModel.gameRoom.collectAsState()
@@ -91,7 +91,6 @@ fun OhPardonScreen(
             else -> "Unknown"
         }
     }
-    Log.d("Username", userName)
 
     Scaffold { padding ->
         Column(
@@ -131,39 +130,58 @@ fun OhPardonScreen(
 
                     // Pawn selection buttons - only show if it's the current player's turn
                     if (currentPlayer.name == userName) { // Assuming userName is the current user's ID
-                        Text("Select a Pawn to Move:", style = MaterialTheme.typography.titleMedium)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            (0..3).forEach { pawnId ->
-                                Button(
-                                    onClick = { selectedPawnId = pawnId },
-                                    colors = if (selectedPawnId == pawnId)
-                                        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                    else
-                                        ButtonDefaults.buttonColors(),
-                                    enabled = currentDiceRoll != null // Only enable if dice has been rolled
-                                ) {
-                                    Text("Pawn $pawnId")
-                                }
+
+                        // Dice roll button - only show if dice has NOT been rolled yet this turn
+                        if (currentDiceRoll == null) {
+                            Button(
+                                onClick = {
+                                    viewModel.attemptRollDice(userName)
+                                },
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            ) {
+                                Text("Roll Dice")
                             }
                         }
 
-                        // Move button
-                        selectedPawnId?.let {
-                            Button(
-                                onClick = {
-                                    viewModel.attemptMovePawn(
-                                        gameRoom!!.gameState.currentTurnUid,
-                                        it.toString()
-                                    )
-                                    selectedPawnId = null
-                                },
-                                modifier = Modifier.padding(top = 8.dp),
-                                enabled = currentDiceRoll != null
+                        // Pawn selection buttons - only show if dice rolled
+                        if (currentDiceRoll != null) {
+                            Text(
+                                "Select a Pawn to Move:",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
-                                Text("Move Selected Pawn")
+                                (0..3).forEach { pawnId ->
+                                    Button(
+                                        onClick = { selectedPawnId = pawnId },
+                                        colors = if (selectedPawnId == pawnId)
+                                            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        else
+                                            ButtonDefaults.buttonColors(),
+                                        enabled = currentDiceRoll != null // Only enable if dice has been rolled
+                                    ) {
+                                        Text("Pawn $pawnId")
+                                    }
+                                }
+                            }
+
+                            // Move button
+                            selectedPawnId?.let {
+                                Button(
+                                    onClick = {
+                                        viewModel.attemptMovePawn(
+                                            gameRoom!!.gameState.currentTurnUid,
+                                            it.toString()
+                                        )
+                                        selectedPawnId = null
+                                    },
+                                    modifier = Modifier.padding(top = 8.dp),
+                                    enabled = currentDiceRoll != null
+                                ) {
+                                    Text("Move Selected Pawn")
+                                }
                             }
                         }
                     }

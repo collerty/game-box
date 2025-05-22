@@ -3,6 +3,8 @@ package com.example.gamehub.ui
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -80,11 +82,13 @@ fun HostLobbyScreen(
 
     Scaffold { padding ->
         Column(
-            Modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
-        ) {
+                .verticalScroll(rememberScrollState())
+        )
+        {
             Text(
                 "Hosting: ${roomName ?: roomId}",
                 style = MaterialTheme.typography.headlineSmall
@@ -111,11 +115,13 @@ fun HostLobbyScreen(
                                 "moves" to emptyList<String>(),
                                 "gameResult" to null
                             )
+
                             "ohpardon" -> mapOf(
                                 "currentPlayer" to startingPlayerUid,
                                 "gameResult" to null,
-                                "diceRoll" to 0
+                                "diceRoll" to null
                             )
+
                             else -> emptyMap()
                         }
 

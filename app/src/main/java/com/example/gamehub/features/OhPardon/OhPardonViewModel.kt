@@ -9,7 +9,6 @@ import android.hardware.SensorManager
 import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -17,7 +16,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.sqrt
-import kotlin.text.get
 
 data class GameRoom(
     val gameId: String,
@@ -66,7 +64,8 @@ data class PawnUI(
 
 class OhPardonViewModel(
     application: Application,
-    private val roomCode: String
+    private val roomCode: String,
+    private val currentUserName: String
 ) : AndroidViewModel(application), SensorEventListener {
 
     private val _gameRoom = MutableStateFlow<GameRoom?>(null)
@@ -86,17 +85,6 @@ class OhPardonViewModel(
         return (1..6).random()
     }
 
-    private fun updateDiceRollInFirestore(diceRoll: Int) {
-        firestore.collection("rooms").document(roomCode)
-            .update("gameState.ohpardon.diceRoll", diceRoll)
-            .addOnSuccessListener {
-                Log.d("OhPardonVM", "Dice roll updated: $diceRoll")
-            }
-            .addOnFailureListener {
-                Log.e("OhPardonVM", "Failed to update dice roll", it)
-            }
-    }
-
     override fun onSensorChanged(event: SensorEvent?) {
         if (event != null) {
             val x = event.values[0]
@@ -109,11 +97,44 @@ class OhPardonViewModel(
                 if (now - lastShakeTime > SHAKE_SLOP_TIME_MS) {
                     lastShakeTime = now
                     val result = rollDice()
-                    updateDiceRollInFirestore(result)
+                    attemptRollDice(currentUserName)
                 }
             }
         }
     }
+
+    fun attemptRollDice(currentUserName: String) {
+        val currentGame = _gameRoom.value ?: return
+        val gameState = currentGame.gameState
+        val currentPlayer = currentGame.players.find { it.uid == currentGame.gameState.currentTurnUid }
+
+
+        // 1. Check if it's the user's turn
+        if (gameState.currentTurnUid != currentPlayer?.uid) {
+            Log.w("OhPardonVM", "Not your turn to roll dice")
+            return
+        }
+
+        // 2. Check if dice already rolled this turn
+        if (gameState.diceRoll != null) {
+            Log.w("OhPardonVM", "Dice already rolled")
+            return
+        }
+
+        // 3. Roll dice
+        val diceRoll = rollDice()
+
+        // 4. Update Firestore with new dice roll
+        firestore.collection("rooms").document(roomCode)
+            .update("gameState.ohpardon.diceRoll", diceRoll)
+            .addOnSuccessListener {
+                Log.d("OhPardonVM", "Dice rolled: $diceRoll")
+            }
+            .addOnFailureListener {
+                Log.e("OhPardonVM", "Failed to update dice roll", it)
+            }
+    }
+
 
     fun registerShakeListener() {
         sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI)
@@ -251,16 +272,36 @@ class OhPardonViewModel(
             }
         }
 
+        val playerOffset = getBoardOffsetForPlayer(player.color)
+        val currentPos = pawn.position
 
-        // Movement logic
+        //Movement logic
         val newPosition = when {
-            pawn.position == -1 && diceRoll == 6 -> 0
-            pawn.position >= 0 && pawn.position + diceRoll <= 39 -> pawn.position + diceRoll
+            currentPos == -1 && diceRoll == 6 -> playerOffset  // Enter at player’s unique start
+            currentPos >= 0 -> {
+                val relativePosition = (currentPos - playerOffset + diceRoll + 40) % 40
+                (playerOffset + relativePosition) % 40
+            }
             else -> {
-                Log.d("OhPardonVM", "Move invalid (roll: $diceRoll, position: ${pawn.position})")
+                Log.d("OhPardonVM", "Move invalid (roll: $diceRoll, position: $currentPos)")
+                val updates = mapOf(
+                    "gameState.ohpardon.diceRoll" to null,
+                    "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
+                )
+                firestore.collection("rooms")
+                    .document(roomCode)
+                    .update(updates)
+                    .addOnSuccessListener {
+                        Log.d("OhPardonVM", "DB updated")
+                    }
+                    .addOnFailureListener {
+                        Log.e("OhPardonVM", "Failed to update DB", it)
+                    }
+
                 return
             }
         }
+
 
         // Capture logic: find any pawn (not yours) at the newPosition
         val updatedPlayers = currentGame.players.map { p ->
@@ -319,10 +360,10 @@ class OhPardonViewModel(
             .document(roomCode)
             .update(updates)
             .addOnSuccessListener {
-                Log.d("OhPardonVM", "Move + capture updated")
+                Log.d("OhPardonVM", "DB updated")
             }
             .addOnFailureListener {
-                Log.e("OhPardonVM", "Failed to update move", it)
+                Log.e("OhPardonVM", "Failed to update DB", it)
             }
     }
 

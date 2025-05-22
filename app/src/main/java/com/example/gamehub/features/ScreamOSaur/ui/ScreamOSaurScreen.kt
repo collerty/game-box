@@ -128,7 +128,7 @@ private fun GameContent() {
     val gameHeightDp = 300.dp
     val groundHeightDp = 20.dp
     val dinosaurVisualXOffsetDp = 60.dp
-    val jumpMagnitudeDp = 120.dp
+    val jumpMagnitudeDp = 150.dp
 
     val density = LocalDensity.current
 
@@ -173,16 +173,15 @@ private fun GameContent() {
                         it.copy(xPosition = it.xPosition - gameSpeed)
                     }.filter { it.xPosition + it.width > 0 }
 
-                    // Estimate canvas width for spawning (can be improved by getting actual canvas width)
-                    val canvasWidthPx = gameHeightPx * (16f/9f) // Assuming a 16:9 aspect ratio for game area
-                    val spawnNewObstacleTriggerX = canvasWidthPx * 0.5f // Spawn when last obstacle is halfway
+                    val canvasWidthPx = gameHeightPx * (16f/9f)
+                    val spawnNewObstacleTriggerX = canvasWidthPx * 0.5f
                     val newObstacleBaseX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
                     val firstObstacleX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
 
                     val obstacleMinHeightPx = with(density) { 25.dp.toPx()}
                     val obstacleMaxHeightPx = with(density) { 55.dp.toPx()}
-                    val obstacleMinWidthPx = with(density) { 20.dp.toPx()}
-                    val obstacleMaxWidthPx = with(density) { 40.dp.toPx()}
+                    val obstacleMinWidthPx = with(density) { 15.dp.toPx()}
+                    val obstacleMaxWidthPx = with(density) { 30.dp.toPx()}
 
 
                     if (obstacles.isEmpty()) {
@@ -192,7 +191,7 @@ private fun GameContent() {
                             width = Random.nextFloat() * (obstacleMaxWidthPx - obstacleMinWidthPx) + obstacleMinWidthPx
                         )
                         obstacles = listOf(newObstacle)
-                    } else if (obstacles.last().xPosition < spawnNewObstacleTriggerX && obstacles.size < 5) { // Limit number of obstacles on screen
+                    } else if (obstacles.last().xPosition < spawnNewObstacleTriggerX && obstacles.size < 5) {
                         val newObstacle = Obstacle(
                             xPosition = newObstacleBaseX,
                             height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
@@ -210,7 +209,7 @@ private fun GameContent() {
                         }
                     }
 
-                    if (elapsedGameTime > 2000) { // Collision check safe period
+                    if (elapsedGameTime > 2000) {
                         val currentDinoTopYPx = dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)
                         val dinosaurVisualRect = Rect(
                             left = dinosaurVisualXPositionPx,
@@ -226,7 +225,7 @@ private fun GameContent() {
                             left = dinosaurVisualRect.left + horizontalHitboxReductionPx,
                             top = dinosaurVisualRect.top + verticalHitboxReductionPx,
                             right = dinosaurVisualRect.right - horizontalHitboxReductionPx,
-                            bottom = dinosaurVisualRect.bottom - (verticalHitboxReductionPx * 0.3f) // Less reduction at bottom for feet
+                            bottom = dinosaurVisualRect.bottom - (verticalHitboxReductionPx * 0.3f)
                         )
 
                         val collision = obstacles.any { obstacle ->
@@ -292,17 +291,17 @@ private fun GameContent() {
                         val read = audioRecord.read(buffer, 0, buffer.size)
                         if (read > 0) {
                             val maxAmplitude = buffer.take(read).maxOfOrNull { it.toInt().absoluteValue } ?: 0
-                            if (maxAmplitude > 2500 && !isJumping) { // Adjusted threshold
+                            if (maxAmplitude > 2500 && !isJumping) {
                                 isJumping = true
                                 coroutineScope.launch {
-                                    jumpAnim.snapTo(0f) // Ensure it starts from 0 for consistent jump height
+                                    jumpAnim.snapTo(0f)
                                     jumpAnim.animateTo(
-                                        1f,
-                                        animationSpec = tween(durationMillis = 350, easing = LinearOutSlowInEasing)
+                                        targetValue = 1f,
+                                        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing) // Increased duration
                                     )
                                     jumpAnim.animateTo(
-                                        0f,
-                                        animationSpec = tween(durationMillis = 350, easing = FastOutLinearInEasing)
+                                        targetValue = 0f,
+                                        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing) // Increased duration
                                     )
                                     isJumping = false
                                 }
@@ -339,12 +338,12 @@ private fun GameContent() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(gameHeightDp)
-                .background(Color(0xFFE0F7FA)) // Light cyan background
+                .background(Color(0xFFE0F7FA))
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 // Draw ground
                 drawRect(
-                    color = Color(0xFF795548), // Brown
+                    color = Color(0xFF795548),
                     topLeft = Offset(0f, size.height - groundHeightPx),
                     size = Size(size.width, groundHeightPx)
                 )
@@ -352,7 +351,7 @@ private fun GameContent() {
                 // Draw obstacles
                 obstacles.forEach { obstacle ->
                     drawRect(
-                        color = Color(0xFF4CAF50), // Green
+                        color = Color(0xFF4CAF50),
                         topLeft = Offset(
                             obstacle.xPosition,
                             gameHeightPx - groundHeightPx - obstacle.height
@@ -374,14 +373,14 @@ private fun GameContent() {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     // Body
                     drawRoundRect(
-                        color = Color(0xFFF44336), // Red
+                        color = Color(0xFFF44336),
                         topLeft = Offset(size.width * 0.15f, size.height * 0.2f),
                         size = Size(size.width * 0.7f, size.height * 0.6f),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f)
                     )
                     // Head
                     drawRoundRect(
-                        color = Color(0xFFF44336), // Red
+                        color = Color(0xFFF44336),
                         topLeft = Offset(size.width * 0.55f, size.height * 0.05f),
                         size = Size(size.width * 0.4f, size.height * 0.4f),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f)
@@ -413,21 +412,21 @@ private fun GameContent() {
                     }
                     // Back Leg
                     drawRoundRect(
-                        color = Color(0xFFD32F2F), // Darker Red
+                        color = Color(0xFFD32F2F),
                         topLeft = Offset(size.width * (0.3f - legOffsetFactor), legYPos),
                         size = Size(legWidth, legHeight),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f)
                     )
                     // Front Leg
                     drawRoundRect(
-                        color = Color(0xFFD32F2F), // Darker Red
+                        color = Color(0xFFD32F2F),
                         topLeft = Offset(size.width * (0.55f + legOffsetFactor), legYPos),
                         size = Size(legWidth, legHeight),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f)
                     )
                     // Tail
                     drawRoundRect(
-                        color = Color(0xFFF44336), // Red
+                        color = Color(0xFFF44336),
                         topLeft = Offset(size.width * 0.0f, size.height * 0.4f),
                         size = Size(size.width * 0.3f, size.height * 0.2f),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.05f)
@@ -484,7 +483,7 @@ private fun GameContent() {
 @Composable
 private fun PermissionRequest(onRequestPermission: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp), // fillMaxSize to center content
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

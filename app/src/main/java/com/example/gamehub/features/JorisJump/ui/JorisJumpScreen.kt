@@ -1,11 +1,16 @@
 package com.example.gamehub.features.jorisjump.ui
 
+import android.app.Activity // Required for Window operations
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.util.Log
+import android.view.View // Required for Window operations
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -14,9 +19,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView // Get the current View
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat // For edge-to-edge
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -42,6 +51,52 @@ data class PlatformState(
 @Composable
 fun JorisJumpScreen() {
     val context = LocalContext.current
+    val view = LocalView.current // Get the current Compose View instance
+
+    // State for managing immersive mode, specific to this screen
+    var originalSystemUiVisibility by remember { mutableStateOf<Int?>(null) }
+
+    // Effect to enter and exit immersive mode
+    DisposableEffect(Unit) {
+        val window = (view.context as? Activity)?.window
+        val windowInsetsController = window?.let { WindowInsetsControllerCompat(it, view) }
+
+        if (window != null && windowInsetsController != null) {
+            // Store original visibility flags if needed for precise restoration,
+            // though WindowInsetsControllerCompat handles this well.
+            // originalSystemUiVisibility = window.decorView.systemUiVisibility // For older APIs if needed
+
+            // --- ENTER IMMERSIVE MODE ---
+            // Make the content extend to display cutouts (notches, etc.)
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+
+            // Hide system bars (status bar and navigation bar)
+            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+
+            // Configure the system bars to behave as "sticky immersive"
+            // This means they appear with a swipe from the edge and then disappear again.
+            windowInsetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+        onDispose {
+            // --- EXIT IMMERSIVE MODE ---
+            // This will run when JorisJumpScreen leaves the composition (e.g., user navigates back)
+            if (window != null && windowInsetsController != null) {
+                // Allow system to fit windows again (undoes edge-to-edge)
+                WindowCompat.setDecorFitsSystemWindows(window, true)
+
+                // Show system bars again
+                windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
+
+                // Reset system bars behavior if you changed it from a global default
+                // For simplicity, often just showing them is enough as the next screen
+                // or system will apply its own policies.
+                // If you had a specific default behavior, you'd reset to it here.
+            }
+            Log.d("JorisJump", "Exiting Immersive Mode")
+        }
+    }
 
     // Player state (all in world coordinates, except X which is screen-relative for accelerometer)
     var playerXPositionScreenDp by remember { mutableStateOf(0f) } // X on screen

@@ -232,11 +232,10 @@ class OhPardonViewModel(
             createdAt = data["createdAt"] as? Timestamp
         )
     }
-
     fun attemptMovePawn(currentUserUid: String, pawnId: String) {
         val currentGame = _gameRoom.value ?: return
-
         val gameState = currentGame.gameState
+
         if (gameState.currentTurnUid != currentUserUid) {
             Log.w("OhPardonVM", "Not your turn")
             return
@@ -252,38 +251,68 @@ class OhPardonViewModel(
         val player = currentGame.players.getOrNull(playerIndex)
         val pawn = player?.pawns?.find { it.id == "pawn$pawnId" }
 
-        if (player == null) {
-            Log.e("OhPardonVM", "Player not found")
+        if (player == null || pawn == null) {
+            Log.e("OhPardonVM", "Player or Pawn not found")
             return
         }
 
-        if (pawn == null) {
-            Log.e("OhPardonVM", "Pawn not found")
-            return
-        }
-
-        fun getBoardOffsetForPlayer(color: Color): Int {
-            return when (color) {
-                Color.Red -> 0
-                Color.Green -> 10
-                Color.Yellow -> 20
-                Color.Blue -> 30
-                else -> 0
-            }
+        fun getBoardOffsetForPlayer(color: Color): Int = when (color) {
+            Color.Red -> 0
+            Color.Green -> 20
+            Color.Yellow -> 30
+            Color.Blue -> 10
+            else -> 0
         }
 
         val playerOffset = getBoardOffsetForPlayer(player.color)
         val currentPos = pawn.position
 
-        //Movement logic
+        val stepsToVictoryStart = 40
+        val victoryRange = 40..43
+
+
+        //Move logic
         val newPosition = when {
-            currentPos == -1 && diceRoll == 6 -> playerOffset  // Enter at player’s unique start
-            currentPos >= 0 -> {
-                val relativePosition = (currentPos - playerOffset + diceRoll + 40) % 40
-                (playerOffset + relativePosition) % 40
+            currentPos == -1 && diceRoll == 6 -> playerOffset // Enter from home
+            currentPos in 0 until stepsToVictoryStart -> {
+                val stepsTaken = (currentPos - playerOffset + 40) % 40
+                val totalSteps = stepsTaken + diceRoll
+
+                if (totalSteps >= 40) {
+                    val victoryCell = 40 + (totalSteps - 40)
+                    if (victoryCell > 43) {
+                        Log.d("OhPardonVM", "Cannot move beyond victory")
+                        val updates = mapOf(
+                            "gameState.ohpardon.diceRoll" to null,
+                            "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
+                        )
+                        firestore.collection("rooms")
+                            .document(roomCode)
+                            .update(updates)
+                        return
+                    }
+                    victoryCell
+                } else {
+                    (playerOffset + totalSteps) % 40
+                }
+            }
+            currentPos in victoryRange -> {
+                val newVictoryPos = currentPos + diceRoll
+                if (newVictoryPos > 43) {
+                    Log.d("OhPardonVM", "Cannot move beyond victory")
+                    val updates = mapOf(
+                        "gameState.ohpardon.diceRoll" to null,
+                        "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
+                    )
+                    firestore.collection("rooms")
+                        .document(roomCode)
+                        .update(updates)
+                    return
+                }
+                newVictoryPos
             }
             else -> {
-                Log.d("OhPardonVM", "Move invalid (roll: $diceRoll, position: $currentPos)")
+                Log.d("OhPardonVM", "Invalid move")
                 val updates = mapOf(
                     "gameState.ohpardon.diceRoll" to null,
                     "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
@@ -291,41 +320,31 @@ class OhPardonViewModel(
                 firestore.collection("rooms")
                     .document(roomCode)
                     .update(updates)
-                    .addOnSuccessListener {
-                        Log.d("OhPardonVM", "DB updated")
-                    }
-                    .addOnFailureListener {
-                        Log.e("OhPardonVM", "Failed to update DB", it)
-                    }
-
                 return
             }
         }
 
-
-        // Capture logic: find any pawn (not yours) at the newPosition
+        //Capture logic
         val updatedPlayers = currentGame.players.map { p ->
             if (p.uid == currentUserUid) {
-                // Update current player's pawn position
                 val updatedPawns = p.pawns.map {
-                    if (it.id == "pawn$pawnId") {
-                        it.copy(position = newPosition)
-                    } else it
+                    if (it.id == "pawn$pawnId") it.copy(position = newPosition) else it
                 }
                 p.copy(pawns = updatedPawns)
             } else {
-                // Check if any opponent's pawn is at newPosition
                 val updatedPawns = p.pawns.map {
-                    if (it.position == newPosition) {
+                    val opponentStartCell = getBoardOffsetForPlayer(p.color)
+                    val isProtected = it.position == opponentStartCell
+                    if (it.position == newPosition && !isProtected && newPosition < 40) {
                         Log.d("OhPardonVM", "Captured pawn ${it.id} from ${p.uid}")
-                        it.copy(position = -1) // Send home
+                        it.copy(position = -1)
                     } else it
                 }
+
                 p.copy(pawns = updatedPawns)
             }
         }
 
-        // Construct new Firestore data
         val updatedPlayerMaps = updatedPlayers.map { p ->
             mapOf(
                 "uid" to p.uid,
@@ -341,7 +360,6 @@ class OhPardonViewModel(
             )
         }
 
-
         val nextPlayerUid = getNextPlayerUid(currentGame, currentUserUid)
         _gameRoom.value = currentGame.copy(
             gameState = currentGame.gameState.copy(
@@ -353,7 +371,7 @@ class OhPardonViewModel(
         val updates = mapOf(
             "players" to updatedPlayerMaps,
             "gameState.ohpardon.diceRoll" to null,
-            "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
+            "gameState.ohpardon.currentPlayer" to nextPlayerUid
         )
 
         firestore.collection("rooms")
@@ -366,6 +384,7 @@ class OhPardonViewModel(
                 Log.e("OhPardonVM", "Failed to update DB", it)
             }
     }
+
 
 
     private fun getNextPlayerUid(game: GameRoom, currentUid: String): String {

@@ -3,18 +3,6 @@ package com.example.gamehub.lobby.codec
 import com.example.gamehub.lobby.GameCodec
 import com.google.firebase.firestore.FieldValue
 
-// Top-level data classes
-data class BattleshipsMove(val position: String, val playerUid: String)
-
-data class BattleshipsState(
-    val currentTurn: String,
-    val moves: List<String>,
-    val gameResult: GameResult?
-)
-
-data class GameResult(val winner: String, val loser: String, val reason: String)
-
-// Codec object for encoding/decoding only
 object BattleshipsCodec : GameCodec<BattleshipsMove, BattleshipsState> {
 
     override fun encodeMove(move: BattleshipsMove): Map<String, Any> = mapOf(
@@ -23,18 +11,39 @@ object BattleshipsCodec : GameCodec<BattleshipsMove, BattleshipsState> {
     )
 
     override fun decodeState(snapshot: Map<String, Any?>): BattleshipsState {
-        val gameData = snapshot["gameState"] as? Map<*, *>
-        val bsData = gameData?.get("battleships") as? Map<*, *> ?: emptyMap<String, Any>()
-        return BattleshipsState(
-            currentTurn = bsData["currentTurn"] as? String ?: "",
-            moves = bsData["moves"] as? List<String> ?: emptyList(),
-            gameResult = (bsData["gameResult"] as? Map<*, *>)?.let {
-                GameResult(
-                    winner = it["winner"] as? String ?: "",
-                    loser = it["loser"] as? String ?: "",
-                    reason = it["reason"] as? String ?: ""
-                )
+        val gameData = snapshot["gameState"] as? Map<*, *> ?: emptyMap<Any,Any>()
+        val bsData   = (gameData["battleships"] as? Map<*, *>) ?: emptyMap<Any,Any>()
+
+        val currentTurn = bsData["currentTurn"] as? String ?: ""
+        val moves       = bsData["moves"]       as? List<String> ?: emptyList()
+        val gameResult  = (bsData["gameResult"] as? Map<*, *>)?.let {
+            GameResult(
+                winner = it["winner"] as? String ?: "",
+                loser  = it["loser"]  as? String ?: "",
+                reason = it["reason"] as? String ?: ""
+            )
+        }
+
+        // Parse mapVotes
+        val rawVotes = bsData["mapVotes"] as? Map<*, *>
+        val mapVotes = rawVotes
+            ?.mapNotNull { (k, v) ->
+                val key    = k as? String
+                val intVal = (v as? Number)?.toInt()
+                if (key != null && intVal != null) key to intVal else null
             }
+            ?.toMap()
+            ?: emptyMap()
+
+        // Parse chosenMap
+        val chosenMap = (bsData["chosenMap"] as? Number)?.toInt()
+
+        return BattleshipsState(
+            currentTurn = currentTurn,
+            moves       = moves,
+            gameResult  = gameResult,
+            mapVotes    = mapVotes,
+            chosenMap   = chosenMap
         )
     }
 }

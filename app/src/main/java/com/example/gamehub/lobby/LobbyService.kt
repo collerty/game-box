@@ -102,7 +102,7 @@ object LobbyService {
         awaitClose { registration.remove() }
     }
 
-    suspend fun surrender(roomCode: String, gameId: String, surrenderingUid: String) {
+    suspend fun battleshipsSurrender(roomCode: String, gameId: String, surrenderingUid: String) {
         val snap = rooms.document(roomCode).get().await()
         val players = snap.get("players") as? List<Map<String, Any>> ?: return
 
@@ -126,54 +126,52 @@ object LobbyService {
         ).await()
     }
 
-    suspend fun voteRematch(roomCode: String, playerUid: String) {
+    suspend fun battleshipsVoteRematch(roomCode: String, playerUid: String) {
         if (playerUid.isBlank()) return
-        rooms.document(roomCode).update("rematchVotes.$playerUid", true).await()
+        rooms.document(roomCode)
+            .update("rematchVotes.$playerUid", true)
+            .await()
     }
 
-    suspend fun resetGameIfRematchReady(roomCode: String, gameId: String, playerUids: List<String>) {
-        val snap = rooms.document(roomCode).get().await()
+    suspend fun battleshipsResetGameIfRematchReady(
+        roomCode: String,
+        gameId: String,
+        playerUids: List<String>
+    ) {
+        val snap  = rooms.document(roomCode).get().await()
         val votes = snap.get("rematchVotes") as? Map<String, Boolean> ?: emptyMap()
-
-        // Make sure everyone voted rematch
         if (playerUids.all { votes[it] == true }) {
             val playersList = snap.get("players") as? List<Map<String, Any>> ?: return
-            val firstPlayerUid = playersList.firstOrNull()?.get("uid") as? String ?: return
-            resetGame(roomCode, gameId, playersList, firstPlayerUid)
+            val firstPlayer = playersList.firstOrNull()?.get("uid") as? String ?: return
+            battleshipsResetGame(roomCode, gameId, playersList, firstPlayer)
         }
     }
 
-    private suspend fun resetGame(
+    private suspend fun battleshipsResetGame(
         roomCode: String,
         gameId: String,
         players: List<Map<String, Any>>,
         startingPlayerUid: String
     ) {
-        val resetState = when (gameId) {
-            "battleships" -> mapOf(
-                "currentTurn" to startingPlayerUid,
-                "moves" to emptyList<String>(),
-                "gameResult" to null
-            )
-            "ohpardon" -> mapOf(
-                "currentPlayer" to startingPlayerUid,
-                "scores" to emptyMap<String, Int>(),
-                "gameResult" to null
-            )
-            else -> emptyMap()
-        }
+        // 1) new empty gameState for battleships
+        val resetState = mapOf(
+            "currentTurn" to startingPlayerUid,
+            "moves"       to emptyList<String>(),
+            "gameResult"  to null
+        )
+        // 2) reset rematchVotes back to all false
+        val resetRematch = players.associate { (it["uid"] as? String ?: "") to false }
 
-        val resetVotes = players.associate {
-            val uid = it["uid"] as? String ?: ""
-            uid to false
-        }
-
+        // 3) clear mapVotes & chosenMap
         rooms.document(roomCode).update(
             mapOf(
-                "status" to "playing",
-                "rematchVotes" to resetVotes,
-                "gameState.$gameId" to resetState
-            )
+                "status"                          to "started",
+                "rematchVotes"                    to resetRematch,
+                "gameState.$gameId"               to resetState,
+                // clear out the map‐voting fields:
+                "gameState.$gameId.mapVotes"      to emptyMap<String, Int>(),
+                "gameState.$gameId.chosenMap"     to null
+            ) as Map<String, Any?>
         ).await()
     }
 

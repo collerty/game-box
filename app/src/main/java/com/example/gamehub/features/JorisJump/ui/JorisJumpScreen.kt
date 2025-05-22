@@ -206,7 +206,7 @@ fun JorisJumpScreen() {
                 if(validPosition) {
                     currentPlatformsMutable.add(0, PlatformState(id = nextPlatformId++, x = newX, y = newY)) // Add to beginning
                     lastGeneratedPlatformY = newY // Update the Y of the last platform we just generated
-                    score += 3 // Smaller score increment
+                    score += 1 // Smaller score increment
                     Log.d("JorisJump_Gen", "WHILE: Generated platform $nextPlatformId at Y(world):$newY. LastGenY: $lastGeneratedPlatformY. Horizon: $targetHighestWorldYForPlatforms. Count: ${currentPlatformsMutable.size}")
                 } else {
                     // Could decrement generationAttempts if we skip, to allow more real attempts

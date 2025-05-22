@@ -12,6 +12,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -98,7 +100,9 @@ fun OhPardonScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
-        ) {
+                .verticalScroll(rememberScrollState())
+        )
+        {
             // Board Image
             Image(
                 painter = painter,

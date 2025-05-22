@@ -10,11 +10,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -102,7 +105,7 @@ fun ScreamosaurScreen() {
 }
 
 // Game state
-enum class GameState { READY, PLAYING, GAME_OVER }
+enum class GameState { READY, PLAYING, PAUSED, GAME_OVER }
 
 // Obstacle data class
 data class Obstacle(
@@ -112,6 +115,9 @@ data class Obstacle(
     var passed: Boolean = false
 )
 
+private const val MIN_AMPLITUDE_THRESHOLD = 800 // Sounds below this won't show on meter
+private const val JUMP_AMPLITUDE_THRESHOLD = 2500 // Sounds above this trigger a jump
+
 @Composable
 private fun GameContent() {
     var gameState by remember { mutableStateOf(GameState.READY) }
@@ -119,6 +125,9 @@ private fun GameContent() {
     var obstacles by remember { mutableStateOf(listOf<Obstacle>()) }
     var gameSpeed by remember { mutableStateOf(5f) } // Pixels per frame
     var gameStartTime by remember { mutableStateOf(0L) }
+    var timeAtPause by remember { mutableStateOf(0L) }
+    var initialDelayHasOccurred by remember { mutableStateOf(false) }
+
 
     val jumpAnim = remember { Animatable(0f) }
     var isJumping by remember { mutableStateOf(false) }
@@ -147,6 +156,8 @@ private fun GameContent() {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    var currentAmplitude by remember { mutableStateOf(0) }
+
     LaunchedEffect(gameState) {
         if (gameState == GameState.PLAYING) {
             isRunningAnimating.value = true
@@ -161,8 +172,11 @@ private fun GameContent() {
 
     LaunchedEffect(gameState) {
         if (gameState == GameState.PLAYING) {
-            gameStartTime = System.currentTimeMillis()
-            delay(1500) // Initial safe period before obstacles appear
+            if (!initialDelayHasOccurred) {
+                delay(1500) // Initial safe period before obstacles appear
+                gameStartTime = System.currentTimeMillis() // Set/reset gameStartTime after the initial delay
+                initialDelayHasOccurred = true
+            }
 
             withContext(Dispatchers.Default) {
                 while (gameState == GameState.PLAYING && isActive) {
@@ -173,25 +187,25 @@ private fun GameContent() {
                         it.copy(xPosition = it.xPosition - gameSpeed)
                     }.filter { it.xPosition + it.width > 0 }
 
-                    val canvasWidthPx = gameHeightPx * (16f/9f)
+                    val canvasWidthPx = gameHeightPx * (16f/9f) // Assuming 16:9 aspect for game area if width is not fixed
                     val spawnNewObstacleTriggerX = canvasWidthPx * 0.5f
                     val newObstacleBaseX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
                     val firstObstacleX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
+
 
                     val obstacleMinHeightPx = with(density) { 25.dp.toPx()}
                     val obstacleMaxHeightPx = with(density) { 55.dp.toPx()}
                     val obstacleMinWidthPx = with(density) { 15.dp.toPx()}
                     val obstacleMaxWidthPx = with(density) { 30.dp.toPx()}
 
-
-                    if (obstacles.isEmpty()) {
+                    if (obstacles.isEmpty() && elapsedGameTime > 0) { // Ensure some time passed after initial delay
                         val newObstacle = Obstacle(
                             xPosition = firstObstacleX,
                             height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
                             width = Random.nextFloat() * (obstacleMaxWidthPx - obstacleMinWidthPx) + obstacleMinWidthPx
                         )
                         obstacles = listOf(newObstacle)
-                    } else if (obstacles.last().xPosition < spawnNewObstacleTriggerX && obstacles.size < 5) {
+                    } else if (obstacles.isNotEmpty() && obstacles.last().xPosition < spawnNewObstacleTriggerX && obstacles.size < 5) {
                         val newObstacle = Obstacle(
                             xPosition = newObstacleBaseX,
                             height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
@@ -205,11 +219,13 @@ private fun GameContent() {
                         if (!obstacle.passed && obstacleRightEdgePx < dinosaurVisualXPositionPx) {
                             obstacle.passed = true
                             score++
-                            gameSpeed = (5f + (score / 8f)).coerceAtMost(18f)
+                            // Increase game speed more significantly with score
+                            gameSpeed = (5f + (score / 5f)).coerceAtMost(20f) // Faster increase, max speed 20f
                         }
                     }
 
-                    if (elapsedGameTime > 2000) {
+                    // Collision check delay is now relative to elapsedGameTime after initial 1.5s delay
+                    if (elapsedGameTime > 2000) { // Start collision checks a bit after obstacles can appear
                         val currentDinoTopYPx = dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)
                         val dinosaurVisualRect = Rect(
                             left = dinosaurVisualXPositionPx,
@@ -218,15 +234,17 @@ private fun GameContent() {
                             bottom = currentDinoTopYPx + dinosaurSizePx
                         )
 
-                        val horizontalHitboxReductionPx = dinosaurSizePx * 0.20f
-                        val verticalHitboxReductionPx = dinosaurSizePx * 0.20f
+                        // Fine-tuned hitbox
+                        val horizontalHitboxReductionPx = dinosaurSizePx * 0.20f // Reduce 20% from each side
+                        val verticalHitboxReductionPx = dinosaurSizePx * 0.20f   // Reduce 20% from top/bottom
 
                         val dinosaurHitbox = Rect(
                             left = dinosaurVisualRect.left + horizontalHitboxReductionPx,
                             top = dinosaurVisualRect.top + verticalHitboxReductionPx,
                             right = dinosaurVisualRect.right - horizontalHitboxReductionPx,
-                            bottom = dinosaurVisualRect.bottom - (verticalHitboxReductionPx * 0.3f)
+                            bottom = dinosaurVisualRect.bottom - (verticalHitboxReductionPx * 0.3f) // Less reduction from bottom for feet
                         )
+
 
                         val collision = obstacles.any { obstacle ->
                             val obstacleRect = Rect(
@@ -243,7 +261,7 @@ private fun GameContent() {
                                 isRunningAnimating.value = false
                                 gameState = GameState.GAME_OVER
                             }
-                            break
+                            break // Exit game loop
                         }
                     }
                     delay(16) // ~60fps
@@ -251,6 +269,7 @@ private fun GameContent() {
             }
         }
     }
+
 
     LaunchedEffect(gameState) {
         if (gameState == GameState.PLAYING) {
@@ -261,13 +280,16 @@ private fun GameContent() {
                     context, Manifest.permission.RECORD_AUDIO
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                withContext(Dispatchers.Main) { gameState = GameState.READY }
+                // Handle missing permission if it was revoked mid-game (unlikely but good practice)
+                withContext(Dispatchers.Main) { gameState = GameState.READY } // Or PAUSED if coming from there
                 return@LaunchedEffect
             }
 
             var audioRecord: AudioRecord? = null
             try {
+                // Validate bufferSize
                 if (bufferSize == AudioRecord.ERROR_BAD_VALUE || bufferSize == AudioRecord.ERROR) {
+                    // Handle error, perhaps by setting a default or logging
                     withContext(Dispatchers.Main) { gameState = GameState.READY }
                     return@LaunchedEffect
                 }
@@ -277,8 +299,9 @@ private fun GameContent() {
                     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize
                 )
 
+                // Check if AudioRecord initialized properly
                 if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
-                    audioRecord.release()
+                    audioRecord.release() // Release if not initialized
                     withContext(Dispatchers.Main) { gameState = GameState.READY }
                     return@LaunchedEffect
                 }
@@ -290,38 +313,51 @@ private fun GameContent() {
                     while (gameState == GameState.PLAYING && isActive) {
                         val read = audioRecord.read(buffer, 0, buffer.size)
                         if (read > 0) {
-                            val maxAmplitude = buffer.take(read).maxOfOrNull { it.toInt().absoluteValue } ?: 0
-                            if (maxAmplitude > 2500 && !isJumping) {
+                            val maxAmplitudeRaw = buffer.take(read).maxOfOrNull { it.toInt().absoluteValue } ?: 0
+
+                            // Apply threshold for sound meter display
+                            currentAmplitude = if (maxAmplitudeRaw >= MIN_AMPLITUDE_THRESHOLD) {
+                                maxAmplitudeRaw
+                            } else {
+                                0
+                            }
+
+                            if (maxAmplitudeRaw > JUMP_AMPLITUDE_THRESHOLD && !isJumping) {
                                 isJumping = true
                                 coroutineScope.launch {
-                                    jumpAnim.snapTo(0f)
+                                    jumpAnim.snapTo(0f) // Ensure jump starts from ground
                                     jumpAnim.animateTo(
                                         targetValue = 1f,
-                                        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing) // Increased duration
+                                        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
                                     )
                                     jumpAnim.animateTo(
                                         targetValue = 0f,
-                                        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing) // Increased duration
+                                        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
                                     )
                                     isJumping = false
                                 }
                             }
                         }
-                        delay(50) // Poll audio
+                        delay(50) // Audio processing interval
                     }
                 } finally {
+                    // Ensure AudioRecord is stopped and released
                     if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                         audioRecord.stop()
                     }
                     audioRecord.release()
                 }
             } catch (e: SecurityException) {
-                audioRecord?.release()
+                // Handle SecurityException (e.g., permission denied during recording)
+                audioRecord?.release() // Attempt to release if not null
                 withContext(Dispatchers.Main) { gameState = GameState.READY }
             } catch (e: IllegalStateException) {
+                // Handle IllegalStateException (e.g., AudioRecord not properly initialized or used)
                 audioRecord?.release()
                 withContext(Dispatchers.Main) { gameState = GameState.READY }
             }
+        } else {
+            currentAmplitude = 0 // Reset amplitude if not playing
         }
     }
 
@@ -338,22 +374,22 @@ private fun GameContent() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(gameHeightDp)
-                .background(Color(0xFFE0F7FA))
+                .background(Color(0xFFE0F7FA)) // Light blue background for the game
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 // Draw ground
                 drawRect(
-                    color = Color(0xFF795548),
+                    color = Color(0xFF795548), // Brown color for ground
                     topLeft = Offset(0f, size.height - groundHeightPx),
                     size = Size(size.width, groundHeightPx)
                 )
-
                 // Draw obstacles
                 obstacles.forEach { obstacle ->
                     drawRect(
-                        color = Color(0xFF4CAF50),
+                        color = Color(0xFF4CAF50), // Green obstacles
                         topLeft = Offset(
                             obstacle.xPosition,
+                            // Y position is from top, so subtract ground and obstacle height
                             gameHeightPx - groundHeightPx - obstacle.height
                         ),
                         size = Size(obstacle.width, obstacle.height)
@@ -361,26 +397,24 @@ private fun GameContent() {
                 }
             }
 
+            // Dinosaur
             val currentDinoTopYDp = with(density) { (dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)).toDp() }
             Box(
                 modifier = Modifier
                     .size(dinosaurSizeDp)
-                    .offset(
-                        x = dinosaurVisualXOffsetDp,
-                        y = currentDinoTopYDp
-                    )
+                    .offset(x = dinosaurVisualXOffsetDp, y = currentDinoTopYDp)
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     // Body
                     drawRoundRect(
-                        color = Color(0xFFF44336),
+                        color = Color(0xFFF44336), // Red
                         topLeft = Offset(size.width * 0.15f, size.height * 0.2f),
                         size = Size(size.width * 0.7f, size.height * 0.6f),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f)
                     )
                     // Head
                     drawRoundRect(
-                        color = Color(0xFFF44336),
+                        color = Color(0xFFF44336), // Red
                         topLeft = Offset(size.width * 0.55f, size.height * 0.05f),
                         size = Size(size.width * 0.4f, size.height * 0.4f),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f)
@@ -393,47 +427,48 @@ private fun GameContent() {
                     )
                     drawCircle(
                         color = Color.Black,
-                        center = Offset(size.width * 0.78f, size.height * 0.27f),
+                        center = Offset(size.width * 0.78f, size.height * 0.27f), // Slightly offset for pupil
                         radius = size.width * 0.05f
                     )
                     // Legs
                     val legWidth = size.width * 0.15f
                     val legHeight = size.height * 0.35f
-                    val legYPos = size.height * 0.75f
+                    val legYPos = size.height * 0.75f // Position legs towards the bottom
 
                     val legOffsetFactor = when {
-                        isJumping -> 0.15f
-                        else -> when (runningAnimState.value) {
-                            0 -> 0.0f
-                            1 -> 0.05f
-                            2 -> 0.1f
-                            else -> 0.05f
+                        isJumping -> 0.15f // Legs splayed during jump
+                        else -> when (runningAnimState.value) { // Running animation
+                            0 -> 0.0f    // Both legs centered
+                            1 -> 0.05f   // One leg forward
+                            2 -> 0.1f    // Other leg forward
+                            else -> 0.05f// Cycle back
                         }
                     }
                     // Back Leg
                     drawRoundRect(
-                        color = Color(0xFFD32F2F),
+                        color = Color(0xFFD32F2F), // Darker Red
                         topLeft = Offset(size.width * (0.3f - legOffsetFactor), legYPos),
                         size = Size(legWidth, legHeight),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f)
                     )
                     // Front Leg
                     drawRoundRect(
-                        color = Color(0xFFD32F2F),
+                        color = Color(0xFFD32F2F), // Darker Red
                         topLeft = Offset(size.width * (0.55f + legOffsetFactor), legYPos),
                         size = Size(legWidth, legHeight),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f)
                     )
                     // Tail
                     drawRoundRect(
-                        color = Color(0xFFF44336),
-                        topLeft = Offset(size.width * 0.0f, size.height * 0.4f),
+                        color = Color(0xFFF44336), // Red
+                        topLeft = Offset(size.width * 0.0f, size.height * 0.4f), // Tail from the back
                         size = Size(size.width * 0.3f, size.height * 0.2f),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.05f)
                     )
                 }
             }
 
+            // Game State Overlays
             when (gameState) {
                 GameState.READY -> {
                     Column(
@@ -444,11 +479,14 @@ private fun GameContent() {
                         Text("ROAR to make the dinosaur jump!", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = {
-                            coroutineScope.launch { jumpAnim.snapTo(0f) }
+                            // Reset game state for a new game
+                            coroutineScope.launch { jumpAnim.snapTo(0f) } // Reset jump animation
                             isJumping = false
                             score = 0
                             obstacles = emptyList()
-                            gameSpeed = 5f
+                            gameSpeed = 5f // Reset speed
+                            initialDelayHasOccurred = false // Reset initial delay flag
+                            gameStartTime = System.currentTimeMillis() // Set for initial delay calculation
                             gameState = GameState.PLAYING
                         }) { Text("Start Game") }
                     }
@@ -464,21 +502,111 @@ private fun GameContent() {
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = {
+                                // Reset game state for a new game
                                 coroutineScope.launch { jumpAnim.snapTo(0f) }
                                 isJumping = false
                                 score = 0
                                 obstacles = emptyList()
                                 gameSpeed = 5f
+                                initialDelayHasOccurred = false
+                                gameStartTime = System.currentTimeMillis() // Set for initial delay
                                 gameState = GameState.PLAYING
                             }
                         ) { Text("Play Again") }
                     }
                 }
-                else -> { /* Playing state - no overlay */ }
+                GameState.PAUSED -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("PAUSED", fontSize = 30.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+                GameState.PLAYING -> { /* Playing state - no overlay */ }
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp)) // Space between game area and sound meter
+        SoundMeter(amplitude = currentAmplitude)
+        Spacer(modifier = Modifier.height(24.dp)) // Space before Pause/Resume button
+
+        // Pause/Resume Button
+        if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
+            Button(
+                onClick = {
+                    if (gameState == GameState.PLAYING) {
+                        timeAtPause = System.currentTimeMillis()
+                        gameState = GameState.PAUSED
+                    } else { // gameState == GameState.PAUSED
+                        val pausedDuration = System.currentTimeMillis() - timeAtPause
+                        gameStartTime += pausedDuration // Adjust gameStartTime to account for the pause
+                        gameState = GameState.PLAYING
+                    }
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(if (gameState == GameState.PLAYING) "Pause Game" else "Resume Game")
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp)) // Optional space below button
+    }
+}
+
+@Composable
+private fun SoundMeter(
+    modifier: Modifier = Modifier,
+    amplitude: Int,
+    maxMeterAmplitude: Int = 7500 // Max expected amplitude for meter scaling
+) {
+    // Ensure amplitude for meter doesn't exceed maxMeterAmplitude if it was already thresholded
+    val displayAmplitude = amplitude.coerceAtMost(maxMeterAmplitude)
+    val normalizedAmplitude = (displayAmplitude.toFloat() / maxMeterAmplitude).coerceIn(0f, 1f)
+
+    val barColor = when {
+        // Check original amplitude for true zero, normalized for meter display
+        amplitude == 0 -> MaterialTheme.colorScheme.surfaceVariant // Use a neutral/track color if truly zero
+        normalizedAmplitude < 0.4f -> Color(0xFF4CAF50) // Green
+        normalizedAmplitude < 0.75f -> Color(0xFFFFEB3B) // Yellow
+        else -> Color(0xFFF44336) // Red
+    }
+    val meterHeight = 20.dp
+
+    Column(
+        modifier = modifier.fillMaxWidth(), // Occupy available width for centering
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Sound Level",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Box( // Outer track for the meter
+            modifier = Modifier
+                .height(meterHeight)
+                .fillMaxWidth(0.8f) // Meter takes 80% of available width
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant, // Background of the track
+                    shape = RoundedCornerShape(meterHeight / 2)
+                )
+                .clip(RoundedCornerShape(meterHeight / 2)) // Clip inner content to rounded shape
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), // Subtle border
+                    RoundedCornerShape(meterHeight / 2)
+                )
+        ) {
+            Box( // Inner bar representing sound level
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(normalizedAmplitude) // Width based on sound level
+                    .background(barColor)
+            )
         }
     }
 }
+
 
 @Composable
 private fun PermissionRequest(onRequestPermission: () -> Unit) {

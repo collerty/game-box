@@ -25,119 +25,108 @@ private const val PLAYER_WIDTH_DP = 40f
 private const val PLAYER_HEIGHT_DP = 60f
 private const val ACCELEROMETER_SENSITIVITY = 4.0f
 private const val GRAVITY = 0.4f
-private const val INITIAL_JUMP_VELOCITY = -11.5f // Fine-tuned jump
+private const val INITIAL_JUMP_VELOCITY = -11.5f
 private const val PLATFORM_HEIGHT_DP = 15f
 private const val PLATFORM_WIDTH_DP = 70f
-private const val SCROLL_THRESHOLD_FACTOR = 0.4f // When player is above 40% from top (of visible screen), scroll
-private const val MAX_PLATFORMS_ON_SCREEN = 7 // Max platforms on screen at once
-private const val INITIAL_PLATFORM_COUNT = 4
+private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.35f // When player is above 35% from top of *visible screen*, scroll
+private const val MAX_PLATFORMS_ON_SCREEN = 15 // Max platforms to manage
+private const val INITIAL_PLATFORM_COUNT = 5 // Start with a few platforms
 
 
 data class PlatformState(
     val id: Int,
-    var x: Float, // Dp from left
-    var y: Float  // Dp from top
+    var x: Float, // World X Dp from left
+    var y: Float  // World Y Dp from top (smaller Y is higher)
 )
-
-// Helper to generate initial platforms
-private fun generateInitialPlatforms(screenWidth: Float, screenHeight: Float, count: Int): List<PlatformState> {
-    val initialPlatforms = mutableListOf<PlatformState>()
-    // First platform directly under player
-    initialPlatforms.add(
-        PlatformState(
-            id = 0,
-            x = (screenWidth / 2) - (PLATFORM_WIDTH_DP / 2),
-            y = screenHeight - PLATFORM_HEIGHT_DP - 5f // A bit below player's starting feet
-        )
-    )
-    for (i in 1 until count) {
-        initialPlatforms.add(
-            PlatformState(
-                id = i,
-                x = Random.nextFloat() * (screenWidth - PLATFORM_WIDTH_DP),
-                // Spread them out upwards from the first platform
-                y = initialPlatforms.last().y - (PLATFORM_HEIGHT_DP * Random.nextInt(4, 8))
-            )
-        )
-    }
-    return initialPlatforms
-}
-
 
 @Composable
 fun JorisJumpScreen() {
     val context = LocalContext.current
 
-    var playerXPositionDp by remember { mutableStateOf(0f) }
-    var playerYPositionDp by remember { mutableStateOf(0f) }
+    // Player state (all in world coordinates, except X which is screen-relative for accelerometer)
+    var playerXPositionScreenDp by remember { mutableStateOf(0f) } // X on screen
+    var playerYPositionWorldDp by remember { mutableStateOf(0f) } // Y in world
     var playerVelocityY by remember { mutableStateOf(0f) }
-    var playerInitialized by remember { mutableStateOf(false) }
 
     var platforms by remember { mutableStateOf<List<PlatformState>>(emptyList()) }
     var gameRunning by remember { mutableStateOf(true) }
     var score by remember { mutableStateOf(0) }
-    var highestYPlayerReachedInWorld by remember { mutableStateOf(Float.MAX_VALUE) } // Tracks the "highest" point player physically reached (smaller Y is higher)
-    var nextPlatformId by remember { mutableStateOf(INITIAL_PLATFORM_COUNT) }
+    var nextPlatformId by remember { mutableStateOf(0) } // Reset in performGameReset
 
+    var totalScrollOffsetDp by remember { mutableStateOf(0f) } // How much the world has scrolled up
 
-    val sensorManager = remember {
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    }
-    val accelerometer = remember {
-        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    }
-
+    // Screen dimensions
     var screenWidthDp by remember { mutableStateOf(0f) }
     var screenHeightDp by remember { mutableStateOf(0f) }
+
+    // Initialization and sensor related
+    var playerAndScreenInitialized by remember { mutableStateOf(false) }
+    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+    val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
     var rawTiltXForDebug by remember { mutableStateOf(0f) }
+
 
     fun performGameReset() {
         if (screenWidthDp == 0f || screenHeightDp == 0f) {
-            Log.e("JorisJump", "Cannot reset, screen dimensions not ready.")
-            // Attempt to re-initialize playerInitialized to false if it causes issues
-            // This might force BoxWithConstraints to re-measure and re-trigger init
-            // playerInitialized = false
+            Log.e("JorisJump", "Reset Aborted: Screen dimensions not yet available.")
             return
         }
         Log.d("JorisJump", "Performing game reset. Screen: $screenWidthDp x $screenHeightDp")
-        playerXPositionDp = (screenWidthDp / 2) - (PLAYER_WIDTH_DP / 2)
-        // Start player slightly above the first platform to ensure they land on it
-        playerYPositionDp = screenHeightDp - PLAYER_HEIGHT_DP - PLATFORM_HEIGHT_DP - 25f
-        playerVelocityY = 0f // Start falling onto the first platform initially
-        platforms = generateInitialPlatforms(screenWidthDp, screenHeightDp, INITIAL_PLATFORM_COUNT)
-        highestYPlayerReachedInWorld = playerYPositionDp // Reset to current player Y
+
+        totalScrollOffsetDp = 0f
+        playerXPositionScreenDp = (screenWidthDp / 2) - (PLAYER_WIDTH_DP / 2)
+        // Initial player Y in world coordinates, slightly above the first platform to land on it
+        playerYPositionWorldDp = screenHeightDp - PLAYER_HEIGHT_DP - PLATFORM_HEIGHT_DP - 30f
+        playerVelocityY = 0f // Start by falling onto the first platform
+
+        val initialPlatforms = mutableListOf<PlatformState>()
+        // First platform for player to land on, relatively low in the initial screen view
+        var currentY = screenHeightDp - PLATFORM_HEIGHT_DP - 5f // World Y of first platform's top
+        initialPlatforms.add(
+            PlatformState(
+                id = 0,
+                x = (screenWidthDp / 2) - (PLATFORM_WIDTH_DP / 2), // Center first platform
+                y = currentY
+            )
+        )
+        nextPlatformId = 1 // Start ID for next generated platforms
+
+        // Generate subsequent initial platforms progressively higher
+        for (i in 1 until INITIAL_PLATFORM_COUNT) {
+            val nextX = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
+            // Make the gap larger for initial platforms to spread them out more
+            currentY -= (PLATFORM_HEIGHT_DP * Random.nextInt(4, 9)).toFloat() + Random.nextFloat() * PLATFORM_HEIGHT_DP * 2.5f
+            initialPlatforms.add(PlatformState(id = nextPlatformId++, x = nextX, y = currentY))
+        }
+        platforms = initialPlatforms
+        nextPlatformId = initialPlatforms.size
+
         score = 0
-        nextPlatformId = platforms.size
         gameRunning = true
-        // playerInitialized is already true or will be set true by BoxWithConstraints
-        // If reset is called AFTER initial init, playerInitialized should remain true.
-        // Forcing a re-init from BoxWithConstraints might be needed if reset state is funky:
-        // playerInitialized = false // <-- uncomment this if restart feels off
+        Log.d("JorisJump", "Game Reset. PlayerY_world: $playerYPositionWorldDp, Platforms: ${platforms.size}")
     }
 
 
-    DisposableEffect(accelerometer, playerInitialized) { // Removed screenWidthDp as direct key, handled by playerInitialized check
+    DisposableEffect(accelerometer, playerAndScreenInitialized) {
         if (accelerometer == null) {
             Log.e("JorisJump", "Accelerometer not available!")
             return@DisposableEffect onDispose {}
         }
-        if (!playerInitialized) return@DisposableEffect onDispose { }
-
+        if (!playerAndScreenInitialized) return@DisposableEffect onDispose {}
 
         val sensorEventListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
-                if (!gameRunning || screenWidthDp == 0f) return // Check gameRunning and screenWidth
-
+                if (!gameRunning) return
                 event?.let {
                     if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                         val tiltX = it.values[0]
                         rawTiltXForDebug = tiltX
-                        playerXPositionDp -= tiltX * ACCELEROMETER_SENSITIVITY
+                        playerXPositionScreenDp -= tiltX * ACCELEROMETER_SENSITIVITY
 
-                        if ((playerXPositionDp + PLAYER_WIDTH_DP) < 0) {
-                            playerXPositionDp = screenWidthDp
-                        } else if (playerXPositionDp > screenWidthDp) {
-                            playerXPositionDp = 0f - PLAYER_WIDTH_DP
+                        if ((playerXPositionScreenDp + PLAYER_WIDTH_DP) < 0) {
+                            playerXPositionScreenDp = screenWidthDp
+                        } else if (playerXPositionScreenDp > screenWidthDp) {
+                            playerXPositionScreenDp = 0f - PLAYER_WIDTH_DP
                         }
                     }
                 }
@@ -148,141 +137,141 @@ fun JorisJumpScreen() {
         onDispose { sensorManager.unregisterListener(sensorEventListener) }
     }
 
-    LaunchedEffect(gameRunning, playerInitialized) {
-        if (!gameRunning || !playerInitialized) return@LaunchedEffect
+    LaunchedEffect(gameRunning, playerAndScreenInitialized) {
+        if (!gameRunning || !playerAndScreenInitialized) return@LaunchedEffect
 
         while (gameRunning) {
+            // Player Physics
             playerVelocityY += GRAVITY
-            playerYPositionDp += playerVelocityY
+            playerYPositionWorldDp += playerVelocityY
 
-            if (playerYPositionDp < highestYPlayerReachedInWorld) {
-                highestYPlayerReachedInWorld = playerYPositionDp
-                // Score is now updated when new platforms are "passed" or generated by scrolling
-            }
+            // Collision Detection
+            val playerBottomWorldDp = playerYPositionWorldDp + PLAYER_HEIGHT_DP
+            val playerRightScreenDp = playerXPositionScreenDp + PLAYER_WIDTH_DP
 
-            val playerBottom = playerYPositionDp + PLAYER_HEIGHT_DP
-            val playerRight = playerXPositionDp + PLAYER_WIDTH_DP
-
-            var landedThisFrame = false
             platforms.forEach { platform ->
                 if (playerVelocityY > 0 &&
-                    playerBottom >= platform.y && playerYPositionDp < platform.y &&
-                    playerRight > platform.x && playerXPositionDp < (platform.x + PLATFORM_WIDTH_DP)
+                    playerBottomWorldDp >= platform.y && playerYPositionWorldDp < platform.y && // Crossed platform top
+                    playerRightScreenDp > platform.x && playerXPositionScreenDp < (platform.x + PLATFORM_WIDTH_DP) // X overlap
                 ) {
-                    playerYPositionDp = platform.y - PLAYER_HEIGHT_DP
+                    playerYPositionWorldDp = platform.y - PLAYER_HEIGHT_DP // Snap to top
                     playerVelocityY = INITIAL_JUMP_VELOCITY
-                    landedThisFrame = true
                 }
             }
 
             // Camera Scrolling
-            val scrollThresholdScreenY = screenHeightDp * SCROLL_THRESHOLD_FACTOR
-            if (playerYPositionDp < scrollThresholdScreenY) {
-                val scrollAmount = scrollThresholdScreenY - playerYPositionDp
-                playerYPositionDp += scrollAmount
-                highestYPlayerReachedInWorld += scrollAmount // World position also shifts with scroll
+            // Player's Y position on the actual screen: playerYPositionWorldDp - totalScrollOffsetDp
+            val playerYOnScreen = playerYPositionWorldDp - totalScrollOffsetDp
+            val scrollThresholdActualScreenY = screenHeightDp * SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR
 
-                platforms = platforms.map { it.copy(y = it.y + scrollAmount) }
+            if (playerYOnScreen < scrollThresholdActualScreenY) {
+                val scrollAmount = scrollThresholdActualScreenY - playerYOnScreen
+                totalScrollOffsetDp -= scrollAmount // World "moves up", so offset decreases (less to subtract)
+                Log.d("JorisJump_Scroll", "Scrolled. New totalScrollOffsetDp: $totalScrollOffsetDp")
             }
 
             // Platform Management
-            val currentPlatformsMutable = platforms.toMutableList() // Work with a mutable list
+            val currentPlatformsMutable = platforms.toMutableList()
+            currentPlatformsMutable.removeAll { it.y > totalScrollOffsetDp + screenHeightDp + PLATFORM_HEIGHT_DP * 2 } // Remove if well off bottom
 
-            // Remove platforms that are well off-screen (bottom)
-            currentPlatformsMutable.removeAll { platform ->
-                platform.y > screenHeightDp + (PLATFORM_HEIGHT_DP * 3) // Remove if 3 platform heights below screen
-            }
+            // Top of the visible screen in world coordinates: totalScrollOffsetDp
+            // We want to ensure platforms exist up to one screen height *above* this.
+            // So, the target "highest Y" for platforms should be totalScrollOffsetDp - screenHeightDp.
+            val targetHighestWorldYForPlatforms = totalScrollOffsetDp - screenHeightDp
 
-            // Determine the Y coordinate of the "highest" platform currently in our list (smallest Y value).
-            // This is the reference point above which new platforms will be generated.
-            var highestPlatformYInList = currentPlatformsMutable.minOfOrNull { it.y }
-                ?: (playerYPositionDp + screenHeightDp) // Fallback: if no platforms, generate far above current player (effectively off-screen top)
+            var lastGeneratedPlatformY = currentPlatformsMutable.minOfOrNull { it.y } // Get the actual highest platform
+                ?: (totalScrollOffsetDp + screenHeightDp / 2) // Default: if no platforms, start generating from mid-screen upward
 
-            // If after scrolling, the player is very high and all existing platforms are below them,
-            // reset the basis for new platform generation to be relative to the player's current view.
-            if (highestPlatformYInList > playerYPositionDp) {
-                highestPlatformYInList = playerYPositionDp - (screenHeightDp * 0.2f) // Start generating slightly above player's current view top
-            }
+            var generationAttempts = 0 // Safety break for the while loop
 
+            // Keep generating platforms as long as we need more AND the last one generated is still "below" our target horizon
+            while (currentPlatformsMutable.size < MAX_PLATFORMS_ON_SCREEN && lastGeneratedPlatformY > targetHighestWorldYForPlatforms && generationAttempts < MAX_PLATFORMS_ON_SCREEN * 2) {
+                generationAttempts++
+                val newX = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
+                // Place the new platform a random distance above the 'lastGeneratedPlatformY'
+                val newY = lastGeneratedPlatformY - (PLATFORM_HEIGHT_DP * (Random.nextInt(2, 6))).toFloat() - (Random.nextFloat() * PLATFORM_HEIGHT_DP * 2)
 
-            // Generate new platforms if we are below the max count
-            while (currentPlatformsMutable.size < MAX_PLATFORMS_ON_SCREEN) {
-                val newPlatformX = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
+                // Ensure platforms don't overlap too much horizontally with the one just below it (simplistic check)
+                // This is a very basic attempt to avoid direct stacking, can be improved
+                val platformJustBelow = currentPlatformsMutable.firstOrNull() // Assuming list is somewhat sorted or we just check the last added
+                var validPosition = true
+                if (platformJustBelow != null) {
+                    if (kotlin.math.abs(newX - platformJustBelow.x) < PLATFORM_WIDTH_DP / 2 && kotlin.math.abs(newY - platformJustBelow.y) < PLATFORM_HEIGHT_DP * 3) {
+                        // Too close, try a different X (or skip this generation attempt)
+                        // For simplicity, let's just log and allow it, but this is where you'd add smarter placement
+                        // Log.d("JorisJump_Gen", "Potential overlap, newX: $newX, prevX: ${platformJustBelow.x}")
+                    }
+                }
 
-                // Place new platform a random vertical distance *above* (smaller Y) the current 'highestPlatformYInList'
-                val newPlatformY = highestPlatformYInList - (PLATFORM_HEIGHT_DP * Random.nextInt(2, 6)).toFloat() // Random vertical spacing
-
-                // Simple check to avoid direct vertical overlap with the platform used as basis for this new one
-                // More sophisticated checks could look at all recent platforms
-                if (kotlin.math.abs(newPlatformY - highestPlatformYInList) > PLATFORM_HEIGHT_DP * 1.5f) { // Ensure some minimum gap
-                    currentPlatformsMutable.add(0, // Add to the beginning of the list (conceptually "higher")
-                        PlatformState(id = nextPlatformId++, x = newPlatformX, y = newPlatformY)
-                    )
-                    score += 10
-                    Log.d("JorisJump", "Generated platform ID ${nextPlatformId - 1} at X:$newPlatformX Y:$newPlatformY. Size: ${currentPlatformsMutable.size}")
-                    highestPlatformYInList = newPlatformY // The new platform is now the highest
+                if(validPosition) {
+                    currentPlatformsMutable.add(0, PlatformState(id = nextPlatformId++, x = newX, y = newY)) // Add to beginning
+                    lastGeneratedPlatformY = newY // Update the Y of the last platform we just generated
+                    score += 3 // Smaller score increment
+                    Log.d("JorisJump_Gen", "WHILE: Generated platform $nextPlatformId at Y(world):$newY. LastGenY: $lastGeneratedPlatformY. Horizon: $targetHighestWorldYForPlatforms. Count: ${currentPlatformsMutable.size}")
                 } else {
-                    // If too close, try generating even higher next time, or break if it seems stuck
-                    // For simplicity, we can just break the while loop for this frame if we can't place one easily.
-                    // This prevents an infinite loop if random numbers consistently produce overlaps.
-                    Log.d("JorisJump", "Skipped platform generation due to potential overlap or too close.")
-                    break // Break from the while loop for this frame
+                    // Could decrement generationAttempts if we skip, to allow more real attempts
                 }
             }
-            platforms = currentPlatformsMutable // Update the immutable state
+            platforms = currentPlatformsMutable.toList()
 
-
-            if (playerYPositionDp > screenHeightDp + PLAYER_HEIGHT_DP) { // Game over if completely off bottom
+            // Game Over Check: If player's top (world Y) is below the visible screen bottom (world Y)
+            if (playerYPositionWorldDp > totalScrollOffsetDp + screenHeightDp) {
                 gameRunning = false
-                Log.d("JorisJump", "Game Over - Fell off. Score: $score")
+                Log.d("JorisJump", "Game Over - Fell off. Final Score: $score")
             }
 
             delay(16)
         }
     }
 
-
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF87CEEB))
     ) {
-        if (!playerInitialized && this.maxWidth > 0.dp && this.maxHeight > 0.dp) {
+        if (!playerAndScreenInitialized && this.maxWidth > 0.dp && this.maxHeight > 0.dp) {
             screenWidthDp = this.maxWidth.value
             screenHeightDp = this.maxHeight.value
-            Log.d("JorisJump", "BoxWithConstraints: Initializing with Screen $screenWidthDp x $screenHeightDp")
-            performGameReset() // Use the reset function for initial setup
-            playerInitialized = true
+            performGameReset()
+            playerAndScreenInitialized = true
         }
 
-        if (playerInitialized) {
+        if (playerAndScreenInitialized) {
+            // Draw Platforms (adjust Y by totalScrollOffsetDp for on-screen position)
             platforms.forEach { platform ->
                 Box(
                     modifier = Modifier
-                        .absoluteOffset(x = platform.x.dp, y = platform.y.dp)
+                        .absoluteOffset(
+                            x = platform.x.dp,
+                            y = (platform.y - totalScrollOffsetDp).dp
+                        )
                         .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp)
                         .background(Color.DarkGray)
                 )
             }
 
+            // Draw Player (adjust Y by totalScrollOffsetDp for on-screen position)
             Box(
                 modifier = Modifier
-                    .absoluteOffset(x = playerXPositionDp.dp, y = playerYPositionDp.dp)
+                    .absoluteOffset(
+                        x = playerXPositionScreenDp.dp,
+                        y = (playerYPositionWorldDp - totalScrollOffsetDp).dp
+                    )
                     .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
                     .background(Color.Green)
             ) {
                 Text("J", color = Color.Black, modifier = Modifier.align(Alignment.Center))
             }
 
+            // Score Text
             Text(
                 "Score: $score",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.Black,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 8.dp)
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
             )
 
+            // Game Over UI
             if (!gameRunning) {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
@@ -294,21 +283,20 @@ fun JorisJumpScreen() {
                     Button(onClick = {
                         Log.d("JorisJump", "Restart button clicked.")
                         performGameReset()
-                        // playerInitialized stays true, gameRunning becomes true via performGameReset
-                    }) {
-                        Text("Restart Game")
-                    }
+                    }) { Text("Restart Game") }
                 }
             }
         }
 
+        // Debug Info Column
         Column(modifier = Modifier.align(Alignment.TopStart).padding(8.dp).background(Color.Black.copy(alpha = 0.3f))) {
-            Text("PlayerX: ${"%.1f".format(playerXPositionDp)} | TiltX: ${"%.2f".format(rawTiltXForDebug)}", color = Color.White)
-            Text("PlayerY: ${"%.1f".format(playerYPositionDp)} | Vy: ${"%.1f".format(playerVelocityY)}", color = Color.White)
-            Text("Scrn: ${"%.0f".format(screenWidthDp)}x${"%.0f".format(screenHeightDp)} | HighestY: ${"%.0f".format(highestYPlayerReachedInWorld)}", color = Color.White)
+            Text("PlayerX(scr): ${"%.1f".format(playerXPositionScreenDp)} | TiltX: ${"%.2f".format(rawTiltXForDebug)}", color = Color.White, fontSize = 10.sp)
+            Text("PlayerY(world): ${"%.1f".format(playerYPositionWorldDp)} | PlayerY(scr): ${"%.1f".format(playerYPositionWorldDp - totalScrollOffsetDp)} | Vy: ${"%.1f".format(playerVelocityY)}", color = Color.White, fontSize = 10.sp)
+            Text("ScrollOffset: ${"%.1f".format(totalScrollOffsetDp)}", color = Color.White, fontSize = 10.sp)
+            Text("Scrn: ${"%.0f".format(screenWidthDp)}x${"%.0f".format(screenHeightDp)}", color = Color.White, fontSize = 10.sp)
             Text(if (gameRunning) "Running" else "Game Over", color = if (gameRunning) Color.Green else Color.Red, fontSize = 10.sp)
-            Text("Platforms: ${platforms.size}", color = Color.White, fontSize = 10.sp)
-            if (accelerometer == null) Text("ACCEL N/A!", color = Color.Red)
+            Text("Platforms: ${platforms.size} | NextID: $nextPlatformId", color = Color.White, fontSize = 10.sp)
+            if (accelerometer == null) Text("ACCEL N/A!", color = Color.Red, fontSize = 10.sp)
         }
     }
 }
@@ -321,20 +309,31 @@ fun JorisJumpScreenPreview() {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .offset(y = (-20).dp)
+                    .offset(y = (-70).dp) // Approx player position on screen
                     .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
                     .background(Color.Green)
             ) { Text("J", color = Color.Black, modifier = Modifier.align(Alignment.Center)) }
+
+            // Approx first platform on screen
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .offset(y = (-20 - PLATFORM_HEIGHT_DP - 5).dp)
+                    .offset(y = (-70 + PLAYER_HEIGHT_DP + 5).dp) // Below player
                     .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp)
                     .background(Color.DarkGray)
             )
+            // Approx second platform higher up on screen
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .offset(y = (-150).dp, x = 30.dp)
+                    .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp)
+                    .background(Color.DarkGray)
+            )
+
             Text("Score: 0", style = MaterialTheme.typography.headlineSmall, color = Color.Black,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
-            Text("Preview (No Logic)", modifier = Modifier.align(Alignment.Center).padding(16.dp), color = Color.Black)
+            Text("Preview (No Dynamic Logic)", modifier = Modifier.align(Alignment.Center).padding(16.dp), color = Color.Black)
         }
     }
 }

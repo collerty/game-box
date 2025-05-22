@@ -113,8 +113,8 @@ fun HostLobbyScreen(
                             )
                             "ohpardon" -> mapOf(
                                 "currentPlayer" to startingPlayerUid,
-                                "scores" to emptyMap<String, Int>(),
-                                "gameResult" to null
+                                "gameResult" to null,
+                                "diceRoll" to 0
                             )
                             else -> emptyMap()
                         }

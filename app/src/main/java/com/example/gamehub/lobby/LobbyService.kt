@@ -48,13 +48,18 @@ object LobbyService {
             "status" to "waiting",
             "players" to listOf(
                 if (gameId == "ohpardon")
-                    mapOf("uid" to hostUid, "name" to hostName, "color" to selectedColor)
+                    mapOf("uid" to hostUid, "name" to hostName, "color" to selectedColor, "pawns" to mapOf(
+                        "pawn0" to -1,
+                        "pawn1" to -1,
+                        "pawn2" to -1,
+                        "pawn3" to -1
+                        ))
                 else
                     mapOf("uid" to hostUid, "name" to hostName)
             ),
             "gameState" to initialGameState,
             "rematchVotes" to emptyMap<String, Boolean>(),
-            "createdAt" to FieldValue.serverTimestamp()
+            "createdAt" to FieldValue.serverTimestamp(),
         )
 
         rooms.document(code).set(roomData).await()
@@ -89,7 +94,12 @@ object LobbyService {
         }
 
         val playerData = if (gameId == "ohpardon")
-            mapOf("uid" to user.uid, "name" to userName, "color" to selectedColor)
+            mapOf("uid" to user.uid, "name" to userName, "color" to selectedColor, "pawns" to mapOf(
+                "pawn0" to -1,
+                "pawn1" to -1,
+                "pawn2" to -1,
+                "pawn3" to -1
+            ))
         else
             mapOf("uid" to user.uid, "name" to userName)
 

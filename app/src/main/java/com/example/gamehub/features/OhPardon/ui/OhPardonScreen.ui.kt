@@ -1,8 +1,7 @@
 package com.example.gamehub.features.ohpardon.ui
 
-import android.content.Context
-import android.hardware.Sensor
-import android.hardware.SensorManager
+import android.app.Application
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,14 +11,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
-import com.example.gamehub.features.ohpardon.classes.DiceRoll
-import com.example.gamehub.features.ohpardon.classes.ShakeDetector
 import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.example.gamehub.R
+import com.example.gamehub.features.ohpardon.OhPardonViewModel
+import com.example.gamehub.features.ohpardon.OhPardonViewModelFactory
+
+
 
 @Composable
 fun OhPardonScreen(
@@ -28,79 +32,157 @@ fun OhPardonScreen(
     userName: String
 ) {
     val context = LocalContext.current
-    val sensorManager = remember {
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    }
+    val application = context.applicationContext as Application
 
-    val accelerometer = remember {
-        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    }
+    val viewModel: OhPardonViewModel = viewModel(
+        factory = OhPardonViewModelFactory(application, code)
+    )
 
-    val diceRoll = remember { DiceRoll() }
-    var diceResult by remember { mutableStateOf<Int?>(null) }
+    val gameRoom by viewModel.gameRoom.collectAsState()
+    val currentDiceRoll = gameRoom?.gameState?.diceRoll
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Define the shake detector with the dice logic
-    val shakeDetector = remember {
-        ShakeDetector {
-            diceResult = diceRoll.roll()
+    var selectedPawnId by remember { mutableStateOf<Int?>(null) }
+
+    // Debugging logs
+    LaunchedEffect(gameRoom) {
+        Log.d("OhPardonScreen", "GameRoom updated: $gameRoom")
+        gameRoom?.let {
+            Log.d("OhPardonScreen", "Current turn UID: ${it.gameState.currentTurnUid}")
+            Log.d("OhPardonScreen", "Players count: ${it.players.size}")
         }
     }
 
-    // Handle sensor lifecycle registration
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> {
-                    sensorManager.registerListener(shakeDetector, accelerometer, SensorManager.SENSOR_DELAY_UI)
-                }
-                Lifecycle.Event.ON_PAUSE -> {
-                    sensorManager.unregisterListener(shakeDetector)
-                }
+                Lifecycle.Event.ON_RESUME -> viewModel.registerShakeListener()
+                Lifecycle.Event.ON_PAUSE -> viewModel.unregisterShakeListener()
                 else -> {}
             }
         }
 
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            sensorManager.unregisterListener(shakeDetector)
+            viewModel.unregisterShakeListener()
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
-    // UI
+    // ImageLoader for SVGs
+    val imageLoader = ImageLoader.Builder(context)
+        .components { add(SvgDecoder.Factory()) }
+        .build()
+
+    val painter = rememberAsyncImagePainter(
+        model = ImageRequest.Builder(context)
+            .data("android.resource://${context.packageName}/${R.raw.ohpardon_board}")
+            .crossfade(true)
+            .build(),
+        imageLoader = imageLoader
+    )
+
+    fun colorToString(color: Color): String {
+        return when (color) {
+            Color.Red -> "Red"
+            Color.Green -> "Green"
+            Color.Blue -> "Blue"
+            Color.Yellow -> "Yellow"
+            else -> "Unknown"
+        }
+    }
+    Log.d("Username", userName)
+
     Scaffold { padding ->
-        Box(
-            Modifier
+        Column(
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            val context = LocalContext.current
-
-            // Use an image loader that supports SVG
-            val imageLoader = ImageLoader.Builder(context)
-                .components {
-                    add(SvgDecoder.Factory())
-                }
-                .build()
-
-
-            val painter = rememberAsyncImagePainter(
-                model = ImageRequest.Builder(context)
-                    .data("android.resource://${context.packageName}/${R.raw.ohpardon_board}")
-                    .crossfade(true)
-                    .build(),
-                imageLoader = imageLoader
-            )
-
+            // Board Image
             Image(
                 painter = painter,
                 contentDescription = "Game Board",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f) // Square
+                    .aspectRatio(1f)
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (gameRoom != null) {
+                val currentPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+
+                if (currentPlayer != null) {
+                    Text(
+                        text = "It's ${currentPlayer.name}'s turn!",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    gameRoom!!.gameState.diceRoll?.let {
+                        Text(
+                            text = "${currentPlayer.name} rolled a $it!",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+
+                    // Pawn selection buttons - only show if it's the current player's turn
+                    if (currentPlayer.name == userName) { // Assuming userName is the current user's ID
+                        Text("Select a Pawn to Move:", style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            (0..3).forEach { pawnId ->
+                                Button(
+                                    onClick = { selectedPawnId = pawnId },
+                                    colors = if (selectedPawnId == pawnId)
+                                        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    else
+                                        ButtonDefaults.buttonColors(),
+                                    enabled = currentDiceRoll != null // Only enable if dice has been rolled
+                                ) {
+                                    Text("Pawn $pawnId")
+                                }
+                            }
+                        }
+
+                        // Move button
+                        selectedPawnId?.let {
+                            Button(
+                                onClick = {
+                                    viewModel.attemptMovePawn(
+                                        gameRoom!!.gameState.currentTurnUid,
+                                        it.toString()
+                                    )
+                                    selectedPawnId = null
+                                },
+                                modifier = Modifier.padding(top = 8.dp),
+                                enabled = currentDiceRoll != null
+                            ) {
+                                Text("Move Selected Pawn")
+                            }
+                        }
+                    }
+                }
+
+                // Debug info - show all players
+                gameRoom!!.players.forEach { player ->
+                    Text(text = player.name, style = MaterialTheme.typography.titleMedium)
+                    Text(text = "Color: ${colorToString(player.color)}")
+                    Text(text = "Pawns:")
+                    player.pawns.forEachIndexed { index, pawn ->
+                        Text(text = "Pawn $index: ${pawn.position}")
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            } else {
+                CircularProgressIndicator()
+                Text("Loading game data...")
+            }
         }
     }
 }

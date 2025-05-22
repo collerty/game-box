@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/gamehub/ui/HostLobbyScreen.kt
 package com.example.gamehub.ui
 
 import android.net.Uri
@@ -9,9 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.gamehub.navigation.NavRoutes
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import kotlinx.coroutines.launch
 
 @Composable
 fun HostLobbyScreen(
@@ -27,46 +26,51 @@ fun HostLobbyScreen(
     var status     by remember { mutableStateOf("waiting") }
     var hostName   by remember { mutableStateOf<String?>(null) }
 
-    // 1) Listen for room updates
-    LaunchedEffect(roomId) {
-        db.collection("rooms").document(roomId)
-            .addSnapshotListener { snap, _ ->
-                if (snap == null || !snap.exists()) {
-                    navController.popBackStack()
-                } else {
-                    // Pull status & maxPlayers
-                    status     = snap.getString("status") ?: "waiting"
-                    maxPlayers = snap.getLong("maxPlayers")?.toInt() ?: 0
+    // 1️⃣ Live‐update listener tied to this screen’s lifecycle
+    DisposableEffect(roomId) {
+        val ref = db.collection("rooms").document(roomId)
+        val listener: ListenerRegistration = ref.addSnapshotListener { snap, _ ->
+            if (snap == null || !snap.exists()) {
+                // Room deleted or invalid
+                navController.popBackStack()
+            } else {
+                // Update room status & capacity
+                status     = snap.getString("status") ?: "waiting"
+                maxPlayers = snap.getLong("maxPlayers")?.toInt() ?: 0
 
-                    // Pull list of player‐names
-                    val raw = snap.get("players") as? List<Map<String, Any>>
-                    players = raw?.mapNotNull { it["name"] as? String } ?: emptyList()
+                // Re-extract the players array on every update
+                val raw = snap.get("players") as? List<*>
+                players = raw
+                    ?.mapNotNull { (it as? Map<*, *>)?.get("name") as? String }
+                    ?: emptyList()
 
-                    // The host is the first player in that list (if any)
-                    hostName = players.firstOrNull()
-                }
+                // Host is the first in that list
+                hostName = players.firstOrNull()
             }
+        }
+        onDispose { listener.remove() }
     }
 
-    // 2) Navigate to vote when status flips to “started”
+    // 2️⃣ When status flips to “started”, send the host into the VOTE screen (not play)
     LaunchedEffect(status, hostName) {
-        val name = hostName ?: return@LaunchedEffect
         if (status == "started") {
+            val name = hostName ?: return@LaunchedEffect
             val route = when (gameId) {
-                "battleships" -> NavRoutes.BATTLE_VOTE
+                "battleships" -> NavRoutes.BATTLE_VOTE   // vote, not play :contentReference[oaicite:2]{index=2}
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
                 else          -> null
             }
             route?.let {
                 navController.navigate(
-                    it.replace("{code}", roomId)
+                    it
+                        .replace("{code}", roomId)
                         .replace("{userName}", Uri.encode(name))
                 )
             }
         }
     }
 
-    // 3) UI: show room info & Start button
+    // 3️⃣ UI: show room code, dynamic players list, and a “Start Game” button
     Scaffold { padding ->
         Column(
             Modifier
@@ -77,14 +81,20 @@ fun HostLobbyScreen(
         ) {
             Text("Room ID: $roomId", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))
+
             Text("Players (${players.size}/$maxPlayers):")
             players.forEach { Text("• $it") }
             Spacer(Modifier.height(24.dp))
-            Button(onClick = {
-                // Host clicks “Start”
-                db.collection("rooms").document(roomId)
-                    .update("status", "started")
-            }) {
+
+            Button(
+                onClick = {
+                    // Host starts the match
+                    db.collection("rooms")
+                        .document(roomId)
+                        .update("status", "started")
+                },
+                enabled = players.size >= maxPlayers   // only when full
+            ) {
                 Text("Start Game")
             }
         }

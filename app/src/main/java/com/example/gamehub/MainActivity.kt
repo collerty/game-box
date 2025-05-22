@@ -104,7 +104,7 @@ fun GameHubApp() {
             ) { backStack ->
                 val code     = backStack.arguments?.getString("code")     ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
-                MapVoteScreen(navController, code, userName)
+                MapVoteScreen(navController, code,  userName)
             }
 
             // Play screen

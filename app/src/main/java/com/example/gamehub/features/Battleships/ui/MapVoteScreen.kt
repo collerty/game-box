@@ -1,7 +1,7 @@
 package com.example.gamehub.features.battleships.ui
 
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -11,136 +11,117 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import com.example.gamehub.features.battleships.model.MapRepository
-import com.example.gamehub.lobby.FirestoreSession
-import com.example.gamehub.lobby.codec.BattleshipsCodec
-import com.example.gamehub.lobby.codec.BattleshipsState
 import com.example.gamehub.navigation.NavRoutes
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
-import kotlinx.coroutines.delay
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.launch
-import kotlin.random.Random
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun MapVoteScreen(
-    navController: NavController,
+    navController: NavHostController,
     code: String,
     userName: String
 ) {
-    val session = remember { FirestoreSession(code, BattleshipsCodec) }
-    val state by session.stateFlow.collectAsState(
-        initial = BattleshipsState("", emptyList(), null)
-    )
+    val db      = FirebaseFirestore.getInstance()
+    val roomRef = remember { db.collection("rooms").document(code) }
+    val scope   = rememberCoroutineScope()
+    val meUid   = FirebaseAuth.getInstance().uid ?: return
 
-    val db = Firebase.firestore
-    val roomDoc = remember { db.collection("rooms").document(code) }
-    val scope = rememberCoroutineScope()
+    // Live mapVotes listener
+    var mapVotes by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    DisposableEffect(code) {
+        val lis: ListenerRegistration = roomRef.addSnapshotListener { snap, _ ->
+            val gs = snap?.get("gameState") as? Map<*, *>
+            val bm = gs?.get("battleships") as? Map<*, *>
+            @Suppress("UNCHECKED_CAST")
+            val raw = bm?.get("mapVotes") as? Map<String, Number>
+            mapVotes = raw?.mapValues { it.value.toInt() } ?: emptyMap()
+        }
+        onDispose { lis.remove() }
+    }
 
-    var selectedLocal by remember { mutableStateOf<Int?>(null) }
-    var hasVoted      by remember { mutableStateOf(false) }
-    var timeLeft      by remember { mutableStateOf(60) }
+    // Local selection & lock state
+    var selectedMap by remember { mutableStateOf<Int?>(null) }
+    var hasVoted    by remember { mutableStateOf(false) }
 
-    // Countdown / auto-vote
-    LaunchedEffect(timeLeft, hasVoted) {
-        if (timeLeft > 0 && !hasVoted) {
-            delay(1_000L)
-            timeLeft--
-        } else if (timeLeft == 0 && !hasVoted) {
-            val autoPick = Random.nextInt(MapRepository.allMaps.size)
-            roomDoc.update("gameState.battleships.mapVotes.$userName", autoPick)
+    fun doVote() {
+        selectedMap?.let { choice ->
             hasVoted = true
+            scope.launch {
+                roomRef
+                    .update("gameState.battleships.mapVotes.$meUid", choice)
+                    .await()
+            }
         }
     }
 
-    // Tally votes & set chosenMap
-    LaunchedEffect(state.mapVotes) {
-        if (state.mapVotes.containsKey(userName)) {
-            hasVoted = true
-        }
-        if (state.mapVotes.size == 2 && state.chosenMap == null) {
-            val votes  = state.mapVotes.values.toList()
-            val chosen = if (votes[0] == votes[1]) votes[0]
-            else Random.nextInt(MapRepository.allMaps.size)
-            roomDoc.update("gameState.battleships.chosenMap", chosen)
-        }
+    // Determine votes
+    val opponentUid = mapVotes.keys.firstOrNull { it != meUid }
+    val myVote      = mapVotes[meUid]
+    val oppVote     = opponentUid?.let { mapVotes[it] }
+
+    // Once both have voted, navigate to placement using NavRoutes.BATTLE_PLACE
+    if (mapVotes.size == 2 && myVote != null && oppVote != null) {
+        val route = NavRoutes.BATTLE_PLACE
+            .replace("{code}", code)
+            .replace("{userName}", Uri.encode(userName))
+            .replace("{mapId}", myVote.toString())
+        navController.navigate(route)
+        return
     }
 
-    // Navigate once map is chosen
-    LaunchedEffect(state.chosenMap) {
-        state.chosenMap?.let { mapId ->
-            navController.navigate(
-                NavRoutes.BATTLE_PLACE
-                    .replace("{code}", code)
-                    .replace("{userName}", userName)
-                    .replace("{mapId}", mapId.toString())
-            )
-        }
-    }
-
-    val opponentName = state.mapVotes.keys.firstOrNull { it != userName }
-    val myVoteId     = state.mapVotes[userName]
-    val oppVoteId    = opponentName?.let { state.mapVotes[it] }
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text(
             text = when {
-                !hasVoted && oppVoteId != null ->
-                    "Opponent picked: ${
-                        MapRepository.allMaps.first { it.id == oppVoteId }.name
-                    }\nYour turn to vote ($timeLeft s)"
-                !hasVoted -> "Choose map ( $timeLeft s )"
-                else      -> "Waiting for opponent…"
+                !hasVoted && oppVote != null ->
+                    "Opponent voted for ${
+                        MapRepository.allMaps.first { it.id == oppVote }.name
+                    }\nYour turn to pick"
+                !hasVoted ->
+                    "Choose a map and press Vote"
+                else ->
+                    "Waiting for opponent to vote…"
             },
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleLarge
         )
-
-        Spacer(Modifier.height(8.dp))
-
-        if (oppVoteId != null) {
-            val oppMap = MapRepository.allMaps.first { it.id == oppVoteId }
-            Text("Opponent chose: ${oppMap.name}", style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(8.dp))
-        }
+        Spacer(Modifier.height(12.dp))
 
         LazyVerticalGrid(
-            columns              = GridCells.Fixed(2),
-            modifier             = Modifier.weight(1f),
-            horizontalArrangement= Arrangement.spacedBy(16.dp),
-            verticalArrangement  = Arrangement.spacedBy(16.dp)
+            columns               = GridCells.Fixed(2),
+            modifier              = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement   = Arrangement.spacedBy(12.dp)
         ) {
             items(MapRepository.allMaps) { mapDef ->
-                val isMine   = if (!hasVoted) selectedLocal == mapDef.id else myVoteId == mapDef.id
-                val isTheirs = hasVoted && oppVoteId == mapDef.id
                 val border = when {
-                    isMine   -> BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
-                    isTheirs -> BorderStroke(3.dp, MaterialTheme.colorScheme.secondary)
-                    else     -> null
+                    !hasVoted && selectedMap == mapDef.id ->
+                        BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
+                    hasVoted && myVote == mapDef.id ->
+                        BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
+                    oppVote == mapDef.id ->
+                        BorderStroke(3.dp, MaterialTheme.colorScheme.secondary)
+                    else -> null
                 }
 
                 Card(
                     border   = border,
                     modifier = Modifier
                         .aspectRatio(1f)
-                        .then(if (!hasVoted) Modifier.clickable { selectedLocal = mapDef.id } else Modifier)
-                ) {
-                    Column(
-                        Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Image(
-                            painter            = painterResource(mapDef.thumbnailRes),
-                            contentDescription = mapDef.name,
-                            modifier           = Modifier.weight(1f)
+                        .then(
+                            if (!hasVoted) Modifier.clickable { selectedMap = mapDef.id }
+                            else Modifier
                         )
-                        Text(mapDef.name, style = MaterialTheme.typography.bodyMedium)
+                ) {
+                    Box(
+                        Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(mapDef.name, style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }
@@ -148,19 +129,13 @@ fun MapVoteScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        Button(
-            onClick = {
-                selectedLocal?.let { pick ->
-                    scope.launch {
-                        roomDoc.update("gameState.battleships.mapVotes.$userName", pick)
-                    }
-                    hasVoted = true
-                }
-            },
-            enabled = !hasVoted && selectedLocal != null,
-            modifier= Modifier.fillMaxWidth()
-        ) {
-            Text("Vote")
+        if (!hasVoted && selectedMap != null) {
+            Button(
+                onClick = { doVote() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Vote")
+            }
         }
     }
 }

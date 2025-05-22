@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -13,26 +14,38 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-// import androidx.compose.ui.platform.LocalDensity // Not strictly needed for this version
-import androidx.compose.ui.tooling.preview.Preview // For Composable Previews
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+
 
 // Constants for the game
-private const val PLAYER_WIDTH_DP = 40
-private const val PLAYER_HEIGHT_DP = 60
-// IMPORTANT: You WILL need to test and adjust this sensitivity and the +/- sign in onSensorChanged
-private const val ACCELEROMETER_SENSITIVITY = 4.0f // Start with this, adjust as needed
+private const val PLAYER_WIDTH_DP = 40f // Use Float for consistency
+private const val PLAYER_HEIGHT_DP = 60f
+private const val ACCELEROMETER_SENSITIVITY = 4.0f // You found this works well
+private const val GRAVITY = 0.4f // Adjusted gravity slightly
+private const val INITIAL_JUMP_VELOCITY = -11f // Adjusted jump velocity
+private const val PLATFORM_HEIGHT_DP = 15f
+private const val PLATFORM_WIDTH_DP = 70f
+
+data class PlatformState(
+    val id: Int,
+    var x: Float, // Dp from left
+    var y: Float  // Dp from top
+)
 
 @Composable
 fun JorisJumpScreen() {
     val context = LocalContext.current
-    // val density = LocalDensity.current // Can be useful for px conversions, not strictly needed here
 
-    // Player's absolute horizontal position from the left edge of the screen, in Dp
     var playerXPositionDp by remember { mutableStateOf(0f) }
-    var playerInitialized by remember { mutableStateOf(false) } // To set initial position once
+    var playerYPositionDp by remember { mutableStateOf(0f) }
+    var playerVelocityY by remember { mutableStateOf(0f) }
+    var playerInitialized by remember { mutableStateOf(false) }
 
-    // --- SENSOR SETUP ---
+    var platforms by remember { mutableStateOf<List<PlatformState>>(emptyList()) }
+    var gameRunning by remember { mutableStateOf(true) }
+
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
@@ -40,164 +53,172 @@ fun JorisJumpScreen() {
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     }
 
-    // This will hold the screen width in Dp once BoxWithConstraints provides it
     var screenWidthDp by remember { mutableStateOf(0f) }
-    var rawTiltXForDebug by remember { mutableStateOf(0f) } // For debugging tilt values
+    var screenHeightDpState by remember { mutableStateOf(0f) } // For game over check
+    var rawTiltXForDebug by remember { mutableStateOf(0f) }
 
     DisposableEffect(accelerometer, screenWidthDp, playerInitialized) {
-        // If accelerometer is not available, set up a no-op listener or simply log
-        // but ensure onDispose is still returned.
         if (accelerometer == null) {
-            // Optional: Log or show a more prominent message if accelerometer is critical
-            // For now, the Text composable below handles visual feedback
-            onDispose { } // Return the onDispose block even if no listener is registered
-            // No return@DisposableEffect here, let it fall through to the onDispose at the end
-            // OR, if you want to strictly do nothing more:
-            // return@DisposableEffect onDispose { } // This is the fix!
+            Log.e("JorisJump", "Accelerometer not available!")
+            return@DisposableEffect onDispose {}
         }
-
-        // If accelerometer is null, we actually don't want to proceed to register a listener
-        // So the return@DisposableEffect onDispose { } is the correct pattern
-        if (accelerometer == null) {
-            return@DisposableEffect onDispose {
-                // Nothing to unregister if accelerometer was null
-            }
-        }
-
 
         val sensorEventListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
-                // Only process sensor data if player & screen width are initialized
-                if (!playerInitialized || screenWidthDp == 0f) return
+                if (!playerInitialized || screenWidthDp == 0f || !gameRunning) return
 
                 event?.let {
                     if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                        val tiltX = it.values[0] // Raw accelerometer X value
-                        rawTiltXForDebug = tiltX // Update debug value
+                        val tiltX = it.values[0]
+                        rawTiltXForDebug = tiltX
 
-                        // --- PLAYER MOVEMENT LOGIC ---
-                        // This is the CRITICAL part to test and adjust based on your device.
-                        // Goal: Tilt phone left -> player moves left on screen.
-                        //       Tilt phone right -> player moves right on screen.
-
-                        // Scenario 1: If tilting left gives POSITIVE tiltX values (common)
-                        // To move left (decrease X) when tiltX is positive:
+                        // Assuming positive tiltX for left physical tilt makes player move left (decrease X)
                         playerXPositionDp -= tiltX * ACCELEROMETER_SENSITIVITY
 
-                        // Scenario 2: If tilting left gives NEGATIVE tiltX values
-                        // To move left (decrease X) when tiltX is negative:
-                        // playerXPositionDp += tiltX * ACCELEROMETER_SENSITIVITY // (e.g. X += (-5) * 2 = X - 10)
 
-                        // **CHOOSE ONE of the above lines based on your testing.**
-                        // **Comment out the one that doesn't work for your device.**
-
-
-                        // Screen wrapping logic
-                        // Player's right edge is (playerXPositionDp + PLAYER_WIDTH_DP)
-                        // Player's left edge is playerXPositionDp
-
-                        // If player moves completely off the left edge
                         if ((playerXPositionDp + PLAYER_WIDTH_DP) < 0) {
-                            playerXPositionDp = screenWidthDp // Place player's left edge at the screen's right edge
-                        }
-                        // If player moves completely off the right edge
-                        else if (playerXPositionDp > screenWidthDp) {
-                            playerXPositionDp = 0f - PLAYER_WIDTH_DP // Place player's right edge at the screen's left edge
+                            playerXPositionDp = screenWidthDp
+                        } else if (playerXPositionDp > screenWidthDp) {
+                            playerXPositionDp = 0f - PLAYER_WIDTH_DP
                         }
                     }
                 }
             }
 
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                // Not typically used for simple accelerometer games
-            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
 
-        sensorManager.registerListener(
-            sensorEventListener,
-            accelerometer, // This is safe now due to the null check above
-            SensorManager.SENSOR_DELAY_GAME // Good update rate for games
-        )
+        sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+        onDispose { sensorManager.unregisterListener(sensorEventListener) }
+    }
 
-        onDispose {
-            sensorManager.unregisterListener(sensorEventListener)
+    // Game Loop
+    LaunchedEffect(gameRunning, playerInitialized) { // Re-evaluate if gameRunning or playerInitialized changes
+        if (!gameRunning || !playerInitialized) return@LaunchedEffect // Only run if game is active and player is set
+
+        while (gameRunning) {
+            playerVelocityY += GRAVITY
+            playerYPositionDp += playerVelocityY
+
+            val playerBottom = playerYPositionDp + PLAYER_HEIGHT_DP
+            val playerRight = playerXPositionDp + PLAYER_WIDTH_DP
+
+            var landedOnPlatformThisFrame = false
+            platforms.forEach { platform ->
+                val platformTop = platform.y
+                val platformBottom = platform.y + PLATFORM_HEIGHT_DP
+                val platformLeft = platform.x
+                val platformRight = platform.x + PLATFORM_WIDTH_DP
+
+                // Collision check: Player is falling AND player's feet are within platform's Y range AND player's X overlaps platform's X
+                if (playerVelocityY > 0 && // Must be falling
+                    playerBottom >= platformTop && playerYPositionDp < platformTop && // Player's feet crossed the platform top this frame
+                    playerRight > platformLeft && playerXPositionDp < platformRight // Player X overlaps
+                ) {
+                    playerYPositionDp = platformTop - PLAYER_HEIGHT_DP // Snap to top
+                    playerVelocityY = INITIAL_JUMP_VELOCITY      // Jump!
+                    landedOnPlatformThisFrame = true
+                    // In a real game, you might play a sound or add score here
+                }
+            }
+
+            if (screenHeightDpState > 0f && playerYPositionDp > screenHeightDpState) {
+                gameRunning = false // Stop the game
+                Log.d("JorisJump", "Game Over - Fell off bottom")
+            }
+
+            delay(16) // ~60 FPS
         }
     }
-    // --- END SENSOR SETUP ---
 
-    BoxWithConstraints( // This Composable gives us the actual screen dimensions (maxWidth, maxHeight in Dp)
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF87CEEB)) // A nice sky blue color
+            .background(Color(0xFF87CEEB))
     ) {
-        // Initialize player position and screenWidthDp once after BoxWithConstraints provides dimensions
-        if (!playerInitialized && this.maxWidth > 0.dp) { // Check if maxWidth is available
-            screenWidthDp = this.maxWidth.value // Convert Dp to Float for calculations
-            playerXPositionDp = (screenWidthDp / 2) - (PLAYER_WIDTH_DP / 2) // Center the player initially
+        if (!playerInitialized && this.maxWidth > 0.dp && this.maxHeight > 0.dp) {
+            screenWidthDp = this.maxWidth.value
+            screenHeightDpState = this.maxHeight.value
+
+            playerXPositionDp = (screenWidthDp / 2) - (PLAYER_WIDTH_DP / 2)
+            playerYPositionDp = screenHeightDpState - PLAYER_HEIGHT_DP - PLATFORM_HEIGHT_DP - 5f // Start on a platform
+            playerVelocityY = INITIAL_JUMP_VELOCITY // Start with an initial jump
+
+            platforms = listOf(
+                PlatformState(id = 0, x = (screenWidthDp / 2) - (PLATFORM_WIDTH_DP / 2), y = screenHeightDpState - PLATFORM_HEIGHT_DP - 5f),
+                PlatformState(id = 1, x = (screenWidthDp * 0.2f), y = screenHeightDpState - (PLATFORM_HEIGHT_DP * 6) - 5f), // Platforms higher up
+                PlatformState(id = 2, x = (screenWidthDp * 0.7f), y = screenHeightDpState - (PLATFORM_HEIGHT_DP * 12) - 5f),
+                PlatformState(id = 3, x = (screenWidthDp * 0.4f), y = screenHeightDpState - (PLATFORM_HEIGHT_DP * 18) - 5f)
+            )
             playerInitialized = true
+            Log.d("JorisJump", "Player and platforms initialized. Screen: $screenWidthDp x $screenHeightDpState")
         }
 
-        // Only draw the player if it has been initialized
         if (playerInitialized) {
+            platforms.forEach { platform ->
+                Box(
+                    modifier = Modifier
+                        .absoluteOffset(x = platform.x.dp, y = platform.y.dp)
+                        .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp)
+                        .background(Color.DarkGray)
+                )
+            }
+
             Box(
                 modifier = Modifier
-                    // Use .absoluteOffset for positioning from top-left in Dp
-                    // Y position is fixed near the bottom for now
-                    .absoluteOffset(x = playerXPositionDp.dp, y = this.maxHeight - PLAYER_HEIGHT_DP.dp - 20.dp)
+                    .absoluteOffset(x = playerXPositionDp.dp, y = playerYPositionDp.dp)
                     .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
                     .background(Color.Green)
             ) {
                 Text("J", color = Color.Black, modifier = Modifier.align(Alignment.Center))
             }
+
+            if (!gameRunning) {
+                Text(
+                    "GAME OVER",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.Red,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
 
-        // Debugging Text - very helpful during development
         Column(modifier = Modifier.align(Alignment.TopStart).padding(8.dp).background(Color.Black.copy(alpha = 0.3f))) {
-            Text(
-                text = "PlayerX (Dp): ${"%.1f".format(playerXPositionDp)}",
-                color = Color.White
-            )
-            Text(
-                text = "ScreenWidth (Dp): ${"%.1f".format(screenWidthDp)}",
-                color = Color.White
-            )
-            Text(
-                text = "Raw Tilt X: ${"%.2f".format(rawTiltXForDebug)}",
-                color = Color.White
-            )
+            Text("PlayerX: ${"%.1f".format(playerXPositionDp)} | TiltX: ${"%.2f".format(rawTiltXForDebug)}", color = Color.White)
+            Text("PlayerY: ${"%.1f".format(playerYPositionDp)} | Vy: ${"%.1f".format(playerVelocityY)}", color = Color.White)
+            Text("ScreenW: ${"%.0f".format(screenWidthDp)} | ScreenH: ${"%.0f".format(screenHeightDpState)}", color = Color.White)
+            Text(if (gameRunning) "Running" else "Game Over", color = if (gameRunning) Color.Green else Color.Red)
             if (accelerometer == null) {
-                Text(
-                    text = "ACCELEROMETER NOT AVAILABLE!",
-                    color = Color.Red,
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Text("ACCELEROMETER N/A!", color = Color.Red)
             }
         }
     }
 }
 
-// It's good practice to add a @Preview Composable for easy UI checking in Android Studio
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun JorisJumpScreenPreview() {
-    // Since the actual screen uses sensors and BoxWithConstraints, a full preview is tricky.
-    // This preview will just show the basic layout without sensor interaction.
-    // You can mock sensor data for more complex previews if needed.
-    MaterialTheme { // Ensure a theme is applied for Material components
-        // JorisJumpScreen() // Calling the actual screen might not work well in preview due to context/sensor deps
-        // For a simple static preview:
+    MaterialTheme {
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFF87CEEB))) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .offset(y = (-20).dp) // Approximate position
+                    .offset(y = (-20).dp)
                     .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
                     .background(Color.Green)
             ) {
                 Text("J", color = Color.Black, modifier = Modifier.align(Alignment.Center))
             }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .offset(y = (-20-PLATFORM_HEIGHT_DP-5).dp, x= 0.dp) // Platform under J
+                    .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp)
+                    .background(Color.DarkGray)
+            )
             Text(
-                text = "Preview Mode (No Sensors)",
+                text = "Preview Mode (No Sensors/Logic)",
                 modifier = Modifier.align(Alignment.TopCenter).padding(16.dp),
                 color = Color.Black
             )

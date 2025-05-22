@@ -1,5 +1,5 @@
 package com.example.gamehub.lobby.model
 
 enum class PowerUp {
-    RADAR, BOMB, SHIELD
+    RADAR, BOMB, MINE
 }

@@ -7,7 +7,11 @@ data class GameSession(
     val currentTurn: String,
     val moves: List<Move>,
     val ships: Map<String, List<Ship>>,
-    val availablePowerUps: Map<String, List<PowerUp>>
+    val availablePowerUps: Map<String, List<PowerUp>>,
+    val energy: Map<String, Int> = emptyMap(),
+    val powerUpMoves: List<String> = emptyList(),
+    val mapVotes: Map<String, Int> = emptyMap(),
+    val chosenMap: Int? = null
 ) {
     companion object {
         fun empty(id: String) = GameSession(

@@ -17,5 +17,10 @@ data class BattleshipsState(
     // NEW: who voted for which map
     val mapVotes: Map<String, Int> = emptyMap(),
     // NEW: the chosen map ID once votes complete
-    val chosenMap: Int? = null
+    val chosenMap: Int? = null,
+
+    // NEW: per-player energy pool
+    val energy: Map<String, Int>               = emptyMap(),
+    // NEW: per-player list of unlocked power-ups
+    val availablePowerUps: Map<String, List<String>> = emptyMap()
 )

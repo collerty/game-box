@@ -5,10 +5,10 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.channels.awaitClose
 import java.util.UUID
 
 object LobbyService {
@@ -38,19 +38,21 @@ object LobbyService {
         }
 
         // --- INITIAL GAME STATE FOR BATTLESHIPS ---
-        val initialGameState = mapOf(
-            gameId to mapOf(
-                "player1Id"   to hostUid,
-                "player2Id"   to null,
-                "gameResult"  to null,
-                "currentTurn" to hostUid,
-                "moves"       to emptyList<String>(),
-                "powerUps"    to mapOf(hostUid to listOf("RADAR", "BOMB")),
-                "mapVotes"    to emptyMap<String, Int>(),
-                "chosenMap"   to null
-            )
+        // NOTE: we now nest everything under "battleships" instead of using `gameId` as a key
+        val initialEnergy   = mapOf(hostUid to 5)
+        val initialPowerUps = mapOf(hostUid to listOf("RADAR", "BOMB"))
+        val battleshipsState = mapOf(
+            "player1Id"    to hostUid,
+            "player2Id"    to null,
+            "gameResult"   to null,
+            "currentTurn"  to hostUid,
+            "moves"        to emptyList<String>(),
+            "powerUps"     to initialPowerUps,
+            "energy"       to initialEnergy,
+            "mapVotes"     to emptyMap<String, Int>(),
+            "chosenMap"    to null,
+            "powerUpMoves" to emptyList<String>()
         )
-
 
         val roomData = mapOf<String, Any?>(
             "gameId"       to gameId,
@@ -61,7 +63,8 @@ object LobbyService {
             "maxPlayers"   to maxPlayers,
             "status"       to "waiting",
             "players"      to listOf(mapOf("uid" to hostUid, "name" to hostName)),
-            "gameState"    to initialGameState,
+            // here we nest under "gameState.battleships"
+            "gameState"    to mapOf("battleships" to battleshipsState),
             "rematchVotes" to emptyMap<String, Boolean>(),
             "createdAt"    to FieldValue.serverTimestamp()
         )
@@ -84,29 +87,28 @@ object LobbyService {
         val expectedHash = snap.getLong("password")?.toInt()
         if (expectedHash != null && expectedHash != password?.hashCode()) return null
 
-        // pull gameId safely
         val gameIdValue = snap.getString("gameId") ?: return null
-
-        // enforce maxPlayers
         val maxPlayers     = snap.getLong("maxPlayers")?.toInt() ?: return null
         val currentPlayers = (snap.get("players") as? List<*>)?.size ?: 0
         if (currentPlayers >= maxPlayers) return null
 
-        // add to players list
+        // top‐level players list
         val playerData = mapOf("uid" to user.uid, "name" to userName)
-        // 1) Add the joiner to the top-level players list
-        // 2) If Battleships, also seed their power-ups
         val updates = mutableMapOf<String, Any>(
             "players" to FieldValue.arrayUnion(playerData)
         )
-        if (snap.getString("gameId") == "battleships") {
-            updates["gameState.battleships.powerUps.${user.uid}"] =
-                listOf("RADAR", "BOMB")
-        }
-        // Apply both updates in one shot
-        rooms.document(code).update(updates).await()   // :contentReference[oaicite:0]{index=0}
 
-        return snap.getString("gameId")
+        if (gameIdValue == "battleships") {
+            // Patch: set player2Id if not already set
+            if (snap.get("gameState.battleships.player2Id") == null) {
+                updates["gameState.battleships.player2Id"] = user.uid
+            }
+            updates["gameState.battleships.powerUps.${user.uid}"] = listOf("RADAR", "BOMB")
+            updates["gameState.battleships.energy.${user.uid}"]   = 5
+        }
+
+        rooms.document(code).update(updates).await()
+        return gameIdValue
     }
 
     /** Stream of public rooms for a given game */
@@ -149,25 +151,18 @@ object LobbyService {
             (it["uid"] as? String ?: "") to false
         }
 
+        // update only the nested battleships map
         rooms.document(roomCode).update(
             mapOf(
-                "status"                          to "ended",
-                "gameState.$gameId.gameResult"   to mapOf(
+                "status"                         to "ended",
+                "gameState.battleships.gameResult" to mapOf(
                     "winner" to opponent,
                     "loser"  to surrenderingUid,
                     "reason" to "surrender"
                 ),
-                "rematchVotes"                    to rematchVotes
+                "rematchVotes"                   to rematchVotes
             )
         ).await()
-    }
-
-    /** Vote for a rematch */
-    suspend fun battleshipsVoteRematch(roomCode: String, playerUid: String) {
-        if (playerUid.isBlank()) return
-        rooms.document(roomCode)
-            .update("rematchVotes.$playerUid", true)
-            .await()
     }
 
     /** Reset the game if all have rematch-voted */
@@ -191,11 +186,18 @@ object LobbyService {
         players: List<Map<String, Any>>,
         startingPlayerUid: String
     ) {
-        // clear state & votes
+        // rebuild the nested battleships map from scratch
         val resetState = mapOf(
-            "currentTurn" to startingPlayerUid,
-            "moves"       to emptyList<String>(),
-            "gameResult"  to null
+            "player1Id"    to players.getOrNull(0)?.get("uid"),
+            "player2Id"    to players.getOrNull(1)?.get("uid"),
+            "gameResult"   to null,
+            "currentTurn"  to startingPlayerUid,
+            "moves"        to emptyList<String>(),
+            "powerUps"     to players.associate { it["uid"] as String to listOf("RADAR","BOMB") },
+            "energy"       to players.associate { it["uid"] as String to 5 },
+            "mapVotes"     to emptyMap<String, Int>(),
+            "chosenMap"    to null,
+            "powerUpMoves" to emptyList<String>()
         )
         val resetRematch = players.associate {
             (it["uid"] as? String ?: "") to false
@@ -203,11 +205,10 @@ object LobbyService {
 
         rooms.document(roomCode).update(
             mapOf(
-                "status"                          to "started",
-                "rematchVotes"                    to resetRematch,
-                "gameState.$gameId"               to resetState,
-                "gameState.$gameId.mapVotes"      to emptyMap<String, Int>(),
-                "gameState.$gameId.chosenMap"     to null
+                "status"                        to "started",
+                "rematchVotes"                  to resetRematch,
+                // overwrite the *entire* battleships map
+                "gameState.battleships"        to resetState
             ) as Map<String, Any?>
         ).await()
     }

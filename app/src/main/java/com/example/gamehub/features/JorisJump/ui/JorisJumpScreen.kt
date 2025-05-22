@@ -29,7 +29,7 @@ private const val INITIAL_JUMP_VELOCITY = -11.5f // Fine-tuned jump
 private const val PLATFORM_HEIGHT_DP = 15f
 private const val PLATFORM_WIDTH_DP = 70f
 private const val SCROLL_THRESHOLD_FACTOR = 0.4f // When player is above 40% from top (of visible screen), scroll
-private const val MAX_PLATFORMS_ON_SCREEN = 8 // Max platforms on screen at once
+private const val MAX_PLATFORMS_ON_SCREEN = 7 // Max platforms on screen at once
 private const val INITIAL_PLATFORM_COUNT = 4
 
 
@@ -186,32 +186,50 @@ fun JorisJumpScreen() {
             }
 
             // Platform Management
-            val currentPlatforms = platforms.toMutableList()
-            currentPlatforms.removeAll { it.y > screenHeightDp + PLATFORM_HEIGHT_DP * 2 } // Remove if well off bottom
+            val currentPlatformsMutable = platforms.toMutableList() // Work with a mutable list
 
-            // Try to maintain a certain density or number of upcoming platforms
-            if (currentPlatforms.size < MAX_PLATFORMS_ON_SCREEN) {
-                // Find the "highest" platform currently on screen (smallest Y value)
-                val highestCurrentPlatformY = currentPlatforms.minOfOrNull { it.y } ?: (playerYPositionDp - screenHeightDp) // Fallback if no platforms
+            // Remove platforms that are well off-screen (bottom)
+            currentPlatformsMutable.removeAll { platform ->
+                platform.y > screenHeightDp + (PLATFORM_HEIGHT_DP * 3) // Remove if 3 platform heights below screen
+            }
 
-                // Generate new platforms above the current view / highest platform
-                // Ensure new platforms are generated some distance above 'highestCurrentPlatformY'
-                // and above what's currently visible if player is very high.
-                val generationTriggerY = highestCurrentPlatformY + (screenHeightDp * 0.5f) // Generate if highest platform is halfway down the screen "world view"
+            // Determine the Y coordinate of the "highest" platform currently in our list (smallest Y value).
+            // This is the reference point above which new platforms will be generated.
+            var highestPlatformYInList = currentPlatformsMutable.minOfOrNull { it.y }
+                ?: (playerYPositionDp + screenHeightDp) // Fallback: if no platforms, generate far above current player (effectively off-screen top)
 
-                if (currentPlatforms.isEmpty() || generationTriggerY > -PLATFORM_HEIGHT_DP * 5) { // Generate if screen is "empty" above or highest platform is not too far up
-                    val newPlatformX = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
-                    // Place new platform some distance above the highest existing one or top of visible scrolled area
-                    val newPlatformYBasis = if (currentPlatforms.isNotEmpty()) highestCurrentPlatformY else playerYPositionDp - screenHeightDp // Basis for new platform Y
-                    val newPlatformY = newPlatformYBasis - (PLATFORM_HEIGHT_DP * (Random.nextInt(3, 7))).toFloat()
+            // If after scrolling, the player is very high and all existing platforms are below them,
+            // reset the basis for new platform generation to be relative to the player's current view.
+            if (highestPlatformYInList > playerYPositionDp) {
+                highestPlatformYInList = playerYPositionDp - (screenHeightDp * 0.2f) // Start generating slightly above player's current view top
+            }
 
 
-                    currentPlatforms.add(PlatformState(id = nextPlatformId++, x = newPlatformX, y = newPlatformY))
-                    score += 10 // Add score for new platform "seen"
-                    Log.d("JorisJump", "Generated new platform ID $nextPlatformId at X:$newPlatformX Y:$newPlatformY. Score: $score")
+            // Generate new platforms if we are below the max count
+            while (currentPlatformsMutable.size < MAX_PLATFORMS_ON_SCREEN) {
+                val newPlatformX = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
+
+                // Place new platform a random vertical distance *above* (smaller Y) the current 'highestPlatformYInList'
+                val newPlatformY = highestPlatformYInList - (PLATFORM_HEIGHT_DP * Random.nextInt(2, 6)).toFloat() // Random vertical spacing
+
+                // Simple check to avoid direct vertical overlap with the platform used as basis for this new one
+                // More sophisticated checks could look at all recent platforms
+                if (kotlin.math.abs(newPlatformY - highestPlatformYInList) > PLATFORM_HEIGHT_DP * 1.5f) { // Ensure some minimum gap
+                    currentPlatformsMutable.add(0, // Add to the beginning of the list (conceptually "higher")
+                        PlatformState(id = nextPlatformId++, x = newPlatformX, y = newPlatformY)
+                    )
+                    score += 10
+                    Log.d("JorisJump", "Generated platform ID ${nextPlatformId - 1} at X:$newPlatformX Y:$newPlatformY. Size: ${currentPlatformsMutable.size}")
+                    highestPlatformYInList = newPlatformY // The new platform is now the highest
+                } else {
+                    // If too close, try generating even higher next time, or break if it seems stuck
+                    // For simplicity, we can just break the while loop for this frame if we can't place one easily.
+                    // This prevents an infinite loop if random numbers consistently produce overlaps.
+                    Log.d("JorisJump", "Skipped platform generation due to potential overlap or too close.")
+                    break // Break from the while loop for this frame
                 }
             }
-            platforms = currentPlatforms
+            platforms = currentPlatformsMutable // Update the immutable state
 
 
             if (playerYPositionDp > screenHeightDp + PLAYER_HEIGHT_DP) { // Game over if completely off bottom

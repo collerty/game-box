@@ -24,19 +24,24 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
 import kotlin.random.Random
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.example.gamehub.R
 
 // Constants for the game
-private const val PLAYER_WIDTH_DP = 40f
-private const val PLAYER_HEIGHT_DP = 60f
+private const val PLAYER_WIDTH_DP = 50f
+private const val PLAYER_HEIGHT_DP = 75f
 private const val ACCELEROMETER_SENSITIVITY = 4.0f
 private const val GRAVITY = 0.4f
 private const val INITIAL_JUMP_VELOCITY = -11.5f
 private const val PLATFORM_HEIGHT_DP = 15f
-private const val PLATFORM_WIDTH_DP = 70f
+private const val PLATFORM_WIDTH_DP = 30f
 private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.65f
 private const val MAX_PLATFORMS_ON_SCREEN = 10
 private const val INITIAL_PLATFORM_COUNT = 5
 private const val SCORE_POINTS_PER_DP_WORLD_Y = 0.04f
+private const val DEBUG_SHOW_HITBOXES = false
 
 
 data class PlatformState(
@@ -241,6 +246,17 @@ fun JorisJumpScreen() {
             .fillMaxSize()
             .background(Color(0xFF87CEEB))
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.background_doodle), // Your new image
+            contentDescription = "Joris Jump Game Background",
+            modifier = Modifier.fillMaxSize(), // Make the image fill the entire screen
+            contentScale = ContentScale.Crop // Crucial for handling aspect ratio differences
+            // Crop will fill the bounds and crop parts of the image
+            // that don't fit the screen's aspect ratio,
+            // while maintaining the image's own aspect ratio.
+            // Other options: ContentScale.FillBounds (stretches),
+            // ContentScale.Fit (letterboxes/pillarboxes)
+        )
         if (!playerAndScreenInitialized && this.maxWidth > 0.dp && this.maxHeight > 0.dp) {
             screenWidthDp = this.maxWidth.value
             screenHeightDp = this.maxHeight.value
@@ -250,19 +266,61 @@ fun JorisJumpScreen() {
 
         if (playerAndScreenInitialized) {
             platforms.forEach { platform ->
-                Box(modifier = Modifier
-                    .absoluteOffset(x = platform.x.dp, y = (platform.y - totalScrollOffsetDp).dp)
-                    .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp)
-                    .background(Color.DarkGray))
+                val visualScaleFactor = 4f // Make the image appear 3x bigger
+
+                // The logical position and size for collision and placement
+                val logicalPlatformWidthDp = PLATFORM_WIDTH_DP
+                val logicalPlatformHeightDp = PLATFORM_HEIGHT_DP
+
+                // Calculate the visual size
+                val visualPlatformWidthDp = logicalPlatformWidthDp * visualScaleFactor
+                val visualPlatformHeightDp = logicalPlatformHeightDp * visualScaleFactor
+
+                // Calculate the offset needed to keep the *center* of the visual image
+                // aligned with the *center* of the logical hitbox.
+                // If we just scale it, it will scale from its top-left.
+                // Offset needed = (Logical Size - Visual Size) / 2
+                val visualOffsetX = (logicalPlatformWidthDp - visualPlatformWidthDp) / 2f
+                val visualOffsetY = (logicalPlatformHeightDp - visualPlatformHeightDp) / 2f
+
+                // Draw the platform image (cloud) - VISUALLY LARGER
+                Image(
+                    painter = painterResource(id = R.drawable.cloud_platform), // Your cloud image
+                    contentDescription = "Cloud Platform",
+                    modifier = Modifier
+                        .absoluteOffset(
+                            x = (platform.x + visualOffsetX).dp, // Adjust X for centering the visual
+                            y = ((platform.y - totalScrollOffsetDp) + visualOffsetY).dp // Adjust Y for centering the visual
+                        )
+                        .size(visualPlatformWidthDp.dp, visualPlatformHeightDp.dp) // Draw at the larger visual size
+                )
+
+                if (DEBUG_SHOW_HITBOXES) {
+                    Box(
+                        modifier = Modifier
+                            .absoluteOffset(
+                                x = platform.x.dp, // Same X as the platform image
+                                y = (platform.y - totalScrollOffsetDp).dp // Same Y as the platform image
+                            )
+                            .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp) // Same size
+                            .background(Color.Red.copy(alpha = 0.3f))
+                    )
+                }
             }
+
             // Player is drawn as long as gameRunning is true OR playerIsFallingOffScreen is true.
             // Once gameRunning is false, the game over UI appears.
             // The player box itself will be drawn off-screen due to its large Y value.
-            Box(modifier = Modifier
-                .absoluteOffset(x = playerXPositionScreenDp.dp, y = (playerYPositionWorldDp - totalScrollOffsetDp).dp)
-                .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
-                .background(Color.Green)
-            ) { Text("J", color = Color.Black, modifier = Modifier.align(Alignment.Center)) }
+            Image(
+                painter = painterResource(id = R.drawable.joris_doodler), // This references your image
+                contentDescription = "Joris the Doodler", // For accessibility
+                modifier = Modifier
+                    .absoluteOffset(
+                        x = playerXPositionScreenDp.dp,
+                        y = (playerYPositionWorldDp - totalScrollOffsetDp).dp
+                    )
+                    .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
+            )
 
             Text("Score: $score", style = MaterialTheme.typography.headlineSmall, color = Color.Black,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))

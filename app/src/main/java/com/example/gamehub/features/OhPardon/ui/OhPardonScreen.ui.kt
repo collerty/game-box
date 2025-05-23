@@ -2,6 +2,7 @@ package com.example.gamehub.features.ohpardon.ui
 
 import android.app.Application
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,6 +37,7 @@ fun OhPardonScreen(
     val context = LocalContext.current
     val application = context.applicationContext as Application
 
+
     val viewModel: OhPardonViewModel = viewModel(
         factory = OhPardonViewModelFactory(application, code, userName)
     )
@@ -46,12 +48,22 @@ fun OhPardonScreen(
 
     var selectedPawnId by remember { mutableStateOf<Int?>(null) }
 
+    val toastMessage by viewModel.toastMessage.collectAsState()
+
+
     // Debugging logs
     LaunchedEffect(gameRoom) {
         Log.d("OhPardonScreen", "GameRoom updated: $gameRoom")
         gameRoom?.let {
             Log.d("OhPardonScreen", "Current turn UID: ${it.gameState.currentTurnUid}")
             Log.d("OhPardonScreen", "Players count: ${it.players.size}")
+        }
+    }
+
+    LaunchedEffect(toastMessage) {
+        toastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearToastMessage()
         }
     }
 

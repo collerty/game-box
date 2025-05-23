@@ -84,6 +84,12 @@ class OhPardonViewModel(
     fun rollDice(): Int {
         return (1..6).random()
     }
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+
+    fun clearToastMessage() {
+        _toastMessage.value = null
+    }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event != null) {
@@ -256,6 +262,14 @@ class OhPardonViewModel(
             return
         }
 
+        fun isOwnPawnBlocking(
+            newPosition: Int,
+            pawnId: String,
+            player: Player
+        ): Boolean {
+            return player.pawns.any { it.id != "pawn$pawnId" && it.position == newPosition }
+        }
+
         fun getBoardOffsetForPlayer(color: Color): Int = when (color) {
             Color.Red -> 0
             Color.Green -> 20
@@ -270,6 +284,19 @@ class OhPardonViewModel(
         val stepsToVictoryStart = 40
         val victoryRange = 40..43
 
+        fun isProtectedStartCellBlocked(
+            targetPosition: Int,
+            currentUserUid: String,
+            game: GameRoom
+        ): Boolean {
+            return game.players.any { opponent ->
+                if (opponent.uid == currentUserUid) return@any false
+                val opponentStartCell = getBoardOffsetForPlayer(opponent.color)
+                val isProtected = targetPosition == opponentStartCell
+                val hasPawnThere = opponent.pawns.any { it.position == targetPosition }
+                isProtected && hasPawnThere && targetPosition < 40
+            }
+        }
 
         //Move logic
         val newPosition = when {
@@ -324,12 +351,22 @@ class OhPardonViewModel(
             }
         }
 
-        val isMoveBlocked = currentGame.players.any { otherPlayer ->
-            otherPlayer.uid != currentUserUid && otherPlayer.pawns.any { otherPawn ->
-                val opponentStartCell = getBoardOffsetForPlayer(otherPlayer.color)
-                otherPawn.position == newPosition && newPosition == opponentStartCell
+        val isBlockedByOpponent = isProtectedStartCellBlocked(newPosition, currentUserUid, currentGame)
+        val isBlockedBySelf = isOwnPawnBlocking(newPosition, pawnId, player)
+
+        val isMoveBlocked = isBlockedByOpponent || isBlockedBySelf
+
+
+        if (isMoveBlocked) {
+            val message = when {
+                isBlockedByOpponent -> "Can't move to opponent's protected start cell."
+                isBlockedBySelf -> "Can't move to a tile occupied by your own pawn."
+                else -> "Invalid move."
             }
+            _toastMessage.value = message
+            return
         }
+
 
         //Capture logic
         val updatedPlayers = currentGame.players.map { p ->

@@ -58,7 +58,6 @@ object LobbyService {
                     mapOf("uid" to hostUid, "name" to hostName)
             ),
             "gameState" to initialGameState,
-            "rematchVotes" to emptyMap<String, Boolean>(),
             "createdAt" to FieldValue.serverTimestamp(),
         )
 

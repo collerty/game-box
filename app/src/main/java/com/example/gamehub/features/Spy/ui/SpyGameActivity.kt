@@ -11,6 +11,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import com.example.gamehub.R
+import android.app.Dialog
+import android.widget.EditText
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
+import android.view.ViewGroup
+import com.example.gamehub.features.spy.data.Location
+import com.example.gamehub.features.spy.data.LocationManager
 
 class SpyGameActivity : AppCompatActivity() {
     private lateinit var gameSettings: SpyGameSettings
@@ -30,12 +38,16 @@ class SpyGameActivity : AppCompatActivity() {
     private var isRoleRevealed = false
     private var allRolesRevealed = false
 
+    private lateinit var locationManager: LocationManager
+    private lateinit var locationsAdapter: LocationsAdapter
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d("SpyGame", "onCreate called")
         setContentView(R.layout.activity_spy_game)
         Log.d("SpyGame", "setContentView completed")
 
+        locationManager = LocationManager(this)
         try {
             initializeViews()
             setupGameSettings()
@@ -74,11 +86,14 @@ class SpyGameActivity : AppCompatActivity() {
     private fun setupGameSettings() {
         Log.d("SpyGame", "Setting up game settings")
         try {
+            // Get locations from LocationManager
+            val locations = locationManager.getLocations().map { it.name }
+            
             gameSettings = SpyGameSettings(
                 numberOfPlayers = 4,
                 numberOfSpies = 1,
                 timerMinutes = 5,
-                selectedLocations = SpyGameSettings.defaultLocations
+                selectedLocations = locations
             )
             gameState = SpyGameState(gameSettings)
             updateSettingsButtons()
@@ -95,7 +110,7 @@ class SpyGameActivity : AppCompatActivity() {
             findViewById<Button>(R.id.playersButton).setOnClickListener { showPlayersDialog() }
             findViewById<Button>(R.id.spiesButton).setOnClickListener { showSpiesDialog() }
             findViewById<Button>(R.id.timerButton).setOnClickListener { showTimerDialog() }
-            findViewById<Button>(R.id.locationsButton).setOnClickListener { showLocationsDialog() }
+            findViewById<Button>(R.id.locationsButton).setOnClickListener { showManageLocationsDialog() }
             findViewById<Button>(R.id.startGameButton).setOnClickListener { startGame() }
             newGameButton.setOnClickListener { resetGame() }
             playerCard.setOnClickListener { revealRole() }
@@ -346,19 +361,114 @@ class SpyGameActivity : AppCompatActivity() {
         }
     }
 
-    private fun showLocationsDialog() {
+    private fun showManageLocationsDialog() {
+        Log.d("SpyGame", "Showing manage locations dialog")
         try {
-            SpyGameDialogs.showLocationsDialog(
-                context = this,
-                currentLocations = gameSettings.selectedLocations
-            ) { selectedLocations ->
-                gameSettings.selectedLocations = selectedLocations
-                updateSettingsButtons()
+            val dialog = Dialog(this)
+            dialog.setContentView(R.layout.dialog_manage_locations)
+            
+            // Set dialog width to match parent
+            dialog.window?.let { window ->
+                window.setLayout(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                window.setBackgroundDrawableResource(android.R.color.transparent)
             }
+            
+            val recyclerView = dialog.findViewById<RecyclerView>(R.id.locationsRecyclerView)
+            val addButton = dialog.findViewById<MaterialButton>(R.id.addLocationButton)
+            
+            Log.d("SpyGame", "Dialog views found - recyclerView: ${recyclerView != null}, addButton: ${addButton != null}")
+            
+            recyclerView.layoutManager = LinearLayoutManager(this)
+            locationsAdapter = LocationsAdapter(
+                locationManager.getLocations(),
+                onEditClick = { location -> showEditLocationDialog(location) },
+                onDeleteClick = { location -> 
+                    locationManager.removeLocation(location)
+                    locationsAdapter.updateLocations(locationManager.getLocations())
+                    // Update game settings with new locations
+                    gameSettings.selectedLocations = locationManager.getLocations().map { it.name }
+                    updateSettingsButtons()
+                }
+            )
+            recyclerView.adapter = locationsAdapter
+
+            addButton?.setOnClickListener {
+                Log.d("SpyGame", "Add location button clicked")
+                showAddLocationDialog()
+            }
+
+            dialog.show()
+            Log.d("SpyGame", "Manage locations dialog shown")
         } catch (e: Exception) {
-            Log.e("SpyGame", "Error showing locations dialog", e)
+            Log.e("SpyGame", "Error showing manage locations dialog", e)
             Toast.makeText(this, "Error showing dialog: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun showAddLocationDialog() {
+        val dialog = Dialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_add_edit_location, null)
+        dialog.setContentView(view)
+
+        val nameEdit = view.findViewById<EditText>(R.id.locationNameEdit)
+        val descriptionEdit = view.findViewById<EditText>(R.id.locationDescriptionEdit)
+        val saveButton = view.findViewById<Button>(R.id.saveButton)
+        val cancelButton = view.findViewById<Button>(R.id.cancelButton)
+
+        saveButton.setOnClickListener {
+            val name = nameEdit.text.toString()
+            val description = descriptionEdit.text.toString()
+            if (name.isNotEmpty() && description.isNotEmpty()) {
+                locationManager.addLocation(Location(name, description))
+                locationsAdapter.updateLocations(locationManager.getLocations())
+                // Update game settings with new locations
+                gameSettings.selectedLocations = locationManager.getLocations().map { it.name }
+                updateSettingsButtons()
+                dialog.dismiss()
+            }
+        }
+
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun showEditLocationDialog(location: Location) {
+        val dialog = Dialog(this)
+        val view = layoutInflater.inflate(R.layout.dialog_add_edit_location, null)
+        dialog.setContentView(view)
+
+        val nameEdit = view.findViewById<EditText>(R.id.locationNameEdit)
+        val descriptionEdit = view.findViewById<EditText>(R.id.locationDescriptionEdit)
+        val saveButton = view.findViewById<Button>(R.id.saveButton)
+        val cancelButton = view.findViewById<Button>(R.id.cancelButton)
+
+        nameEdit.setText(location.name)
+        descriptionEdit.setText(location.description)
+
+        saveButton.setOnClickListener {
+            val name = nameEdit.text.toString()
+            val description = descriptionEdit.text.toString()
+            if (name.isNotEmpty() && description.isNotEmpty()) {
+                locationManager.updateLocation(location, Location(name, description))
+                locationsAdapter.updateLocations(locationManager.getLocations())
+                // Update game settings with new locations
+                gameSettings.selectedLocations = locationManager.getLocations().map { it.name }
+                updateSettingsButtons()
+                dialog.dismiss()
+            }
+        }
+
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     override fun onDestroy() {

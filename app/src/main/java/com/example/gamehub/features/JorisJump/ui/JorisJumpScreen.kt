@@ -28,7 +28,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.example.gamehub.R
-import android.media.MediaPlayer // Import MediaPlayer
+import android.media.MediaPlayer
 
 // Constants for the game
 private const val PLAYER_WIDTH_DP = 50f
@@ -36,57 +36,58 @@ private const val PLAYER_HEIGHT_DP = 75f
 private const val ACCELEROMETER_SENSITIVITY = 4.0f
 private const val GRAVITY = 0.4f
 private const val INITIAL_JUMP_VELOCITY = -11.5f
-private const val PLATFORM_HEIGHT_DP = 15f // This is the LOGICAL height for collision
-private const val PLATFORM_WIDTH_DP = 30f  // This is the LOGICAL width for collision
+private const val PLATFORM_HEIGHT_DP = 15f
+private const val PLATFORM_WIDTH_DP = 30f
 private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.65f
 private const val MAX_PLATFORMS_ON_SCREEN = 10
 private const val INITIAL_PLATFORM_COUNT = 5
 private const val SCORE_POINTS_PER_DP_WORLD_Y = 0.04f
-private const val DEBUG_SHOW_HITBOXES = true // Set to true to see logical hitboxes
+private const val DEBUG_SHOW_HITBOXES = false // Set to true to see logical hitboxes
 
 // Constants for Moving Platforms
 private const val PLATFORM_BASE_MOVE_SPEED = 1.6f
 private const val PLATFORM_MOVE_SPEED_VARIATION = 0.6f
-// PLATFORM_MOVE_RANGE_FACTOR will be defined inside composable once screenWidthDp is known
+
+// Constants for Spring Power-up
+private const val SPRING_VISUAL_WIDTH_FACTOR = 0.6f // Spring visual width relative to platform logical width
+private const val SPRING_VISUAL_HEIGHT_FACTOR = 1.8f // Spring visual height relative to platform logical height
 
 
 data class PlatformState(
     val id: Int,
-    var x: Float, // World X Dp from left (center of logical hitbox)
-    var y: Float,  // World Y Dp from top (top of logical hitbox)
-    val isMoving: Boolean = false,          // Is this platform a moving one?
-    var movementDirection: Int = 1,         // 1 for right, -1 for left
-    val movementSpeed: Float = 1.0f,        // Dp per frame
-    val movementRange: Float = 50f,         // How far from originX it can move to one side
-    val originX: Float = x                  // Initial X to oscillate around
+    var x: Float,
+    var y: Float,
+    val isMoving: Boolean = false,
+    var movementDirection: Int = 1,
+    val movementSpeed: Float = 1.0f,
+    val movementRange: Float = 50f,
+    val originX: Float = x,
+    val hasSpring: Boolean = false, // Does this platform have a spring?
+    val springJumpFactor: Float = 1.65f // How much higher the spring makes you jump
 )
 
 private fun generateInitialPlatformsList(screenWidth: Float, screenHeight: Float, count: Int, startingId: Int): Pair<List<PlatformState>, Int> {
     val initialPlatforms = mutableListOf<PlatformState>()
     var currentNextId = startingId
-    var currentY = screenHeight - PLATFORM_HEIGHT_DP - 5f // World Y of first platform's top
-    val platformMoveRange = screenWidth * 0.20f // Example: move 15% of screen width to each side
+    var currentY = screenHeight - PLATFORM_HEIGHT_DP - 5f
+    val platformMoveRange = screenWidth * 0.20f
 
     for (i in 0 until count) {
         if (initialPlatforms.size >= count && i > 0) break
-
-        val xPos = if (i == 0) (screenWidth / 2) - (PLATFORM_WIDTH_DP / 2)
-        else Random.nextFloat() * (screenWidth - PLATFORM_WIDTH_DP)
-        val yPos = if (i == 0) currentY
-        else currentY - (PLATFORM_HEIGHT_DP * Random.nextInt(4, 9)).toFloat() - Random.nextFloat() * PLATFORM_HEIGHT_DP * 2.5f
-
-        val shouldMove = Random.nextInt(0, 3) == 0 // Roughly 1/3 chance
+        val xPos = if (i == 0) (screenWidth / 2) - (PLATFORM_WIDTH_DP / 2) else Random.nextFloat() * (screenWidth - PLATFORM_WIDTH_DP)
+        val yPos = if (i == 0) currentY else currentY - (PLATFORM_HEIGHT_DP * Random.nextInt(4, 9)).toFloat() - Random.nextFloat() * PLATFORM_HEIGHT_DP * 2.5f
+        val shouldMove = Random.nextInt(0, 3) == 0
+        val shouldHaveSpring = Random.nextInt(0, 8) == 0 // 1 in 10 chance
 
         initialPlatforms.add(
             PlatformState(
-                id = currentNextId++,
-                x = xPos,
-                y = yPos,
-                isMoving = if (i == 0) false else shouldMove, // First platform is not moving
+                id = currentNextId++, x = xPos, y = yPos,
+                isMoving = if (i == 0) false else shouldMove, // First platform no move/spring
                 movementDirection = if (Random.nextBoolean()) 1 else -1,
                 movementSpeed = PLATFORM_BASE_MOVE_SPEED + Random.nextFloat() * PLATFORM_MOVE_SPEED_VARIATION,
-                movementRange = platformMoveRange,
-                originX = xPos
+                movementRange = platformMoveRange, originX = xPos,
+                hasSpring = if (i == 0) false else shouldHaveSpring, // First platform no spring
+                springJumpFactor = 1.65f + Random.nextFloat() * 0.5f // Example: Boost between 1.65x and 2.15x
             )
         )
         if (i > 0) currentY = yPos
@@ -99,6 +100,7 @@ fun JorisJumpScreen() {
     val context = LocalContext.current
     val view = LocalView.current
 
+    // Immersive Mode Effect
     DisposableEffect(Unit) {
         val window = (view.context as? Activity)?.window
         val windowInsetsController = window?.let { WindowInsetsControllerCompat(it, view) }
@@ -116,93 +118,74 @@ fun JorisJumpScreen() {
         }
     }
 
-    // --- Sound Effect Setup ---
+    // Sound Effect Setup
     var jumpSoundPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var springSoundPlayer by remember { mutableStateOf<MediaPlayer?>(null) } // For spring sound
 
-    // Load the sound effect when the composable enters the composition
-    // and release it when it leaves.
     DisposableEffect(Unit) {
-        // Create and prepare the MediaPlayer instance
-        // Using try-catch in case the resource is missing or there's an issue creating MediaPlayer
         try {
-            jumpSoundPlayer = MediaPlayer.create(context, R.raw.basic_jump_sound) // Use your sound file name
+            jumpSoundPlayer = MediaPlayer.create(context, R.raw.basic_jump_sound)
+            springSoundPlayer = MediaPlayer.create(context, R.raw.spring_jump_sound)
         } catch (e: Exception) {
-            Log.e("JorisJump_Sound", "Error creating MediaPlayer for jump sound", e)
-            jumpSoundPlayer = null // Ensure it's null if creation failed
+            Log.e("JorisJump_Sound", "Error creating MediaPlayers", e)
         }
-
         onDispose {
-            jumpSoundPlayer?.release() // Release the MediaPlayer resources
-            jumpSoundPlayer = null
-            Log.d("JorisJump_Sound", "Jump sound MediaPlayer released")
+            jumpSoundPlayer?.release(); jumpSoundPlayer = null
+            springSoundPlayer?.release(); springSoundPlayer = null
+            Log.d("JorisJump_Sound", "MediaPlayers released")
         }
     }
 
-    // Helper function to play the jump sound
-    fun playJumpSound() {
+    fun playSound(player: MediaPlayer?) {
         try {
-            if (jumpSoundPlayer?.isPlaying == true) {
-                // If it's already playing, stop and restart to allow rapid jumps
-                // Or, you could create multiple MediaPlayer instances or use SoundPool for overlapping sounds
-                jumpSoundPlayer?.stop()
-                jumpSoundPlayer?.prepare() // Need to prepare again after stop
-            }
-            jumpSoundPlayer?.start()
-        } catch (e: Exception) {
-            Log.e("JorisJump_Sound", "Error playing jump sound", e)
-            // Optionally, try to re-create it if it failed before
-            if (jumpSoundPlayer == null) {
-                try {
-                    jumpSoundPlayer = MediaPlayer.create(context, R.raw.basic_jump_sound)
-                    jumpSoundPlayer?.start()
-                } catch (recreateEx: Exception) {
-                    Log.e("JorisJump_Sound", "Error re-creating and playing jump sound", recreateEx)
+            player?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                    it.prepare() // MediaPlayer needs prepare() after stop() before start()
                 }
+                it.start()
             }
+        } catch (e: Exception) {
+            Log.e("JorisJump_Sound", "Error playing sound", e)
         }
     }
 
+    // Game State Variables
     var playerXPositionScreenDp by remember { mutableStateOf(0f) }
     var playerYPositionWorldDp by remember { mutableStateOf(0f) }
     var playerVelocityY by remember { mutableStateOf(0f) }
     var playerIsFallingOffScreen by remember { mutableStateOf(false) }
-
     var platforms by remember { mutableStateOf<List<PlatformState>>(emptyList()) }
     var gameRunning by remember { mutableStateOf(true) }
     var score by remember { mutableStateOf(0) }
     var nextPlatformId by remember { mutableStateOf(0) }
     var lastScoredWorldY by remember { mutableStateOf(Float.MAX_VALUE) }
-
     var totalScrollOffsetDp by remember { mutableStateOf(0f) }
     var screenWidthDp by remember { mutableStateOf(0f) }
     var screenHeightDp by remember { mutableStateOf(0f) }
-
     var playerAndScreenInitialized by remember { mutableStateOf(false) }
     val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
     val accelerometer = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) }
     var rawTiltXForDebug by remember { mutableStateOf(0f) }
 
+    // Game Reset Function
     fun performGameReset() {
-        if (screenWidthDp == 0f || screenHeightDp == 0f) {
-            Log.e("JorisJump", "Reset Aborted: Screen dimensions not yet available.")
-            return
-        }
+        if (screenWidthDp == 0f || screenHeightDp == 0f) { Log.e("JorisJump", "Reset Aborted: Screen Dims N/A."); return }
         Log.d("JorisJump", "Performing game reset.")
         totalScrollOffsetDp = 0f
         playerXPositionScreenDp = (screenWidthDp / 2) - (PLAYER_WIDTH_DP / 2)
         playerYPositionWorldDp = screenHeightDp - PLAYER_HEIGHT_DP - PLATFORM_HEIGHT_DP - 30f
         playerVelocityY = 0f
         playerIsFallingOffScreen = false
-
         val (initialPlatformsList, updatedNextId) = generateInitialPlatformsList(screenWidthDp, screenHeightDp, INITIAL_PLATFORM_COUNT, 0)
         platforms = initialPlatformsList
         nextPlatformId = updatedNextId
-
         score = 0
         lastScoredWorldY = playerYPositionWorldDp
         gameRunning = true
     }
 
+    // Sensor Input Effect
     DisposableEffect(accelerometer, playerAndScreenInitialized) {
         if (accelerometer == null) { Log.e("JorisJump", "Accelerometer N/A!"); return@DisposableEffect onDispose {} }
         if (!playerAndScreenInitialized) return@DisposableEffect onDispose {}
@@ -211,8 +194,7 @@ fun JorisJumpScreen() {
                 if (!gameRunning || playerIsFallingOffScreen) return
                 event?.let {
                     if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                        val tiltX = it.values[0]
-                        rawTiltXForDebug = tiltX
+                        val tiltX = it.values[0]; rawTiltXForDebug = tiltX
                         playerXPositionScreenDp -= tiltX * ACCELEROMETER_SENSITIVITY
                         if ((playerXPositionScreenDp + PLAYER_WIDTH_DP) < 0) playerXPositionScreenDp = screenWidthDp
                         else if (playerXPositionScreenDp > screenWidthDp) playerXPositionScreenDp = 0f - PLAYER_WIDTH_DP
@@ -225,33 +207,25 @@ fun JorisJumpScreen() {
         onDispose { sensorManager.unregisterListener(sensorEventListener) }
     }
 
+    // Game Loop
     LaunchedEffect(gameRunning, playerAndScreenInitialized) {
         if (!playerAndScreenInitialized) return@LaunchedEffect
         while (gameRunning) {
             if (!playerIsFallingOffScreen) {
-                // --- PLATFORM MOVEMENT UPDATE ---
-                if (screenWidthDp > 0f) { // Ensure screenWidthDp is initialized for bounds checks
+                // Platform Movement
+                if (screenWidthDp > 0f) {
                     platforms = platforms.map { p ->
                         if (p.isMoving) {
                             var newX = p.x + (p.movementSpeed * p.movementDirection)
                             var newDirection = p.movementDirection
-
-                            if (p.movementDirection == 1 && newX > p.originX + p.movementRange) {
-                                newX = p.originX + p.movementRange
-                                newDirection = -1
-                            } else if (p.movementDirection == -1 && newX < p.originX - p.movementRange) {
-                                newX = p.originX - p.movementRange
-                                newDirection = 1
-                            }
-                            newX = newX.coerceIn(0f, screenWidthDp - PLATFORM_WIDTH_DP) // Ensure stays on screen
+                            if (p.movementDirection == 1 && newX > p.originX + p.movementRange) { newX = p.originX + p.movementRange; newDirection = -1 }
+                            else if (p.movementDirection == -1 && newX < p.originX - p.movementRange) { newX = p.originX - p.movementRange; newDirection = 1 }
+                            newX = newX.coerceIn(0f, screenWidthDp - PLATFORM_WIDTH_DP)
                             p.copy(x = newX, movementDirection = newDirection)
-                        } else {
-                            p
-                        }
+                        } else p
                     }
                 }
 
-                // --- REGULAR GAMEPLAY LOGIC ---
                 playerVelocityY += GRAVITY
                 playerYPositionWorldDp += playerVelocityY
 
@@ -272,10 +246,15 @@ fun JorisJumpScreen() {
                             val previousPlayerBottomWorldDp = playerBottomWorldDp - playerVelocityY
                             if (previousPlayerBottomWorldDp <= platform.y && playerBottomWorldDp >= platform.y) {
                                 playerYPositionWorldDp = platform.y - PLAYER_HEIGHT_DP
-                                playerVelocityY = INITIAL_JUMP_VELOCITY
+                                if (platform.hasSpring) {
+                                    playerVelocityY = INITIAL_JUMP_VELOCITY * platform.springJumpFactor
+                                    playSound(springSoundPlayer) // Play spring sound (if you have one)
+                                    Log.d("JorisJump_Spring", "Landed on SPRING! Factor: ${platform.springJumpFactor}")
+                                } else {
+                                    playerVelocityY = INITIAL_JUMP_VELOCITY
+                                    playSound(jumpSoundPlayer) // Play normal jump sound
+                                }
                                 didLandAndJumpThisFrame = true
-                                playJumpSound()
-                                Log.d("JorisJump_Collision", "Landed on platform ${platform.id}. PlayerY set to: $playerYPositionWorldDp")
                             }
                         }
                     }
@@ -293,15 +272,14 @@ fun JorisJumpScreen() {
                 val generationCeilingWorldY = totalScrollOffsetDp - (screenHeightDp * 1.0f)
                 var highestExistingPlatformY = currentPlatformsMutable.minOfOrNull { it.y } ?: (totalScrollOffsetDp + screenHeightDp / 2)
                 var generationAttemptsInTick = 0
-                val platformMoveRange = screenWidthDp * 0.15f // Define here for dynamic generation
+                val platformMoveRange = screenWidthDp * 0.15f
 
                 while (currentPlatformsMutable.size < MAX_PLATFORMS_ON_SCREEN &&
                     highestExistingPlatformY > generationCeilingWorldY &&
                     generationAttemptsInTick < MAX_PLATFORMS_ON_SCREEN) {
                     generationAttemptsInTick++
                     var newXGen = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
-                    val minVerticalGapFactor = 5.5f
-                    val maxVerticalGapFactor = 9.5f
+                    val minVerticalGapFactor = 5.5f; val maxVerticalGapFactor = 9.5f
                     val verticalGap = (PLATFORM_HEIGHT_DP * (minVerticalGapFactor + Random.nextFloat() * (maxVerticalGapFactor - minVerticalGapFactor)))
                     val newYGen = highestExistingPlatformY - verticalGap
                     val platformImmediatelyBelow = currentPlatformsMutable.firstOrNull()
@@ -313,13 +291,15 @@ fun JorisJumpScreen() {
                         }
                     }
                     val shouldMove = Random.nextInt(0, 3) == 0
+                    val shouldHaveSpring = Random.nextInt(0, 10) == 0
                     currentPlatformsMutable.add(0, PlatformState(
                         id = nextPlatformId++, x = newXGen, y = newYGen,
                         isMoving = shouldMove,
                         movementDirection = if (Random.nextBoolean()) 1 else -1,
                         movementSpeed = PLATFORM_BASE_MOVE_SPEED + Random.nextFloat() * PLATFORM_MOVE_SPEED_VARIATION,
-                        movementRange = if(screenWidthDp > 0) platformMoveRange else 50f,
-                        originX = newXGen
+                        movementRange = if(screenWidthDp > 0) platformMoveRange else 50f, originX = newXGen,
+                        hasSpring = shouldHaveSpring,
+                        springJumpFactor = 1.65f + Random.nextFloat() * 0.5f // Example: Boost between 1.65x and 2.15x
                     ))
                     highestExistingPlatformY = newYGen
                 }
@@ -341,56 +321,87 @@ fun JorisJumpScreen() {
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
-        // .background(Color(0xFF87CEEB)) // Replaced by Image
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.background_doodle),
-            contentDescription = "Joris Jump Game Background",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        Image(painter = painterResource(id = R.drawable.background_doodle), contentDescription = "Game Background",
+            modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+
         if (!playerAndScreenInitialized && this.maxWidth > 0.dp && this.maxHeight > 0.dp) {
-            screenWidthDp = this.maxWidth.value
-            screenHeightDp = this.maxHeight.value
-            performGameReset()
-            playerAndScreenInitialized = true
+            screenWidthDp = this.maxWidth.value; screenHeightDp = this.maxHeight.value
+            performGameReset(); playerAndScreenInitialized = true
         }
 
         if (playerAndScreenInitialized) {
             platforms.forEach { platform ->
-                val visualScaleFactor = 4f
-                val logicalPlatformWidthDp = PLATFORM_WIDTH_DP
-                val logicalPlatformHeightDp = PLATFORM_HEIGHT_DP
-                val visualPlatformWidthDp = logicalPlatformWidthDp * visualScaleFactor
-                val visualPlatformHeightDp = logicalPlatformHeightDp * visualScaleFactor
-                val visualOffsetX = (logicalPlatformWidthDp - visualPlatformWidthDp) / 2f
-                val visualOffsetY = (logicalPlatformHeightDp - visualPlatformHeightDp) / 2f
+                val visualCloudScaleFactor = 4f
+                val currentPlatformLogicalWidthDp = PLATFORM_WIDTH_DP
+                val currentPlatformLogicalHeightDp = PLATFORM_HEIGHT_DP
 
+                val visualCloudWidthDp = currentPlatformLogicalWidthDp * visualCloudScaleFactor
+                val visualCloudHeightDp = currentPlatformLogicalHeightDp * visualCloudScaleFactor
+                val visualCloudOffsetX = (currentPlatformLogicalWidthDp - visualCloudWidthDp) / 2f
+                val visualCloudOffsetY = (currentPlatformLogicalHeightDp - visualCloudHeightDp) / 2f
+
+                // Draw Cloud Platform Image
                 Image(
                     painter = painterResource(id = R.drawable.cloud_platform),
                     contentDescription = "Cloud Platform",
                     modifier = Modifier
                         .absoluteOffset(
-                            x = (platform.x + visualOffsetX).dp,
-                            y = ((platform.y - totalScrollOffsetDp) + visualOffsetY).dp
+                            x = (platform.x + visualCloudOffsetX).dp,
+                            y = ((platform.y - totalScrollOffsetDp) + visualCloudOffsetY).dp
                         )
-                        .size(visualPlatformWidthDp.dp, visualPlatformHeightDp.dp)
+                        .size(visualCloudWidthDp.dp, visualCloudHeightDp.dp)
                 )
+
+                if (platform.hasSpring) {
+                    // --- Spring Visuals & Positioning ---
+                    // Define spring's visual size based on the LOGICAL platform dimensions
+                    val springVisualWidth = currentPlatformLogicalWidthDp * SPRING_VISUAL_WIDTH_FACTOR
+                    val springVisualHeight = currentPlatformLogicalHeightDp * SPRING_VISUAL_HEIGHT_FACTOR
+
+                    // Calculate position for the spring's TOP-LEFT corner
+                    // to center it HORIZONTALLY on the LOGICAL platform.
+                    val springX_onPlatform = platform.x + (currentPlatformLogicalWidthDp / 2f) - (springVisualWidth / 2f)
+                    // Position spring's BOTTOM to be slightly above or on the LOGICAL platform's TOP.
+                    val springY_onPlatform = platform.y - springVisualHeight + (currentPlatformLogicalHeightDp * 0.2f) // Adjust 0.2f to make it sit higher/lower
+
+                    Image(
+                        painter = painterResource(id = R.drawable.spring_mushroom),
+                        contentDescription = "Spring Mushroom",
+                        modifier = Modifier
+                            .absoluteOffset(
+                                x = springX_onPlatform.dp,
+                                y = (springY_onPlatform - totalScrollOffsetDp).dp
+                            )
+                            .size(springVisualWidth.dp, springVisualHeight.dp)
+                    )
+
+                    // --- Draw Spring Hitbox (for visual debugging of the spring image) ---
+                    if (DEBUG_SHOW_HITBOXES) {
+                        Box(
+                            modifier = Modifier
+                                .absoluteOffset(
+                                    x = springX_onPlatform.dp,
+                                    y = (springY_onPlatform - totalScrollOffsetDp).dp
+                                )
+                                .size(springVisualWidth.dp, springVisualHeight.dp)
+                                .background(Color.Cyan.copy(alpha = 0.4f))
+                        )
+                    }
+                }
+
                 if (DEBUG_SHOW_HITBOXES) {
                     Box(modifier = Modifier
                         .absoluteOffset(x = platform.x.dp, y = (platform.y - totalScrollOffsetDp).dp)
-                        .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp) // Use logical size for hitbox
+                        .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp)
                         .background(Color.Red.copy(alpha = 0.3f)))
                 }
             }
 
-            Image(
-                painter = painterResource(id = R.drawable.joris_doodler),
-                contentDescription = "Joris the Doodler",
+            Image(painter = painterResource(id = R.drawable.joris_doodler), contentDescription = "Joris the Doodler",
                 modifier = Modifier
                     .absoluteOffset(x = playerXPositionScreenDp.dp, y = (playerYPositionWorldDp - totalScrollOffsetDp).dp)
-                    .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
-            )
+                    .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp))
             if (DEBUG_SHOW_HITBOXES) {
                 Box(modifier = Modifier
                     .absoluteOffset(x = playerXPositionScreenDp.dp, y = (playerYPositionWorldDp - totalScrollOffsetDp).dp)
@@ -435,11 +446,23 @@ fun JorisJumpScreenPreview() {
                 .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)) {
                 Image(painter = painterResource(id = R.drawable.joris_doodler), contentDescription = "Preview Doodler")
             }
-            Box(modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-70 + PLAYER_HEIGHT_DP + 5).dp)
-                .size(PLATFORM_WIDTH_DP.dp * 4, PLATFORM_HEIGHT_DP.dp * 4) // Preview visual size for cloud
+            val previewCloudVisualFactor = 4f
+            Box(modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-70 + PLAYER_HEIGHT_DP + 5 - (PLATFORM_HEIGHT_DP * (previewCloudVisualFactor -1)/2) ).dp) // Approx cloud pos
+                .size(PLATFORM_WIDTH_DP.dp * previewCloudVisualFactor, PLATFORM_HEIGHT_DP.dp * previewCloudVisualFactor)
             ) {
                 Image(painter = painterResource(id = R.drawable.cloud_platform), contentDescription = "Preview Cloud")
             }
+            // Approx spring on cloud
+            Box(modifier = Modifier.align(Alignment.BottomCenter)
+                .offset(
+                    y = (-70 + PLAYER_HEIGHT_DP + 5 - (PLATFORM_HEIGHT_DP * (previewCloudVisualFactor -1)/2) - (PLATFORM_HEIGHT_DP * SPRING_VISUAL_HEIGHT_FACTOR * previewCloudVisualFactor * 0.7f) ).dp,
+                    x = ( (PLATFORM_WIDTH_DP * previewCloudVisualFactor / 2f) - (PLATFORM_WIDTH_DP* SPRING_VISUAL_WIDTH_FACTOR * previewCloudVisualFactor / 2f) ).dp // Centered on cloud
+                )
+                .size( (PLATFORM_WIDTH_DP* SPRING_VISUAL_WIDTH_FACTOR * previewCloudVisualFactor).dp, (PLATFORM_HEIGHT_DP * SPRING_VISUAL_HEIGHT_FACTOR * previewCloudVisualFactor).dp )
+            ) {
+                Image(painter = painterResource(id = R.drawable.spring_mushroom), contentDescription = "Preview Spring")
+            }
+
             Text("Score: 0", style = MaterialTheme.typography.headlineSmall, color = Color.Black,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
             Text("Preview (No Dynamic Logic)", modifier = Modifier.align(Alignment.Center).padding(16.dp), color = Color.Black)

@@ -165,13 +165,16 @@ class SpyGameActivity : AppCompatActivity() {
                 roleTextView.text = gameState.getPlayerRole(currentPlayerIndex)
                 
                 if (currentPlayerIndex < gameSettings.numberOfPlayers - 1) {
-                    nextPlayerButton.visibility = View.VISIBLE
+                    tapToRevealText.visibility = View.VISIBLE
+                    tapToRevealText.text = "Tap to pass to the next player"
                 } else {
                     Log.d("SpyGame", "All players have seen their roles, starting timer")
                     allRolesRevealed = true
                     startTimer()
                 }
                 Log.d("SpyGame", "Role revealed successfully")
+            } else {
+                nextPlayer()
             }
         } catch (e: Exception) {
             Log.e("SpyGame", "Error revealing role", e)
@@ -185,6 +188,7 @@ class SpyGameActivity : AppCompatActivity() {
             if (currentPlayerIndex < gameSettings.numberOfPlayers - 1) {
                 currentPlayerIndex++
                 showPlayerCard()
+                tapToRevealText.text = "Tap to reveal role"
                 Log.d("SpyGame", "Moved to next player: ${currentPlayerIndex + 1}")
             }
         } catch (e: Exception) {

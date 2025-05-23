@@ -28,6 +28,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.example.gamehub.R
+import android.media.MediaPlayer // Import MediaPlayer
 
 // Constants for the game
 private const val PLAYER_WIDTH_DP = 50f
@@ -112,6 +113,52 @@ fun JorisJumpScreen() {
                 windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
             }
             Log.d("JorisJump", "Exiting Immersive Mode")
+        }
+    }
+
+    // --- Sound Effect Setup ---
+    var jumpSoundPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    // Load the sound effect when the composable enters the composition
+    // and release it when it leaves.
+    DisposableEffect(Unit) {
+        // Create and prepare the MediaPlayer instance
+        // Using try-catch in case the resource is missing or there's an issue creating MediaPlayer
+        try {
+            jumpSoundPlayer = MediaPlayer.create(context, R.raw.basic_jump_sound) // Use your sound file name
+        } catch (e: Exception) {
+            Log.e("JorisJump_Sound", "Error creating MediaPlayer for jump sound", e)
+            jumpSoundPlayer = null // Ensure it's null if creation failed
+        }
+
+        onDispose {
+            jumpSoundPlayer?.release() // Release the MediaPlayer resources
+            jumpSoundPlayer = null
+            Log.d("JorisJump_Sound", "Jump sound MediaPlayer released")
+        }
+    }
+
+    // Helper function to play the jump sound
+    fun playJumpSound() {
+        try {
+            if (jumpSoundPlayer?.isPlaying == true) {
+                // If it's already playing, stop and restart to allow rapid jumps
+                // Or, you could create multiple MediaPlayer instances or use SoundPool for overlapping sounds
+                jumpSoundPlayer?.stop()
+                jumpSoundPlayer?.prepare() // Need to prepare again after stop
+            }
+            jumpSoundPlayer?.start()
+        } catch (e: Exception) {
+            Log.e("JorisJump_Sound", "Error playing jump sound", e)
+            // Optionally, try to re-create it if it failed before
+            if (jumpSoundPlayer == null) {
+                try {
+                    jumpSoundPlayer = MediaPlayer.create(context, R.raw.basic_jump_sound)
+                    jumpSoundPlayer?.start()
+                } catch (recreateEx: Exception) {
+                    Log.e("JorisJump_Sound", "Error re-creating and playing jump sound", recreateEx)
+                }
+            }
         }
     }
 
@@ -227,6 +274,8 @@ fun JorisJumpScreen() {
                                 playerYPositionWorldDp = platform.y - PLAYER_HEIGHT_DP
                                 playerVelocityY = INITIAL_JUMP_VELOCITY
                                 didLandAndJumpThisFrame = true
+                                playJumpSound()
+                                Log.d("JorisJump_Collision", "Landed on platform ${platform.id}. PlayerY set to: $playerYPositionWorldDp")
                             }
                         }
                     }

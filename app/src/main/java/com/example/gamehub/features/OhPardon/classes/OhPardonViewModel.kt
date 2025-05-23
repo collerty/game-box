@@ -324,11 +324,20 @@ class OhPardonViewModel(
             }
         }
 
+        val isMoveBlocked = currentGame.players.any { otherPlayer ->
+            otherPlayer.uid != currentUserUid && otherPlayer.pawns.any { otherPawn ->
+                val opponentStartCell = getBoardOffsetForPlayer(otherPlayer.color)
+                otherPawn.position == newPosition && newPosition == opponentStartCell
+            }
+        }
+
         //Capture logic
         val updatedPlayers = currentGame.players.map { p ->
             if (p.uid == currentUserUid) {
                 val updatedPawns = p.pawns.map {
-                    if (it.id == "pawn$pawnId") it.copy(position = newPosition) else it
+                    if (it.id == "pawn$pawnId") {
+                        if (isMoveBlocked) it else it.copy(position = newPosition)
+                    } else it
                 }
                 p.copy(pawns = updatedPawns)
             } else {

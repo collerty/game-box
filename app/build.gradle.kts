@@ -47,6 +47,7 @@ android {
 
 dependencies {
 
+    implementation("com.google.code.gson:gson:2.10.1")
     implementation("androidx.compose.runtime:runtime-livedata:1.6.1")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.core:core-ktx:1.15.0")
@@ -60,6 +61,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation("androidx.navigation:navigation-compose:2.7.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.cardview:cardview:1.0.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -75,5 +79,6 @@ dependencies {
     implementation ("com.google.firebase:firebase-firestore-ktx:24.1.0")
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("io.coil-kt:coil-svg:2.4.0")
+    implementation("com.google.android.material:material:1.11.0")
 
 }

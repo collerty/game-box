@@ -3,9 +3,11 @@ package com.example.gamehub.features.battleships.ui
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,14 +48,18 @@ fun BattleshipMap(
         )
     )
 
+    // --- FIX: Set a precise, fixed size for the whole grid ---
     Box(
         modifier = Modifier
-            .padding(8.dp)
+            .size(cellSize * gridSize)
             .background(Color.Black)
     ) {
-        Column {
+        Column(
+            modifier = Modifier
+                .fillMaxSize() // exactly the size of the box
+        ) {
             for (row in 0 until gridSize) {
-                Row {
+                Row(modifier = Modifier.fillMaxWidth()) {
                     for (col in 0 until gridSize) {
                         val isShipCell = ships.any { ship ->
                             if (ship.orientation == Orientation.Horizontal) {
@@ -94,6 +100,20 @@ fun BattleshipMap(
                     }
                 }
             }
+        }
+
+        // --- Draw ship outlines (one black rectangle per ship, square corners) ---
+        ships.forEach { ship ->
+            val top = cellSize * ship.startRow
+            val left = cellSize * ship.startCol
+            val width = if (ship.orientation == Orientation.Horizontal) cellSize * ship.size else cellSize
+            val height = if (ship.orientation == Orientation.Horizontal) cellSize else cellSize * ship.size
+            Box(
+                Modifier
+                    .absoluteOffset(x = left, y = top)
+                    .size(width, height)
+                    .border(2.dp, Color.Black, RectangleShape)
+            )
         }
 
         // grid lines

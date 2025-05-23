@@ -11,7 +11,8 @@ data class GameSession(
     val energy: Map<String, Int> = emptyMap(),
     val powerUpMoves: List<String> = emptyList(),
     val mapVotes: Map<String, Int> = emptyMap(),
-    val chosenMap: Int? = null
+    val chosenMap: Int? = null,
+    val gameResult: String? = null
 ) {
     companion object {
         fun empty(id: String) = GameSession(
@@ -22,6 +23,7 @@ data class GameSession(
             moves = emptyList(),
             ships = emptyMap(),
             availablePowerUps = emptyMap()
+
         )
     }
 

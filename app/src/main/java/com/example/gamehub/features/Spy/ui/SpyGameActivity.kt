@@ -24,7 +24,6 @@ class SpyGameActivity : AppCompatActivity() {
     private lateinit var tapToRevealText: TextView
     private lateinit var roleTextView: TextView
     private lateinit var timerTextView: TextView
-    private lateinit var nextPlayerButton: Button
     private lateinit var newGameButton: Button
 
     private var currentPlayerIndex = 0
@@ -58,7 +57,6 @@ class SpyGameActivity : AppCompatActivity() {
             tapToRevealText = findViewById(R.id.tapToRevealText)
             roleTextView = findViewById(R.id.roleTextView)
             timerTextView = findViewById(R.id.timerTextView)
-            nextPlayerButton = findViewById(R.id.nextPlayerButton)
             newGameButton = findViewById(R.id.newGameButton)
             
             Log.d("SpyGame", "All views found successfully")
@@ -99,7 +97,6 @@ class SpyGameActivity : AppCompatActivity() {
             findViewById<Button>(R.id.timerButton).setOnClickListener { showTimerDialog() }
             findViewById<Button>(R.id.locationsButton).setOnClickListener { showLocationsDialog() }
             findViewById<Button>(R.id.startGameButton).setOnClickListener { startGame() }
-            nextPlayerButton.setOnClickListener { nextPlayer() }
             newGameButton.setOnClickListener { resetGame() }
             playerCard.setOnClickListener { revealRole() }
             Log.d("SpyGame", "All click listeners set up successfully")
@@ -144,7 +141,6 @@ class SpyGameActivity : AppCompatActivity() {
             playerNumberText.text = "Player ${currentPlayerIndex + 1}"
             tapToRevealText.visibility = View.VISIBLE
             roleTextView.visibility = View.GONE
-            nextPlayerButton.visibility = View.GONE
             timerTextView.visibility = View.GONE
             newGameButton.visibility = View.GONE
             Log.d("SpyGame", "Player card shown successfully")
@@ -201,7 +197,6 @@ class SpyGameActivity : AppCompatActivity() {
         Log.d("SpyGame", "Starting timer")
         try {
             timerTextView.visibility = View.VISIBLE
-            nextPlayerButton.visibility = View.GONE
             playerCard.visibility = View.GONE  // Hide the location card when timer starts
             playerCard.setOnClickListener(null) // Disable further taps
             timer = object : CountDownTimer(
@@ -253,7 +248,6 @@ class SpyGameActivity : AppCompatActivity() {
     private fun showGameOver() {
         Log.d("SpyGame", "Showing game over")
         try {
-            nextPlayerButton.visibility = View.GONE
             newGameButton.visibility = View.VISIBLE
             Log.d("SpyGame", "Game over UI shown")
         } catch (e: Exception) {

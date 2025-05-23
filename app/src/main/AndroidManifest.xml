@@ -34,7 +34,7 @@
         <activity
             android:name=".features.spy.ui.SpyGameActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+            android:theme="@style/Theme.GameHub" />
     </application>
 
 </manifest>

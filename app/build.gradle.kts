@@ -78,5 +78,6 @@ dependencies {
     implementation ("com.google.firebase:firebase-firestore-ktx:24.1.0")
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("io.coil-kt:coil-svg:2.4.0")
+    implementation("com.google.android.material:material:1.11.0")
 
 }

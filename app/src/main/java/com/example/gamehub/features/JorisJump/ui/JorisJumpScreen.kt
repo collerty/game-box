@@ -41,7 +41,7 @@ private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.65f
 private const val MAX_PLATFORMS_ON_SCREEN = 10
 private const val INITIAL_PLATFORM_COUNT = 5
 private const val SCORE_POINTS_PER_DP_WORLD_Y = 0.04f
-private const val DEBUG_SHOW_HITBOXES = false
+private const val DEBUG_SHOW_HITBOXES = true
 
 
 data class PlatformState(
@@ -172,14 +172,34 @@ fun JorisJumpScreen() {
                 }
 
                 // Collision Detection
+                val playerTopWorldDp = playerYPositionWorldDp
                 val playerBottomWorldDp = playerYPositionWorldDp + PLAYER_HEIGHT_DP
+                val playerLeftScreenDp = playerXPositionScreenDp // Renamed for clarity
                 val playerRightScreenDp = playerXPositionScreenDp + PLAYER_WIDTH_DP
-                platforms.forEach { platform ->
-                    if (playerVelocityY > 0 &&
-                        playerBottomWorldDp >= platform.y && playerYPositionWorldDp < platform.y &&
-                        playerRightScreenDp > platform.x && playerXPositionScreenDp < (platform.x + PLATFORM_WIDTH_DP)) {
-                        playerYPositionWorldDp = platform.y - PLAYER_HEIGHT_DP
-                        playerVelocityY = INITIAL_JUMP_VELOCITY
+
+                var didLandAndJumpThisFrame = false // Flag to prevent multiple jumps if overlapping multiple platforms
+
+                if (playerVelocityY > 0) { // Only check for landing if player is falling
+                    platforms.forEach { platform ->
+                        if (didLandAndJumpThisFrame) return@forEach // Already jumped this frame
+
+                        // Check X overlap first (cheaper)
+                        val xOverlaps = playerRightScreenDp > platform.x &&
+                                playerLeftScreenDp < (platform.x + PLATFORM_WIDTH_DP)
+
+                        if (xOverlaps) {
+                            // Vertical collision check:
+                            // Did the player's bottom edge cross the platform's top edge in this frame?
+                            val previousPlayerBottomWorldDp = playerBottomWorldDp - playerVelocityY // Approximate bottom in previous frame state
+
+                            if (previousPlayerBottomWorldDp <= platform.y && playerBottomWorldDp >= platform.y) {
+                                // Collision detected!
+                                playerYPositionWorldDp = platform.y - PLAYER_HEIGHT_DP // Snap player's FEET to platform top
+                                playerVelocityY = INITIAL_JUMP_VELOCITY      // Jump!
+                                didLandAndJumpThisFrame = true
+                                Log.d("JorisJump_Collision", "Landed on platform ${platform.id}. PlayerY set to: $playerYPositionWorldDp")
+                            }
+                        }
                     }
                 }
 
@@ -321,6 +341,19 @@ fun JorisJumpScreen() {
                     )
                     .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
             )
+
+            // Draw Player Hitbox if DEBUG_SHOW_HITBOXES is true
+            if (DEBUG_SHOW_HITBOXES) {
+                Box(
+                    modifier = Modifier
+                        .absoluteOffset(
+                            x = playerXPositionScreenDp.dp, // Matches player's visual X
+                            y = (playerYPositionWorldDp - totalScrollOffsetDp).dp // Matches player's visual Y top
+                        )
+                        .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp) // Full player size for now
+                        .background(Color.Blue.copy(alpha = 0.3f))
+                )
+            }
 
             Text("Score: $score", style = MaterialTheme.typography.headlineSmall, color = Color.Black,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))

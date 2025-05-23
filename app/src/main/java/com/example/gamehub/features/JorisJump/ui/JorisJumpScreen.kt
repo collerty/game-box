@@ -29,6 +29,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.example.gamehub.R
 import android.media.MediaPlayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 
 // Constants for the game
 private const val PLAYER_WIDTH_DP = 50f
@@ -51,6 +57,10 @@ private const val PLATFORM_MOVE_SPEED_VARIATION = 0.6f
 // Constants for Spring Power-up
 private const val SPRING_VISUAL_WIDTH_FACTOR = 0.6f // Spring visual width relative to platform logical width
 private const val SPRING_VISUAL_HEIGHT_FACTOR = 1.8f // Spring visual height relative to platform logical height
+
+val arcadeFontFamily = FontFamily(
+    Font(R.font.arcade_classic, FontWeight.Normal)
+)
 
 
 data class PlatformState(
@@ -409,15 +419,64 @@ fun JorisJumpScreen() {
                     .background(Color.Blue.copy(alpha = 0.3f)))
             }
 
-            Text("Score: $score", style = MaterialTheme.typography.headlineSmall, color = Color.Black,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
+            Text(
+                text = "Score: $score",
+                style = TextStyle(
+                    fontFamily = arcadeFontFamily, // <<< ADD THIS LINE
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold, // You can try FontWeight.Normal if your font handles weight differently
+                    color = Color(0xFFFFFDE7),
+                    shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        offset = Offset(x = 2f, y = 3f),
+                        blurRadius = 3f
+                    )
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 24.dp)
+            )
 
             if (!gameRunning) {
                 Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("GAME OVER", style = MaterialTheme.typography.headlineMedium, color = Color.Red)
-                    Text("Final Score: $score", style = MaterialTheme.typography.headlineSmall, color = Color.Black)
+                    Text(
+                            "GAME OVER",
+                    style = TextStyle(
+                        fontFamily = arcadeFontFamily, // <<< ADD THIS LINE
+                        fontSize = 48.sp,
+                        fontWeight = FontWeight.ExtraBold, // Or FontWeight.Bold / FontWeight.Normal
+                        color = Color(0xFFF44336),
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.7f),
+                            offset = Offset(3f, 4f),
+                            blurRadius = 5f
+                        )
+                    )
+                    )
+                    Text(
+                        "Final Score: $score",
+                        style = TextStyle(
+                            fontFamily = arcadeFontFamily, // <<< ADD THIS LINE
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold, // Or FontWeight.Normal
+                            color = Color.White,
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.5f),
+                                offset = Offset(2f, 3f),
+                                blurRadius = 3f
+                            )
+                        )
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { performGameReset() }) { Text("Restart Game") }
+                    Button(onClick = { performGameReset() }) { Text(
+                        "Restart Game",
+                        style = TextStyle( // Apply TextStyle here too
+                            fontFamily = arcadeFontFamily, // <<< ADD THIS LINE
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold // Or FontWeight.Normal
+                            // color will be inherited from button's contentColor
+                        )
+                    ) }
                 }
             }
         }

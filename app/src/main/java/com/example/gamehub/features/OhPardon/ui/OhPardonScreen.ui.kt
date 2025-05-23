@@ -23,7 +23,7 @@ import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
-import com.example.gamehub.features.ohpardon.OhPardonViewModelFactory
+import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 
 
 

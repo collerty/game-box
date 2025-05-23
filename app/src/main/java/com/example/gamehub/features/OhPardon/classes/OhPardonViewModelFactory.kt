@@ -1,8 +1,9 @@
-package com.example.gamehub.features.ohpardon
+package com.example.gamehub.features.ohpardon.classes
 
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.gamehub.features.ohpardon.OhPardonViewModel
 
 class OhPardonViewModelFactory(
     private val application: Application,

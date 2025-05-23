@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -28,7 +29,6 @@ import com.example.gamehub.features.battleships.ui.PowerUpPanel
 import com.example.gamehub.features.battleships.ui.Ship as UiShip
 import com.example.gamehub.features.battleships.ui.Orientation
 import com.example.gamehub.lobby.FirestoreSession
-import com.example.gamehub.lobby.LobbyService
 import com.example.gamehub.lobby.model.GameSession
 import com.example.gamehub.lobby.model.Move
 import com.example.gamehub.lobby.model.PowerUp as DomainPowerUp
@@ -50,7 +50,8 @@ private fun UiShip.coveredCells(): List<Cell> = if (orientation == Orientation.H
 @Composable
 fun ShipsStatusPanel(
     opponentShips: List<UiShip>,
-    yourMoves: List<Move>
+    yourMoves: List<Move>,
+    modifier: Modifier = Modifier
 ) {
     val movesHitCells = yourMoves.map { Cell(it.y, it.x) }.toSet()
     val destroyed = opponentShips.filter { ship ->
@@ -58,25 +59,30 @@ fun ShipsStatusPanel(
     }
     val alive = opponentShips - destroyed
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-        Text("Opponent's Ships", style = MaterialTheme.typography.titleMedium)
-
-        Text("Ships alive:", color = Color(0xFF4B8B1D))
-        Column(Modifier.padding(bottom = 8.dp)) {
-            alive.forEach { ship ->
-                ShipBox(ship.size, destroyed = false)
-                Spacer(Modifier.height(4.dp))
+    Box(
+        modifier = modifier
+            .background(Color(0xCC222222), shape = MaterialTheme.shapes.medium) // semi-transparent grey
+            .padding(12.dp)
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Text("Opponent's Ships", style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Text("Ships alive:", color = Color(0xFF4B8B1D))
+            Column(Modifier.padding(bottom = 8.dp)) {
+                alive.forEach { ship ->
+                    ShipBox(ship.size, destroyed = false)
+                    Spacer(Modifier.height(4.dp))
+                }
+                if (alive.isEmpty()) Text("None", color = Color.Gray)
             }
-            if (alive.isEmpty()) Text("None", color = Color.Gray)
-        }
 
-        Text("Ships destroyed:", color = Color.Red)
-        Column {
-            destroyed.forEach { ship ->
-                ShipBox(ship.size, destroyed = true)
-                Spacer(Modifier.height(4.dp))
+            Text("Ships destroyed:", color = Color.Red)
+            Column {
+                destroyed.forEach { ship ->
+                    ShipBox(ship.size, destroyed = true)
+                    Spacer(Modifier.height(4.dp))
+                }
+                if (destroyed.isEmpty()) Text("None", color = Color.Gray)
             }
-            if (destroyed.isEmpty()) Text("None", color = Color.Gray)
         }
     }
 }
@@ -96,7 +102,6 @@ fun ShipBox(size: Int, destroyed: Boolean) {
     }
 }
 
-// --------------------- LOCAL GAME OVER FIX ------------------------
 fun areAllShipsSunk(ships: List<UiShip>, moves: List<Move>): Boolean {
     return ships.all { ship ->
         ship.coveredCells().all { cell ->
@@ -104,7 +109,6 @@ fun areAllShipsSunk(ships: List<UiShip>, moves: List<Move>): Boolean {
         }
     }
 }
-// -------------------------------------------------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,12 +126,10 @@ fun BattleshipsPlayScreen(
     val state by session.stateFlow.collectAsState(initial = GameSession.empty(roomCode))
     val isMyTurn = state.currentTurn == uid
 
-    // Get the opponent's UID (assume always 2 players)
     val opponentId = listOf(state.player1Id, state.player2Id)
         .filterNotNull()
         .firstOrNull { it != uid } ?: ""
 
-    // Map domain ships to UI ships
     val myShips: List<UiShip> = (state.ships[uid] ?: emptyList()).map { ds ->
         UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation)
     }
@@ -135,7 +137,6 @@ fun BattleshipsPlayScreen(
         UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation)
     }
 
-    // Compute destroyed ships for overlays
     val myDestroyedShips = myShips.filter { ship ->
         ship.coveredCells().all { cell ->
             state.moves.filter { it.playerId == opponentId }
@@ -149,13 +150,11 @@ fun BattleshipsPlayScreen(
         }
     }
 
-    // --- Win/Rematch/Exit/Surrender logic ---
     var rematchVotes by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var lobbyStatus by remember { mutableStateOf<String?>(null) }
     var surrenderedUserId by remember { mutableStateOf<String?>(null) }
     var showSurrenderDialog by remember { mutableStateOf(false) }
 
-    // -------------- LOCAL GAME OVER LOGIC -----------------
     val havePlacedShips = myShips.isNotEmpty() && oppShips.isNotEmpty()
     val myMoves = state.moves.filter { it.playerId == uid }
     val oppMoves = state.moves.filter { it.playerId == opponentId }
@@ -167,9 +166,7 @@ fun BattleshipsPlayScreen(
     val isBackendGameOver = gameResult != null && gameResult != ""
     val isSurrenderedGameOver = surrenderedUserId != null
     val isLocallyGameOver = (iSunkOpponent || opponentSunkMe || isBackendGameOver || isSurrenderedGameOver) && havePlacedShips
-    // -------------------------------------------------------------------------
 
-    // --- Unified Firestore listener ---
     DisposableEffect(roomCode) {
         val reg = roomRef.addSnapshotListener { snap, _ ->
             val bs = ((snap?.get("gameState") as? Map<*, *>)?.get("battleships") as? Map<*, *>) ?: return@addSnapshotListener
@@ -177,15 +174,12 @@ fun BattleshipsPlayScreen(
             rematchVotes = votes
             lobbyStatus = snap.get("status") as? String
             surrenderedUserId = bs["surrendered"] as? String
-            println("UI DEBUG: SnapshotListener: rematchVotes=$rematchVotes, lobbyStatus=$lobbyStatus, surrenderedUserId=$surrenderedUserId")
         }
         onDispose { reg.remove() }
     }
 
-    // If status is ended, pop to lobby for all players
     LaunchedEffect(lobbyStatus) {
         if (lobbyStatus == "ended") {
-            println("UI DEBUG: Navigating to LOBBY_MENU due to status=ended")
             navController.navigate(
                 NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")
             ) {
@@ -195,10 +189,8 @@ fun BattleshipsPlayScreen(
         }
     }
 
-    // Handle rematch: if both have voted, reset and go to BATTLE_VOTE
     LaunchedEffect(rematchVotes) {
         if (rematchVotes.size == 2 && rematchVotes.values.all { it }) {
-            println("UI DEBUG: Both players voted for rematch, resetting game.")
             scope.launch {
                 roomRef.update(mapOf(
                     "gameState.battleships.moves" to emptyList<Any>(),
@@ -226,180 +218,202 @@ fun BattleshipsPlayScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("🐋 Battleships") },
-                actions = {
-                    IconButton(onClick = {
-                        println("UI DEBUG: Surrender button pressed")
-                        showSurrenderDialog = true
-                    }) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Surrender")
-                    }
-                    IconButton(onClick = { println("UI DEBUG: Settings button pressed") }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        val scrollState = rememberScrollState()
-        Column(
-            Modifier
-                .verticalScroll(scrollState)
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            // Turn indicator
-            Text(
-                text = "Current turn: ${if (isMyTurn) "You" else "Opponent"}",
-                style = MaterialTheme.typography.titleLarge
-            )
-            Spacer(Modifier.height(16.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        // --- FULLSCREEN BACKGROUND IMAGE ---
+        Image(
+            painter = painterResource(com.example.gamehub.R.drawable.bg_battleships), // your background
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
 
-            // Center the grid perfectly
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("🐋 Battleships", color = Color.White) },
+                    actions = {
+                        IconButton(
+                            onClick = { showSurrenderDialog = true }
+                        ) {
+                            Icon(Icons.Default.ExitToApp, contentDescription = "Surrender", tint = Color.White)
+                        }
+                        IconButton(
+                            onClick = { }
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Black,
+                        titleContentColor = Color.White,
+                        actionIconContentColor = Color.White,
+                        navigationIconContentColor = Color.White
+                    )
+                )
+            },
+            containerColor = Color.Transparent
+        ) { padding ->
+            val scrollState = rememberScrollState()
+            Column(
+                Modifier
+                    .verticalScroll(scrollState)
+                    .padding(padding)
+                    .padding(16.dp)
             ) {
-                // ---- MAIN FIX HERE: Lock the board if game over (LOCALLY or backend) ----
-                if (isMyTurn) {
-                    // Show opponent’s board, attacks are your moves
-                    BoardGrid(
-                        gridSize = 10,
-                        cellSize = 32.dp,
-                        ships = emptyList(),
-                        attacks = buildAttackMap(oppShips, myMoves),
-                        enabled = !isLocallyGameOver,
-                        destroyedShips = oppDestroyedShips,
-                        onCellClick = { row, col ->
-                            println("UI DEBUG: Player $uid attempting to attack ($row, $col)")
-                            scope.launch {
-                                session.submitMove(col, row, uid)
+                Text(
+                    text = "Current turn: ${if (isMyTurn) "You" else "Opponent"}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White // White for top text
+                )
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (isMyTurn) {
+                        val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
+                        BoardGrid(
+                            gridSize = 10,
+                            cellSize = 32.dp,
+                            ships = emptyList(),
+                            attacks = buildAttackMap(oppShips, myMoves),
+                            enabled = !isLocallyGameOver,
+                            destroyedShips = oppDestroyedShips,
+                            onCellClick = { row, col ->
+                                val cell = Cell(row, col)
+                                if (cell in myHitCells) return@BoardGrid
+                                scope.launch {
+                                    session.submitMove(col, row, uid)
+                                }
+                            }
+                        )
+                    } else {
+                        BoardGrid(
+                            gridSize = 10,
+                            cellSize = 32.dp,
+                            ships = myShips,
+                            attacks = buildAttackMap(myShips, oppMoves),
+                            enabled = false,
+                            destroyedShips = myDestroyedShips,
+                            onCellClick = { _, _ -> }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                ShipsStatusPanel(
+                    opponentShips = oppShips,
+                    yourMoves = myMoves,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Power-up panel: grey box for contrast
+                if (isMyTurn && !isLocallyGameOver) {
+                    val modelPUs = state.availablePowerUps[uid] ?: emptyList()
+                    val uiPUs = modelPUs.mapNotNull { mp ->
+                        when (mp) {
+                            DomainPowerUp.MINE  -> PowerUp.Mine
+                            DomainPowerUp.BOMB  -> PowerUp.Bomb2x2
+                            DomainPowerUp.RADAR -> PowerUp.Laser
+                            else                -> null
+                        }
+                    }
+                    val energy = state.energy[uid] ?: 0
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xCC222222), shape = MaterialTheme.shapes.medium)
+                            .padding(12.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Text("Energy: $energy", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                        PowerUpPanel(energy) { pu ->
+                            pu.expand(Cell(0, 0)).forEach { cell ->
+                                scope.launch {
+                                    session.submitMove(cell.col, cell.row, uid)
+                                }
                             }
                         }
-                    )
-                } else {
-                    // Show your own board with ships, attacks are their moves
-                    BoardGrid(
-                        gridSize = 10,
-                        cellSize = 32.dp,
-                        ships = myShips,
-                        attacks = buildAttackMap(myShips, oppMoves),
-                        enabled = false,
-                        destroyedShips = myDestroyedShips,
-                        onCellClick = { _, _ -> }
-                    )
+                    }
                 }
             }
 
-            // Ships status panel
-            ShipsStatusPanel(
-                opponentShips = oppShips,
-                yourMoves = myMoves
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            // Power-up panel: only on your turn AND NOT game over!
-            if (isMyTurn && !isLocallyGameOver) {
-                val modelPUs = state.availablePowerUps[uid] ?: emptyList()
-                val uiPUs = modelPUs.mapNotNull { mp ->
-                    when (mp) {
-                        DomainPowerUp.MINE  -> PowerUp.Mine
-                        DomainPowerUp.BOMB  -> PowerUp.Bomb2x2
-                        DomainPowerUp.RADAR -> PowerUp.Laser
-                        else                -> null
-                    }
-                }
-                val energy = state.energy[uid] ?: 0
-                PowerUpPanel(energy) { pu ->
-                    println("UI DEBUG: Player $uid used powerup $pu")
-                    pu.expand(Cell(0, 0)).forEach { cell ->
-                        scope.launch {
-                            session.submitMove(cell.col, cell.row, uid)
-                        }
-                    }
-                }
+            // --- SURRENDER DIALOG ---
+            if (showSurrenderDialog) {
+                AlertDialog(
+                    onDismissRequest = { showSurrenderDialog = false },
+                    title = { Text("Surrender?", color = Color.White) },
+                    text = { Text("Are you sure you want to surrender? You will lose the game.", color = Color.White) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showSurrenderDialog = false
+                                scope.launch {
+                                    roomRef.update("gameState.battleships.surrendered", uid).await()
+                                }
+                            }
+                        ) { Text("Surrender") }
+                    },
+                    dismissButton = {
+                        Button(onClick = { showSurrenderDialog = false }) { Text("Cancel") }
+                    },
+                    containerColor = Color(0xFF222222)
+                )
             }
-        }
 
-        // --- SURRENDER DIALOG ---
-        if (showSurrenderDialog) {
-            AlertDialog(
-                onDismissRequest = { showSurrenderDialog = false },
-                title = { Text("Surrender?") },
-                text = { Text("Are you sure you want to surrender? You will lose the game.") },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showSurrenderDialog = false
-                            // Save surrender to Firestore for multiplayer
-                            scope.launch {
-                                roomRef.update("gameState.battleships.surrendered", uid).await()
-                            }
+            // --- GAME OVER DIALOG ---
+            if (isLocallyGameOver) {
+                AlertDialog(
+                    onDismissRequest = {},
+                    title = { Text("Game Over", color = Color.White) },
+                    text = {
+                        when {
+                            isSurrenderedGameOver && surrenderedUserId == uid -> Text("You surrendered!", color = Color.White)
+                            isSurrenderedGameOver && surrenderedUserId == opponentId -> Text("Opponent surrendered!", color = Color.White)
+                            isWinner || (iSunkOpponent && !opponentSunkMe) -> Text("You have won!", color = Color.White)
+                            opponentSunkMe && !iSunkOpponent -> Text("Your opponent has won!", color = Color.White)
+                            else -> Text("Game Over!", color = Color.White)
                         }
-                    ) { Text("Surrender") }
-                },
-                dismissButton = {
-                    Button(onClick = { showSurrenderDialog = false }) { Text("Cancel") }
-                }
-            )
-        }
-
-        // --- GAME OVER DIALOG ---
-        if (isLocallyGameOver) {
-            println("UI DEBUG: Showing Win Dialog: gameResult=$gameResult, isWinner=$isWinner, rematchVotes=$rematchVotes, surrenderedUserId=$surrenderedUserId")
-            AlertDialog(
-                onDismissRequest = {},
-                title = { Text("Game Over") },
-                text = {
-                    when {
-                        isSurrenderedGameOver && surrenderedUserId == uid -> Text("You surrendered!")
-                        isSurrenderedGameOver && surrenderedUserId == opponentId -> Text("Opponent surrendered!")
-                        isWinner || (iSunkOpponent && !opponentSunkMe) -> Text("You have won!")
-                        opponentSunkMe && !iSunkOpponent -> Text("Your opponent has won!")
-                        else -> Text("Game Over!")
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            println("UI DEBUG: Rematch button pressed by $uid")
-                            scope.launch {
-                                // Rematch vote
-                                roomRef.update("gameState.battleships.rematchVotes.$uid", true).await()
-                            }
-                        },
-                        enabled = !(rematchVotes[uid] == true)
-                    ) {
-                        Text("Rematch (${rematchVotes.size}/2)")
-                    }
-                },
-                dismissButton = {
-                    Button(
-                        onClick = {
-                            println("UI DEBUG: Exit button pressed by $uid, setting status=ended")
-                            scope.launch {
-                                roomRef.update("status", "ended").await()
-                            }
-                            navController.navigate(
-                                NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")
-                            ) {
-                                popUpTo(0)
-                                launchSingleTop = true
-                            }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    roomRef.update("gameState.battleships.rematchVotes.$uid", true).await()
+                                }
+                            },
+                            enabled = !(rematchVotes[uid] == true)
+                        ) {
+                            Text("Rematch (${rematchVotes.size}/2)")
                         }
-                    ) {
-                        Text("Exit Game")
-                    }
-                }
-            )
+                    },
+                    dismissButton = {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    roomRef.update("status", "ended").await()
+                                }
+                                navController.navigate(
+                                    NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")
+                                ) {
+                                    popUpTo(0)
+                                    launchSingleTop = true
+                                }
+                            }
+                        ) {
+                            Text("Exit Game")
+                        }
+                    },
+                    containerColor = Color(0xFF222222)
+                )
+            }
         }
     }
 }
 
+// BoardGrid & helpers
 private fun buildAttackMap(
     ships: List<UiShip>,
     moves: List<Move>
@@ -435,6 +449,7 @@ fun BoardGrid(
         modifier = Modifier
             .size(cellSize * gridSize)
             .clipToBounds()
+            .border(4.dp, Color.Black, RectangleShape) // <- Black border around the whole board
     ) {
         Column(
             modifier = Modifier.fillMaxSize()

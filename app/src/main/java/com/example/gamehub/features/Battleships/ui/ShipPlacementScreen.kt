@@ -1,6 +1,7 @@
 package com.example.gamehub.features.battleships.ui
 
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -10,7 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.firestore.ktx.firestore
@@ -37,20 +44,15 @@ fun ShipPlacementScreen(
 
     var placedShips by remember { mutableStateOf<List<Ship>>(emptyList()) }
     var orientation by remember { mutableStateOf(Orientation.Horizontal) }
-    // Change: use a queue of pending ships, not a single ship
     var pendingShips by remember { mutableStateOf<List<Ship>>(emptyList()) }
-
-    // READY STATE
     var readyMap by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var totalPlayers by remember { mutableStateOf(2) }
     var everyoneReady by remember { mutableStateOf(false) }
     val uid = Firebase.auth.currentUser?.uid ?: ""
 
-    // Map info
     val mapDef = remember(mapId) { MapRepository.allMaps.first { it.id == mapId } }
     val mapCells = mapDef.validCells
 
-    // Determine which ship is being placed: first picked up, else nextSize
     val activeShip: Ship? = pendingShips.firstOrNull() ?: run {
         val nextSize = shipSizes.getOrNull(placedShips.size)
         if (nextSize != null) Ship(0, 0, nextSize, orientation) else null
@@ -63,7 +65,6 @@ fun ShipPlacementScreen(
         } else {
             (0 until ship.size).map { offset -> Cell(row + offset, col) }
         }
-        // Not overlapping and within allowed cells
         return positions.all { cell ->
             cell in mapCells &&
                     cell.row in 0 until 10 && cell.col in 0 until 10 &&
@@ -104,132 +105,175 @@ fun ShipPlacementScreen(
     val readyCount = readyMap.values.count { it }
     val iAmReady = readyMap[uid] == true
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Centered Title
-        Text(
-            text = "Ship Placement Screen",
-            style = MaterialTheme.typography.headlineLarge,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1
+    // --- UI ---
+    Box(Modifier.fillMaxSize()) {
+        // BACKGROUND IMAGE
+        Image(
+            painter = painterResource(com.example.gamehub.R.drawable.bg_battleships), // Update to your bg resource!
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
 
-        // Center the board
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
-            BattleshipMap(
-                gridSize = 10,
-                cellSize = 32.dp,
-                ships = placedShips,
-                highlightShip = { row, col ->
-                    isValidPlacement(row, col)
-                },
-                onCellClick = { row, col ->
-                    val removed = placedShips.firstOrNull { it.covers(row, col) }
-                    if (removed != null) {
-                        placedShips = placedShips - removed
-                        // Add the picked-up ship to the queue for re-placement
-                        pendingShips = pendingShips + removed
-                        orientation = removed.orientation
-                    } else {
-                        val shipToPlace = activeShip
-                        if (shipToPlace != null && isValidPlacement(row, col)) {
-                            placedShips = placedShips + shipToPlace.copy(
-                                startRow = row,
-                                startCol = col,
-                                orientation = shipToPlace.orientation
+            // Top Title, centered, white
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Ship Placement Screen",
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2, // wrap if needed
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = true,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // Board centered, with black border
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    Modifier
+                        .border(4.dp, Color.Black, RectangleShape) // Thick black border
+                ) {
+                    BattleshipMap(
+                        gridSize = 10,
+                        cellSize = 32.dp,
+                        ships = placedShips,
+                        highlightShip = { row, col -> isValidPlacement(row, col) },
+                        onCellClick = { row, col ->
+                            val removed = placedShips.firstOrNull { it.covers(row, col) }
+                            if (removed != null) {
+                                placedShips = placedShips - removed
+                                pendingShips = pendingShips + removed
+                                orientation = removed.orientation
+                            } else {
+                                val shipToPlace = activeShip
+                                if (shipToPlace != null && isValidPlacement(row, col)) {
+                                    placedShips = placedShips + shipToPlace.copy(
+                                        startRow = row,
+                                        startCol = col,
+                                        orientation = shipToPlace.orientation
+                                    )
+                                    if (pendingShips.isNotEmpty()) {
+                                        pendingShips = pendingShips.drop(1)
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+
+            // ----------- Placing Ship / Buttons Box (always visible unless ready/everyone ready) -----------
+            if (!iAmReady && !everyoneReady) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xCC222222), shape = MaterialTheme.shapes.medium)
+                        .padding(18.dp)
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Only show preview if actually placing a ship
+                        if (activeShip != null) {
+                            Text(
+                                text = "Placing Ship:",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
                             )
-                            // Remove the first picked-up ship from the queue, if any
-                            if (pendingShips.isNotEmpty()) {
-                                pendingShips = pendingShips.drop(1)
+                            Spacer(Modifier.height(8.dp))
+                            ShipPreview(activeShip)
+                            Spacer(Modifier.height(24.dp))
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = {
+                                    orientation = if (orientation == Orientation.Horizontal)
+                                        Orientation.Vertical else Orientation.Horizontal
+                                    if (pendingShips.isNotEmpty()) {
+                                        pendingShips = listOf(
+                                            pendingShips.first().copy(orientation = orientation)
+                                        ) + pendingShips.drop(1)
+                                    }
+                                },
+                                enabled = (pendingShips.isEmpty() && placedShips.size < shipSizes.size && !iAmReady) ||
+                                        (pendingShips.isNotEmpty() && !iAmReady),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF333333),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Rotate")
+                            }
+
+                            Spacer(Modifier.width(16.dp))
+
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        val payload = placedShips.map { ship ->
+                                            mapOf(
+                                                "startRow" to ship.startRow,
+                                                "startCol" to ship.startCol,
+                                                "size" to ship.size,
+                                                "orientation" to ship.orientation.name
+                                            )
+                                        }
+                                        try {
+                                            roomRef.update("gameState.battleships.ships.$uid", payload).await()
+                                            roomRef.update("gameState.battleships.ready.$uid", true).await()
+                                        } catch (e: Exception) {
+                                            println("DEBUG: [WRITE-FAIL] Firestore update failed: ${e.message}")
+                                        }
+                                    }
+                                },
+                                enabled = placedShips.size == shipSizes.size && pendingShips.isEmpty() && !iAmReady && !everyoneReady,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF333333),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Done $readyCount/$totalPlayers")
                             }
                         }
                     }
                 }
-            )
-        }
-
-        Spacer(Modifier.height(18.dp))
-
-        // Placing Ship label and ship
-        if (activeShip != null) {
-            Column(
-                Modifier
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Placing Ship:",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-                Spacer(Modifier.height(8.dp))
-                ShipPreview(activeShip)
             }
+            // -------------------------------------------------------------------------------------------
+
             Spacer(Modifier.height(24.dp))
-        }
 
-        // Centered Row for Buttons
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Button(
-                onClick = {
-                    orientation = if (orientation == Orientation.Horizontal)
-                        Orientation.Vertical else Orientation.Horizontal
-                    // If a ship is waiting to be placed, rotate only the first in the queue
-                    if (pendingShips.isNotEmpty()) {
-                        pendingShips = listOf(
-                            pendingShips.first().copy(orientation = orientation)
-                        ) + pendingShips.drop(1)
-                    }
-                },
-                enabled = (pendingShips.isEmpty() && placedShips.size < shipSizes.size && !iAmReady) ||
-                        (pendingShips.isNotEmpty() && !iAmReady)
-            ) {
-                Text("Rotate")
+            if (iAmReady && !everyoneReady) {
+                Text(
+                    "Waiting for other player to finish...",
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
             }
-
-            Spacer(Modifier.width(16.dp))
-
-            Button(
-                onClick = {
-                    scope.launch {
-                        val payload = placedShips.map { ship ->
-                            mapOf(
-                                "startRow" to ship.startRow,
-                                "startCol" to ship.startCol,
-                                "size" to ship.size,
-                                "orientation" to ship.orientation.name
-                            )
-                        }
-                        try {
-                            roomRef.update("gameState.battleships.ships.$uid", payload).await()
-                            roomRef.update("gameState.battleships.ready.$uid", true).await()
-                        } catch (e: Exception) {
-                            println("DEBUG: [WRITE-FAIL] Firestore update failed: ${e.message}")
-                        }
-                    }
-                },
-                enabled = placedShips.size == shipSizes.size && pendingShips.isEmpty() && !iAmReady && !everyoneReady
-            ) {
-                Text("Done $readyCount/$totalPlayers")
-            }
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        if (iAmReady && !everyoneReady) {
-            Text("Waiting for other player to finish...", color = MaterialTheme.colorScheme.secondary)
         }
     }
 }
@@ -268,6 +312,7 @@ fun ShipPreview(ship: Ship) {
     }
 }
 
+// Util for ship coverage
 fun Ship.covers(row: Int, col: Int): Boolean =
     if (orientation == Orientation.Horizontal) {
         row == startRow && col in startCol until (startCol + size)

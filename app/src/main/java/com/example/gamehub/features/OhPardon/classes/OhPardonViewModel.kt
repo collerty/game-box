@@ -238,6 +238,28 @@ class OhPardonViewModel(
             createdAt = data["createdAt"] as? Timestamp
         )
     }
+
+    fun skipTurn(currentUserName: String){
+        val currentGame = _gameRoom.value ?: return
+        val gameState = currentGame.gameState
+        val currentPlayer = currentGame.players.find { it.name == currentUserName }
+
+        if (currentPlayer?.uid == gameState.currentTurnUid)
+        {
+            val updates = mapOf(
+                "gameState.ohpardon.diceRoll" to null,
+                "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentPlayer.uid)
+            )
+            firestore.collection("rooms")
+                .document(roomCode)
+                .update(updates)
+            return
+        }
+        else {
+            _toastMessage.value = "Not allowed to skip another player's turn!"
+        }
+    }
+
     fun attemptMovePawn(currentUserUid: String, pawnId: String) {
         val currentGame = _gameRoom.value ?: return
         val gameState = currentGame.gameState

@@ -105,7 +105,6 @@ fun OhPardonScreen(
             else -> "Unknown"
         }
     }
-
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -145,7 +144,7 @@ fun OhPardonScreen(
                     }
 
                     // Pawn selection buttons - only show if it's the current player's turn
-                    if (currentPlayer.name == userName) { // Assuming userName is the current user's ID
+                    if (currentPlayer.name == userName) {
 
                         // Dice roll button - only show if dice has NOT been rolled yet this turn
                         if (currentDiceRoll == null) {

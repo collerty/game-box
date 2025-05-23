@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200px" height="1200px" viewBox="0 0 1200 1200">
+	<defs>
+		<marker orient="auto" style="overflow:visible" id="Arrow" refX="-12" refY="0" markerUnits="userSpaceOnUse">
+			<path style="fill:#000000; stroke:none;" d="M 0,0 L -60,-15 -45,0 -60,15 z" />
+		</marker>
+	</defs>
+	<rect x="0" y="0" width="1200" height="1200" style="fill:#000000; stroke:none;" />
+	<rect x="10" y="10" width="1180" height="1180" style="fill:#ddbb88; stroke:none;" />
+	<g style="display:none;">
+		<circle id="Feld" cx="0" xy="0" r="40" style="stroke:#000000; stroke-width:5;" />
+	</g>
+	<g transform="translate(0,0)" style="fill:#FFFFFF;">
+		<polygon points="700,500 1100,500 1100,700 700,700 700,1100 500,1100 500,700 100,700 100,500 500,500 500,100 700,100" style="fill:none; stroke:#000000; stroke-width:10;" />
+		<use  x="700"  y="100"  xlink:href="#Feld" style="fill:#6666FF;" />
+		<use  x="700"  y="200"  xlink:href="#Feld" />
+		<use  x="700"  y="300"  xlink:href="#Feld" />
+		<use  x="700"  y="400"  xlink:href="#Feld" />
+		<use  x="700"  y="500"  xlink:href="#Feld" />
+		<use  x="800"  y="500"  xlink:href="#Feld" />
+		<use  x="900"  y="500"  xlink:href="#Feld" />
+		<use  x="1000" y="500"  xlink:href="#Feld" />
+		<use  x="1100" y="500"  xlink:href="#Feld" />
+		<use  x="1100" y="600"  xlink:href="#Feld" />
+		<use  x="1100" y="700"  xlink:href="#Feld" style="fill:#66FF66;" />
+		<use  x="1000" y="700"  xlink:href="#Feld" />
+		<use  x="900"  y="700"  xlink:href="#Feld" />
+		<use  x="800"  y="700"  xlink:href="#Feld" />
+		<use  x="700"  y="700"  xlink:href="#Feld" />
+		<use  x="700"  y="800"  xlink:href="#Feld" />
+		<use  x="700"  y="900"  xlink:href="#Feld" />
+		<use  x="700"  y="1000" xlink:href="#Feld" />
+		<use  x="700"  y="1100" xlink:href="#Feld" />
+		<use  x="600"  y="1100" xlink:href="#Feld" />
+		<use  x="500"  y="1100" xlink:href="#Feld" style="fill:#FFFF66;" />
+		<use  x="500"  y="1000" xlink:href="#Feld" />
+		<use  x="500"  y="900"  xlink:href="#Feld" />
+		<use  x="500"  y="800"  xlink:href="#Feld" />
+		<use  x="500"  y="700"  xlink:href="#Feld" />
+		<use  x="400"  y="700"  xlink:href="#Feld" />
+		<use  x="300"  y="700"  xlink:href="#Feld" />
+		<use  x="200"  y="700"  xlink:href="#Feld" />
+		<use  x="100"  y="700"  xlink:href="#Feld" />
+		<use  x="100"  y="600"  xlink:href="#Feld" />
+		<use  x="100"  y="500"  xlink:href="#Feld" style="fill:#FF9999;" />
+		<use  x="200"  y="500"  xlink:href="#Feld" />
+		<use  x="300"  y="500"  xlink:href="#Feld" />
+		<use  x="400"  y="500"  xlink:href="#Feld" />
+		<use  x="500"  y="500"  xlink:href="#Feld" />
+		<use  x="500"  y="400"  xlink:href="#Feld" />
+		<use  x="500"  y="300"  xlink:href="#Feld" />
+		<use  x="500"  y="200"  xlink:href="#Feld" />
+		<use  x="500"  y="100"  xlink:href="#Feld" />
+		<use  x="600"  y="100"  xlink:href="#Feld" />
+		<g  style="fill:#FF0000;">
+			<use  x="100"  y="100"  xlink:href="#Feld" />
+			<use  x="100"  y="200"  xlink:href="#Feld" />
+			<use  x="200"  y="100"  xlink:href="#Feld" />
+			<use  x="200"  y="200"  xlink:href="#Feld" />
+			<use  x="200"  y="600"  xlink:href="#Feld" />
+			<use  x="300"  y="600"  xlink:href="#Feld" />
+			<use  x="400"  y="600"  xlink:href="#Feld" />
+			<use  x="500"  y="600"  xlink:href="#Feld" />
+		</g>
+		<g  style="fill:#0000FF;">
+			<use  x="1000" y="100"  xlink:href="#Feld" />
+			<use  x="1100" y="100"  xlink:href="#Feld" />
+			<use  x="1000" y="200"  xlink:href="#Feld" />
+			<use  x="1100" y="200"  xlink:href="#Feld" />
+			<use  x="600"  y="200"  xlink:href="#Feld" />
+			<use  x="600"  y="300"  xlink:href="#Feld" />
+			<use  x="600"  y="400"  xlink:href="#Feld" />
+			<use  x="600"  y="500"  xlink:href="#Feld" />
+		</g>
+		<g  style="fill:#009900;">
+			<use  x="1000" y="1000" xlink:href="#Feld" />
+			<use  x="1100" y="1000" xlink:href="#Feld" />
+			<use  x="1000" y="1100" xlink:href="#Feld" />
+			<use  x="1100" y="1100" xlink:href="#Feld" />
+			<use  x="1000" y="600"  xlink:href="#Feld" />
+			<use  x="900"  y="600"  xlink:href="#Feld" />
+			<use  x="800"  y="600"  xlink:href="#Feld" />
+			<use  x="700"  y="600"  xlink:href="#Feld" />
+		</g>
+		<g  style="fill:#FFFF00;">
+			<use  x="100"  y="1000" xlink:href="#Feld" />
+			<use  x="100"  y="1100" xlink:href="#Feld" />
+			<use  x="200"  y="1000" xlink:href="#Feld" />
+			<use  x="200"  y="1100" xlink:href="#Feld" />
+			<use  x="600"  y="1000" xlink:href="#Feld" />
+			<use  x="600"  y="900"  xlink:href="#Feld" />
+			<use  x="600"  y="800"  xlink:href="#Feld" />
+			<use  x="600"  y="700"  xlink:href="#Feld" />
+		</g>
+		<g style="fill:none; stroke:#000000; stroke-width:6; stroke-linejoin:miter;marker-end:url(#Arrow);">
+			<line x1="800" y1="100" x2="800" y2="250" />
+			<line x1="1100" y1="800" x2="950" y2="800" />
+
+			<line x1="400" y1="1100" x2="400" y2="950" />
+			<line x1="100" y1="400"  x2="250" y2="400" />
+		</g>
+	</g>
+</svg>

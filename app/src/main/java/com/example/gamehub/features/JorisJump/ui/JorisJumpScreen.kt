@@ -35,33 +35,60 @@ private const val PLAYER_HEIGHT_DP = 75f
 private const val ACCELEROMETER_SENSITIVITY = 4.0f
 private const val GRAVITY = 0.4f
 private const val INITIAL_JUMP_VELOCITY = -11.5f
-private const val PLATFORM_HEIGHT_DP = 15f
-private const val PLATFORM_WIDTH_DP = 30f
+private const val PLATFORM_HEIGHT_DP = 15f // This is the LOGICAL height for collision
+private const val PLATFORM_WIDTH_DP = 30f  // This is the LOGICAL width for collision
 private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.65f
 private const val MAX_PLATFORMS_ON_SCREEN = 10
 private const val INITIAL_PLATFORM_COUNT = 5
 private const val SCORE_POINTS_PER_DP_WORLD_Y = 0.04f
-private const val DEBUG_SHOW_HITBOXES = true
+private const val DEBUG_SHOW_HITBOXES = true // Set to true to see logical hitboxes
+
+// Constants for Moving Platforms
+private const val PLATFORM_BASE_MOVE_SPEED = 1.6f
+private const val PLATFORM_MOVE_SPEED_VARIATION = 0.6f
+// PLATFORM_MOVE_RANGE_FACTOR will be defined inside composable once screenWidthDp is known
 
 
 data class PlatformState(
     val id: Int,
-    var x: Float, // World X Dp from left
-    var y: Float  // World Y Dp from top (smaller Y is higher)
+    var x: Float, // World X Dp from left (center of logical hitbox)
+    var y: Float,  // World Y Dp from top (top of logical hitbox)
+    val isMoving: Boolean = false,          // Is this platform a moving one?
+    var movementDirection: Int = 1,         // 1 for right, -1 for left
+    val movementSpeed: Float = 1.0f,        // Dp per frame
+    val movementRange: Float = 50f,         // How far from originX it can move to one side
+    val originX: Float = x                  // Initial X to oscillate around
 )
 
 private fun generateInitialPlatformsList(screenWidth: Float, screenHeight: Float, count: Int, startingId: Int): Pair<List<PlatformState>, Int> {
     val initialPlatforms = mutableListOf<PlatformState>()
     var currentNextId = startingId
-    var currentY = screenHeight - PLATFORM_HEIGHT_DP - 5f
-    initialPlatforms.add(
-        PlatformState(id = currentNextId++, x = (screenWidth / 2) - (PLATFORM_WIDTH_DP / 2), y = currentY)
-    )
-    for (i in 1 until count) {
-        if (initialPlatforms.size >= count) break
-        val nextX = Random.nextFloat() * (screenWidth - PLATFORM_WIDTH_DP)
-        currentY -= (PLATFORM_HEIGHT_DP * Random.nextInt(4, 9)).toFloat() + Random.nextFloat() * PLATFORM_HEIGHT_DP * 2.5f
-        initialPlatforms.add(PlatformState(id = currentNextId++, x = nextX, y = currentY))
+    var currentY = screenHeight - PLATFORM_HEIGHT_DP - 5f // World Y of first platform's top
+    val platformMoveRange = screenWidth * 0.20f // Example: move 15% of screen width to each side
+
+    for (i in 0 until count) {
+        if (initialPlatforms.size >= count && i > 0) break
+
+        val xPos = if (i == 0) (screenWidth / 2) - (PLATFORM_WIDTH_DP / 2)
+        else Random.nextFloat() * (screenWidth - PLATFORM_WIDTH_DP)
+        val yPos = if (i == 0) currentY
+        else currentY - (PLATFORM_HEIGHT_DP * Random.nextInt(4, 9)).toFloat() - Random.nextFloat() * PLATFORM_HEIGHT_DP * 2.5f
+
+        val shouldMove = Random.nextInt(0, 3) == 0 // Roughly 1/3 chance
+
+        initialPlatforms.add(
+            PlatformState(
+                id = currentNextId++,
+                x = xPos,
+                y = yPos,
+                isMoving = if (i == 0) false else shouldMove, // First platform is not moving
+                movementDirection = if (Random.nextBoolean()) 1 else -1,
+                movementSpeed = PLATFORM_BASE_MOVE_SPEED + Random.nextFloat() * PLATFORM_MOVE_SPEED_VARIATION,
+                movementRange = platformMoveRange,
+                originX = xPos
+            )
+        )
+        if (i > 0) currentY = yPos
     }
     return Pair(initialPlatforms.toList(), currentNextId)
 }
@@ -91,7 +118,7 @@ fun JorisJumpScreen() {
     var playerXPositionScreenDp by remember { mutableStateOf(0f) }
     var playerYPositionWorldDp by remember { mutableStateOf(0f) }
     var playerVelocityY by remember { mutableStateOf(0f) }
-    var playerIsFallingOffScreen by remember { mutableStateOf(false) } // New state
+    var playerIsFallingOffScreen by remember { mutableStateOf(false) }
 
     var platforms by remember { mutableStateOf<List<PlatformState>>(emptyList()) }
     var gameRunning by remember { mutableStateOf(true) }
@@ -118,7 +145,7 @@ fun JorisJumpScreen() {
         playerXPositionScreenDp = (screenWidthDp / 2) - (PLAYER_WIDTH_DP / 2)
         playerYPositionWorldDp = screenHeightDp - PLAYER_HEIGHT_DP - PLATFORM_HEIGHT_DP - 30f
         playerVelocityY = 0f
-        playerIsFallingOffScreen = false // Reset this flag
+        playerIsFallingOffScreen = false
 
         val (initialPlatformsList, updatedNextId) = generateInitialPlatformsList(screenWidthDp, screenHeightDp, INITIAL_PLATFORM_COUNT, 0)
         platforms = initialPlatformsList
@@ -134,7 +161,7 @@ fun JorisJumpScreen() {
         if (!playerAndScreenInitialized) return@DisposableEffect onDispose {}
         val sensorEventListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
-                if (!gameRunning || playerIsFallingOffScreen) return // Stop input if game over or falling off
+                if (!gameRunning || playerIsFallingOffScreen) return
                 event?.let {
                     if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                         val tiltX = it.values[0]
@@ -152,58 +179,59 @@ fun JorisJumpScreen() {
     }
 
     LaunchedEffect(gameRunning, playerAndScreenInitialized) {
-        if (!playerAndScreenInitialized) return@LaunchedEffect // Must be initialized
-        // Game loop continues as long as gameRunning is true, even if playerIsFallingOffScreen.
-        // gameRunning is set to false only after player has fallen far enough.
+        if (!playerAndScreenInitialized) return@LaunchedEffect
         while (gameRunning) {
             if (!playerIsFallingOffScreen) {
+                // --- PLATFORM MOVEMENT UPDATE ---
+                if (screenWidthDp > 0f) { // Ensure screenWidthDp is initialized for bounds checks
+                    platforms = platforms.map { p ->
+                        if (p.isMoving) {
+                            var newX = p.x + (p.movementSpeed * p.movementDirection)
+                            var newDirection = p.movementDirection
+
+                            if (p.movementDirection == 1 && newX > p.originX + p.movementRange) {
+                                newX = p.originX + p.movementRange
+                                newDirection = -1
+                            } else if (p.movementDirection == -1 && newX < p.originX - p.movementRange) {
+                                newX = p.originX - p.movementRange
+                                newDirection = 1
+                            }
+                            newX = newX.coerceIn(0f, screenWidthDp - PLATFORM_WIDTH_DP) // Ensure stays on screen
+                            p.copy(x = newX, movementDirection = newDirection)
+                        } else {
+                            p
+                        }
+                    }
+                }
+
                 // --- REGULAR GAMEPLAY LOGIC ---
                 playerVelocityY += GRAVITY
                 playerYPositionWorldDp += playerVelocityY
 
-                // Score Update
                 val yForNextPoint = lastScoredWorldY - (1.0f / SCORE_POINTS_PER_DP_WORLD_Y)
                 if (playerYPositionWorldDp < yForNextPoint) {
                     val pointsEarned = ((lastScoredWorldY - playerYPositionWorldDp) * SCORE_POINTS_PER_DP_WORLD_Y).toInt()
-                    if (pointsEarned > 0) {
-                        score += pointsEarned
-                        lastScoredWorldY -= pointsEarned * (1.0f / SCORE_POINTS_PER_DP_WORLD_Y)
-                    }
+                    if (pointsEarned > 0) { score += pointsEarned; lastScoredWorldY -= pointsEarned * (1.0f / SCORE_POINTS_PER_DP_WORLD_Y) }
                 }
 
-                // Collision Detection
-                val playerTopWorldDp = playerYPositionWorldDp
                 val playerBottomWorldDp = playerYPositionWorldDp + PLAYER_HEIGHT_DP
-                val playerLeftScreenDp = playerXPositionScreenDp // Renamed for clarity
                 val playerRightScreenDp = playerXPositionScreenDp + PLAYER_WIDTH_DP
-
-                var didLandAndJumpThisFrame = false // Flag to prevent multiple jumps if overlapping multiple platforms
-
-                if (playerVelocityY > 0) { // Only check for landing if player is falling
+                var didLandAndJumpThisFrame = false
+                if (playerVelocityY > 0) {
                     platforms.forEach { platform ->
-                        if (didLandAndJumpThisFrame) return@forEach // Already jumped this frame
-
-                        // Check X overlap first (cheaper)
-                        val xOverlaps = playerRightScreenDp > platform.x &&
-                                playerLeftScreenDp < (platform.x + PLATFORM_WIDTH_DP)
-
+                        if (didLandAndJumpThisFrame) return@forEach
+                        val xOverlaps = playerRightScreenDp > platform.x && playerXPositionScreenDp < (platform.x + PLATFORM_WIDTH_DP)
                         if (xOverlaps) {
-                            // Vertical collision check:
-                            // Did the player's bottom edge cross the platform's top edge in this frame?
-                            val previousPlayerBottomWorldDp = playerBottomWorldDp - playerVelocityY // Approximate bottom in previous frame state
-
+                            val previousPlayerBottomWorldDp = playerBottomWorldDp - playerVelocityY
                             if (previousPlayerBottomWorldDp <= platform.y && playerBottomWorldDp >= platform.y) {
-                                // Collision detected!
-                                playerYPositionWorldDp = platform.y - PLAYER_HEIGHT_DP // Snap player's FEET to platform top
-                                playerVelocityY = INITIAL_JUMP_VELOCITY      // Jump!
+                                playerYPositionWorldDp = platform.y - PLAYER_HEIGHT_DP
+                                playerVelocityY = INITIAL_JUMP_VELOCITY
                                 didLandAndJumpThisFrame = true
-                                Log.d("JorisJump_Collision", "Landed on platform ${platform.id}. PlayerY set to: $playerYPositionWorldDp")
                             }
                         }
                     }
                 }
 
-                // Camera Scrolling
                 val playerYOnScreen = playerYPositionWorldDp - totalScrollOffsetDp
                 val scrollThresholdActualScreenY = screenHeightDp * SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR
                 if (playerYOnScreen < scrollThresholdActualScreenY) {
@@ -211,50 +239,51 @@ fun JorisJumpScreen() {
                     totalScrollOffsetDp -= scrollAmount
                 }
 
-                // Platform Management
                 val currentPlatformsMutable = platforms.toMutableList()
                 currentPlatformsMutable.removeAll { it.y > totalScrollOffsetDp + screenHeightDp + PLATFORM_HEIGHT_DP * 2 }
                 val generationCeilingWorldY = totalScrollOffsetDp - (screenHeightDp * 1.0f)
                 var highestExistingPlatformY = currentPlatformsMutable.minOfOrNull { it.y } ?: (totalScrollOffsetDp + screenHeightDp / 2)
                 var generationAttemptsInTick = 0
+                val platformMoveRange = screenWidthDp * 0.15f // Define here for dynamic generation
+
                 while (currentPlatformsMutable.size < MAX_PLATFORMS_ON_SCREEN &&
                     highestExistingPlatformY > generationCeilingWorldY &&
                     generationAttemptsInTick < MAX_PLATFORMS_ON_SCREEN) {
                     generationAttemptsInTick++
-                    var newX = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
+                    var newXGen = Random.nextFloat() * (screenWidthDp - PLATFORM_WIDTH_DP)
                     val minVerticalGapFactor = 5.5f
                     val maxVerticalGapFactor = 9.5f
                     val verticalGap = (PLATFORM_HEIGHT_DP * (minVerticalGapFactor + Random.nextFloat() * (maxVerticalGapFactor - minVerticalGapFactor)))
-                    val newY = highestExistingPlatformY - verticalGap
+                    val newYGen = highestExistingPlatformY - verticalGap
                     val platformImmediatelyBelow = currentPlatformsMutable.firstOrNull()
-                    if (platformImmediatelyBelow != null && kotlin.math.abs(newX - platformImmediatelyBelow.x) < PLATFORM_WIDTH_DP * 0.75f) {
+                    if (platformImmediatelyBelow != null && kotlin.math.abs(newXGen - platformImmediatelyBelow.x) < PLATFORM_WIDTH_DP * 0.75f) {
                         if (Random.nextFloat() < 0.6) {
                             val shiftDirection = if (platformImmediatelyBelow.x < screenWidthDp / 2) 1 else -1
-                            newX = (platformImmediatelyBelow.x + shiftDirection * (PLATFORM_WIDTH_DP * 2 + Random.nextFloat() * screenWidthDp * 0.2f))
+                            newXGen = (platformImmediatelyBelow.x + shiftDirection * (PLATFORM_WIDTH_DP * 2 + Random.nextFloat() * screenWidthDp * 0.2f))
                                 .coerceIn(0f, screenWidthDp - PLATFORM_WIDTH_DP)
                         }
                     }
-                    currentPlatformsMutable.add(0, PlatformState(id = nextPlatformId++, x = newX, y = newY))
-                    highestExistingPlatformY = newY
+                    val shouldMove = Random.nextInt(0, 3) == 0
+                    currentPlatformsMutable.add(0, PlatformState(
+                        id = nextPlatformId++, x = newXGen, y = newYGen,
+                        isMoving = shouldMove,
+                        movementDirection = if (Random.nextBoolean()) 1 else -1,
+                        movementSpeed = PLATFORM_BASE_MOVE_SPEED + Random.nextFloat() * PLATFORM_MOVE_SPEED_VARIATION,
+                        movementRange = if(screenWidthDp > 0) platformMoveRange else 50f,
+                        originX = newXGen
+                    ))
+                    highestExistingPlatformY = newYGen
                 }
                 platforms = currentPlatformsMutable.toList()
 
-                // Check if player fell off visible bottom
                 if (playerYPositionWorldDp > totalScrollOffsetDp + screenHeightDp) {
-                    if (!playerIsFallingOffScreen) {
-                        playerIsFallingOffScreen = true
-                        Log.d("JorisJump", "Player fell off visible screen, continuing fall.")
-                    }
+                    if (!playerIsFallingOffScreen) { playerIsFallingOffScreen = true }
                 }
-
-            } else { // playerIsFallingOffScreen is true
-                playerVelocityY += GRAVITY // Continue falling
+            } else {
+                playerVelocityY += GRAVITY
                 playerYPositionWorldDp += playerVelocityY
-
-                // Check if fallen far enough past the bottom
-                if (playerYPositionWorldDp > totalScrollOffsetDp + screenHeightDp + PLAYER_HEIGHT_DP * 2.5f) { // Fall 2.5 player heights below screen
-                    gameRunning = false // Actual game over
-                    Log.d("JorisJump", "Game Over - Player fully off screen. Final Score: $score")
+                if (playerYPositionWorldDp > totalScrollOffsetDp + screenHeightDp + PLAYER_HEIGHT_DP * 2.5f) {
+                    gameRunning = false
                 }
             }
             delay(16)
@@ -262,20 +291,14 @@ fun JorisJumpScreen() {
     }
 
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF87CEEB))
+        modifier = Modifier.fillMaxSize()
+        // .background(Color(0xFF87CEEB)) // Replaced by Image
     ) {
         Image(
-            painter = painterResource(id = R.drawable.background_doodle), // Your new image
+            painter = painterResource(id = R.drawable.background_doodle),
             contentDescription = "Joris Jump Game Background",
-            modifier = Modifier.fillMaxSize(), // Make the image fill the entire screen
-            contentScale = ContentScale.Crop // Crucial for handling aspect ratio differences
-            // Crop will fill the bounds and crop parts of the image
-            // that don't fit the screen's aspect ratio,
-            // while maintaining the image's own aspect ratio.
-            // Other options: ContentScale.FillBounds (stretches),
-            // ContentScale.Fit (letterboxes/pillarboxes)
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
         if (!playerAndScreenInitialized && this.maxWidth > 0.dp && this.maxHeight > 0.dp) {
             screenWidthDp = this.maxWidth.value
@@ -286,79 +309,50 @@ fun JorisJumpScreen() {
 
         if (playerAndScreenInitialized) {
             platforms.forEach { platform ->
-                val visualScaleFactor = 4f // Make the image appear 3x bigger
-
-                // The logical position and size for collision and placement
+                val visualScaleFactor = 4f
                 val logicalPlatformWidthDp = PLATFORM_WIDTH_DP
                 val logicalPlatformHeightDp = PLATFORM_HEIGHT_DP
-
-                // Calculate the visual size
                 val visualPlatformWidthDp = logicalPlatformWidthDp * visualScaleFactor
                 val visualPlatformHeightDp = logicalPlatformHeightDp * visualScaleFactor
-
-                // Calculate the offset needed to keep the *center* of the visual image
-                // aligned with the *center* of the logical hitbox.
-                // If we just scale it, it will scale from its top-left.
-                // Offset needed = (Logical Size - Visual Size) / 2
                 val visualOffsetX = (logicalPlatformWidthDp - visualPlatformWidthDp) / 2f
                 val visualOffsetY = (logicalPlatformHeightDp - visualPlatformHeightDp) / 2f
 
-                // Draw the platform image (cloud) - VISUALLY LARGER
                 Image(
-                    painter = painterResource(id = R.drawable.cloud_platform), // Your cloud image
+                    painter = painterResource(id = R.drawable.cloud_platform),
                     contentDescription = "Cloud Platform",
                     modifier = Modifier
                         .absoluteOffset(
-                            x = (platform.x + visualOffsetX).dp, // Adjust X for centering the visual
-                            y = ((platform.y - totalScrollOffsetDp) + visualOffsetY).dp // Adjust Y for centering the visual
+                            x = (platform.x + visualOffsetX).dp,
+                            y = ((platform.y - totalScrollOffsetDp) + visualOffsetY).dp
                         )
-                        .size(visualPlatformWidthDp.dp, visualPlatformHeightDp.dp) // Draw at the larger visual size
+                        .size(visualPlatformWidthDp.dp, visualPlatformHeightDp.dp)
                 )
-
                 if (DEBUG_SHOW_HITBOXES) {
-                    Box(
-                        modifier = Modifier
-                            .absoluteOffset(
-                                x = platform.x.dp, // Same X as the platform image
-                                y = (platform.y - totalScrollOffsetDp).dp // Same Y as the platform image
-                            )
-                            .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp) // Same size
-                            .background(Color.Red.copy(alpha = 0.3f))
-                    )
+                    Box(modifier = Modifier
+                        .absoluteOffset(x = platform.x.dp, y = (platform.y - totalScrollOffsetDp).dp)
+                        .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp) // Use logical size for hitbox
+                        .background(Color.Red.copy(alpha = 0.3f)))
                 }
             }
 
-            // Player is drawn as long as gameRunning is true OR playerIsFallingOffScreen is true.
-            // Once gameRunning is false, the game over UI appears.
-            // The player box itself will be drawn off-screen due to its large Y value.
             Image(
-                painter = painterResource(id = R.drawable.joris_doodler), // This references your image
-                contentDescription = "Joris the Doodler", // For accessibility
+                painter = painterResource(id = R.drawable.joris_doodler),
+                contentDescription = "Joris the Doodler",
                 modifier = Modifier
-                    .absoluteOffset(
-                        x = playerXPositionScreenDp.dp,
-                        y = (playerYPositionWorldDp - totalScrollOffsetDp).dp
-                    )
+                    .absoluteOffset(x = playerXPositionScreenDp.dp, y = (playerYPositionWorldDp - totalScrollOffsetDp).dp)
                     .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
             )
-
-            // Draw Player Hitbox if DEBUG_SHOW_HITBOXES is true
             if (DEBUG_SHOW_HITBOXES) {
-                Box(
-                    modifier = Modifier
-                        .absoluteOffset(
-                            x = playerXPositionScreenDp.dp, // Matches player's visual X
-                            y = (playerYPositionWorldDp - totalScrollOffsetDp).dp // Matches player's visual Y top
-                        )
-                        .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp) // Full player size for now
-                        .background(Color.Blue.copy(alpha = 0.3f))
-                )
+                Box(modifier = Modifier
+                    .absoluteOffset(x = playerXPositionScreenDp.dp, y = (playerYPositionWorldDp - totalScrollOffsetDp).dp)
+                    .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)
+                    .background(Color.Blue.copy(alpha = 0.3f)))
             }
 
             Text("Score: $score", style = MaterialTheme.typography.headlineSmall, color = Color.Black,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
 
-            if (!gameRunning) { // Only show Game Over UI when game loop has stopped
+            if (!gameRunning) {
                 Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("GAME OVER", style = MaterialTheme.typography.headlineMedium, color = Color.Red)
                     Text("Final Score: $score", style = MaterialTheme.typography.headlineSmall, color = Color.Black)
@@ -373,11 +367,8 @@ fun JorisJumpScreen() {
             Text("PlayerY(world): ${"%.1f".format(playerYPositionWorldDp)} | PlayerY(scr): ${"%.1f".format(playerYPositionWorldDp - totalScrollOffsetDp)} | Vy: ${"%.1f".format(playerVelocityY)}", color = Color.White, fontSize = 10.sp)
             Text("ScrollOffset: ${"%.1f".format(totalScrollOffsetDp)} | LastScoredY: ${"%.1f".format(lastScoredWorldY)}", color = Color.White, fontSize = 10.sp)
             Text("Scrn: ${"%.0f".format(screenWidthDp)}x${"%.0f".format(screenHeightDp)}", color = Color.White, fontSize = 10.sp)
-            Text(
-                if (gameRunning) (if (playerIsFallingOffScreen) "FALLING OFF" else "Running") else "GAME OVER",
-                color = if (gameRunning) (if (playerIsFallingOffScreen) Color.Yellow else Color.Green) else Color.Red,
-                fontSize = 10.sp
-            )
+            Text(if (gameRunning) (if (playerIsFallingOffScreen) "FALLING OFF" else "Running") else "GAME OVER",
+                color = if (gameRunning) (if (playerIsFallingOffScreen) Color.Yellow else Color.Green) else Color.Red, fontSize = 10.sp)
             Text("Platforms: ${platforms.size} | NextID: $nextPlatformId", color = Color.White, fontSize = 10.sp)
             if (accelerometer == null) Text("ACCEL N/A!", color = Color.Red, fontSize = 10.sp)
         }
@@ -388,14 +379,18 @@ fun JorisJumpScreen() {
 @Composable
 fun JorisJumpScreenPreview() {
     MaterialTheme {
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF87CEEB))) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Image(painter = painterResource(id = R.drawable.background_doodle), contentDescription = "Preview Background",
+                modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-70).dp)
-                .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp).background(Color.Green)
-            ) { Text("J", color = Color.Black, modifier = Modifier.align(Alignment.Center)) }
+                .size(PLAYER_WIDTH_DP.dp, PLAYER_HEIGHT_DP.dp)) {
+                Image(painter = painterResource(id = R.drawable.joris_doodler), contentDescription = "Preview Doodler")
+            }
             Box(modifier = Modifier.align(Alignment.BottomCenter).offset(y = (-70 + PLAYER_HEIGHT_DP + 5).dp)
-                .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp).background(Color.DarkGray))
-            Box(modifier = Modifier.align(Alignment.Center).offset(y = (-150).dp, x = 30.dp)
-                .size(PLATFORM_WIDTH_DP.dp, PLATFORM_HEIGHT_DP.dp).background(Color.DarkGray))
+                .size(PLATFORM_WIDTH_DP.dp * 4, PLATFORM_HEIGHT_DP.dp * 4) // Preview visual size for cloud
+            ) {
+                Image(painter = painterResource(id = R.drawable.cloud_platform), contentDescription = "Preview Cloud")
+            }
             Text("Score: 0", style = MaterialTheme.typography.headlineSmall, color = Color.Black,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp))
             Text("Preview (No Dynamic Logic)", modifier = Modifier.align(Alignment.Center).padding(16.dp), color = Color.Black)

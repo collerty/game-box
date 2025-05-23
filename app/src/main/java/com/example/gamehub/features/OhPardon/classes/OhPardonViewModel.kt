@@ -106,7 +106,7 @@ class OhPardonViewModel(
     fun attemptRollDice(currentUserName: String) {
         val currentGame = _gameRoom.value ?: return
         val gameState = currentGame.gameState
-        val currentPlayer = currentGame.players.find { it.uid == currentGame.gameState.currentTurnUid }
+        val currentPlayer = currentGame.players.find { it.name == currentUserName }
 
 
         // 1. Check if it's the user's turn

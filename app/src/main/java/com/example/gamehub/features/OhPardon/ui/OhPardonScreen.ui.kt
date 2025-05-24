@@ -3,6 +3,10 @@ package com.example.gamehub.features.ohpardon.ui
 import android.app.Application
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,20 +16,30 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.ImageLoader
-import coil.compose.rememberAsyncImagePainter
-import coil.decode.SvgDecoder
-import coil.request.ImageRequest
-import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
+
+
+enum class CellType {
+    EMPTY, PATH, HOME, GOAL, ENTRY
+}
+
+data class BoardCell(
+    val x: Int,
+    val y: Int,
+    val type: CellType,
+    val pawn: PawnForUI? = null,
+    val color: Color? = null
+)
+
+data class PawnForUI(val color: Color, val id: Int)
 
 
 @Composable
@@ -93,18 +107,6 @@ fun OhPardonScreen(
         }
     }
 
-    // ImageLoader for SVGs
-    val imageLoader = ImageLoader.Builder(context)
-        .components { add(SvgDecoder.Factory()) }
-        .build()
-
-    val painter = rememberAsyncImagePainter(
-        model = ImageRequest.Builder(context)
-            .data("android.resource://${context.packageName}/${R.raw.ohpardon_board}")
-            .crossfade(true)
-            .build(),
-        imageLoader = imageLoader
-    )
 
     fun colorToString(color: Color): String {
         return when (color) {
@@ -158,118 +160,72 @@ fun OhPardonScreen(
                 .padding(padding)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
-        )
-        {
-            // Board Image
-            Image(
-                painter = painter,
-                contentDescription = "Game Board",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            )
-
+        ) {
             Spacer(modifier = Modifier.height(16.dp))
 
             if (gameRoom != null) {
-                val currentPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+                val board = viewModel.getBoardForUI(gameRoom!!.players)
 
-                if (currentPlayer != null) {
-                    Text(
-                        text = "It's ${currentPlayer.name}'s turn!",
-                        style = MaterialTheme.typography.titleLarge,
+                GameBoard(board = board, onPawnClick = { pawnId ->
+                    selectedPawnId = pawnId
+                })
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val isMyTurn = gameRoom!!.gameState.currentTurnUid == currentPlayer?.uid
+
+                if (isMyTurn) {
+                    // Dice roll button
+                    if (currentDiceRoll == null) {
+                        Button(
+                            onClick = { viewModel.attemptRollDice(userName) },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Text("Roll Dice")
+                        }
+                    }
+
+                    // Move button
+                    if (currentDiceRoll != null && selectedPawnId != null) {
+                        Button(
+                            onClick = {
+                                viewModel.attemptMovePawn(gameRoom!!.gameState.currentTurnUid, selectedPawnId.toString())
+                                selectedPawnId = null
+                            },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Text("Move Selected Pawn")
+                        }
+                    }
+
+                    // Skip turn
+                    Button(
+                        onClick = {
+                            viewModel.skipTurn(userName)
+                            selectedPawnId = null
+                        },
                         modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    ) {
+                        Text("Skip Turn")
+                    }
 
-                    gameRoom!!.gameState.diceRoll?.let {
+                    val currentPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+
+                    if (currentPlayer != null) {
                         Text(
-                            text = "${currentPlayer.name} rolled a $it!",
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(bottom = 16.dp)
+                            text = "It's ${currentPlayer.name}'s turn!",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
-                    }
 
-                    // Pawn selection buttons - only show if it's the current player's turn
-                    if (currentPlayer.name == userName) {
-
-                        // Dice roll button - only show if dice has NOT been rolled yet this turn
-                        if (currentDiceRoll == null) {
-                            Button(
-                                onClick = {
-                                    viewModel.attemptRollDice(userName)
-                                },
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            ) {
-                                Text("Roll Dice")
-                            }
-                        }
-
-                        // Pawn selection buttons - only show if dice rolled
-                        if (currentDiceRoll != null) {
+                        gameRoom!!.gameState.diceRoll?.let {
                             Text(
-                                "Select a Pawn to Move:",
-                                style = MaterialTheme.typography.titleMedium
+                                text = "${currentPlayer.name} rolled a $it!",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(bottom = 16.dp)
                             )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                (0..3).forEach { pawnId ->
-                                    Button(
-                                        onClick = { selectedPawnId = pawnId },
-                                        colors = if (selectedPawnId == pawnId)
-                                            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                        else
-                                            ButtonDefaults.buttonColors(),
-                                        enabled = currentDiceRoll != null // Only enable if dice has been rolled
-                                    ) {
-                                        Text("Pawn $pawnId")
-                                    }
-                                }
-                            }
-
-                            // Move button
-                            selectedPawnId?.let {
-                                Button(
-                                    onClick = {
-                                        viewModel.attemptMovePawn(
-                                            gameRoom!!.gameState.currentTurnUid,
-                                            it.toString()
-                                        )
-                                        selectedPawnId = null
-                                    },
-                                    modifier = Modifier.padding(top = 8.dp),
-                                    enabled = true
-                                ) {
-                                    Text("Move Selected Pawn")
-                                }
-                            }
-
-                            Button(
-                                onClick = {
-                                    viewModel.skipTurn(
-                                        userName
-                                    )
-                                    selectedPawnId = null
-                                },
-                                modifier = Modifier.padding(top = 8.dp),
-                                enabled = true
-                            ) {
-                                Text("Skip turn")
-                            }
                         }
                     }
-                }
-
-                // Debug info - show all players
-                gameRoom!!.players.forEach { player ->
-                    Text(text = player.name, style = MaterialTheme.typography.titleMedium)
-                    Text(text = "Color: ${colorToString(player.color)}")
-                    Text(text = "Pawns:")
-                    player.pawns.forEachIndexed { index, pawn ->
-                        Text(text = "Pawn $index: ${pawn.position}")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
             } else {
                 CircularProgressIndicator()
@@ -277,4 +233,47 @@ fun OhPardonScreen(
             }
         }
     }
+
 }
+
+@Composable
+fun GameBoard(board: List<List<BoardCell>>, onPawnClick: (Int) -> Unit) {
+    Column {
+        board.forEach { row ->
+            Row {
+                row.forEach { cell ->
+                    BoardCellView(cell = cell, onPawnClick = onPawnClick)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BoardCellView(cell: BoardCell, onPawnClick: (Int) -> Unit) {
+    val backgroundColor = when (cell.type) {
+        CellType.EMPTY -> Color.LightGray
+        CellType.PATH -> cell.color ?: Color.White
+        CellType.HOME -> cell.color ?: Color.Cyan
+        CellType.GOAL -> cell.color ?: Color.Yellow
+        CellType.ENTRY -> cell.color ?: Color.Black
+    }
+
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .border(1.dp, Color.Black)
+            .background(backgroundColor)
+            .clickable(enabled = cell.pawn != null) {
+                cell.pawn?.let { onPawnClick(it.id) }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        cell.pawn?.let {
+            Canvas(modifier = Modifier.size(20.dp)) {
+                drawCircle(color = it.color)
+            }
+        }
+    }
+}
+

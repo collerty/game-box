@@ -25,7 +25,7 @@ import coil.request.ImageRequest
 import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
-
+import com.google.firebase.firestore.FirebaseFirestore
 
 
 @Composable
@@ -36,6 +36,7 @@ fun OhPardonScreen(
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as Application
+    val firestore = FirebaseFirestore.getInstance()
 
 
     val viewModel: OhPardonViewModel = viewModel(
@@ -49,6 +50,15 @@ fun OhPardonScreen(
     var selectedPawnId by remember { mutableStateOf<Int?>(null) }
 
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val showVictoryDialog = remember { mutableStateOf(false) }
+    val winnerName = remember { mutableStateOf("") }
+
+    LaunchedEffect(gameRoom?.status) {
+        if (gameRoom?.status == "over" && gameRoom?.gameState?.gameResult?.contains("wins") == true) {
+            winnerName.value = gameRoom?.gameState?.gameResult?.removeSuffix(" wins!") ?: ""
+            showVictoryDialog.value = true
+        }
+    }
 
 
     // Debugging logs
@@ -105,6 +115,42 @@ fun OhPardonScreen(
             else -> "Unknown"
         }
     }
+
+    val currentPlayer = gameRoom?.players?.find { it.name == userName }
+    val isHost = gameRoom?.hostUid == currentPlayer?.uid
+
+    if (showVictoryDialog.value) {
+        AlertDialog(
+            onDismissRequest = { /* Prevent dismissal on tap outside */ },
+            title = { Text(text = "🎉 Game Over") },
+            text = { Text(text = "${winnerName.value} has won the game!") },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Host deletes room or navigates away
+                    showVictoryDialog.value = false
+                    // Call delete if host, or popBackStack if client
+                    if (isHost) {
+                        firestore.collection("rooms").document(code)
+                            .delete()
+                            .addOnSuccessListener {
+                                navController.popBackStack()
+                            }
+                    } else {
+                        navController.popBackStack()
+                    }
+                }) {
+                    Text(if (isHost) "Close Room" else "Exit")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVictoryDialog.value = false }) {
+                    Text("Stay")
+                }
+            }
+        )
+    }
+
+
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -193,10 +239,23 @@ fun OhPardonScreen(
                                         selectedPawnId = null
                                     },
                                     modifier = Modifier.padding(top = 8.dp),
-                                    enabled = currentDiceRoll != null
+                                    enabled = true
                                 ) {
                                     Text("Move Selected Pawn")
                                 }
+                            }
+
+                            Button(
+                                onClick = {
+                                    viewModel.skipTurn(
+                                        userName
+                                    )
+                                    selectedPawnId = null
+                                },
+                                modifier = Modifier.padding(top = 8.dp),
+                                enabled = true
+                            ) {
+                                Text("Skip turn")
                             }
                         }
                     }

@@ -27,7 +27,6 @@ data class GameRoom(
     val status: String = "waiting", // waiting, playing, finished
     val players: List<Player>,
     val gameState: GameState,
-    val rematchVotes: Map<String, Boolean>,
     val createdAt: Timestamp?
 )
 
@@ -234,7 +233,6 @@ class OhPardonViewModel(
             status = data["status"] as? String ?: "waiting",
             players = playersList,
             gameState = parseGameState(ohPardonState),
-            rematchVotes = (data["rematchVotes"] as? Map<String, Boolean>) ?: emptyMap(),
             createdAt = data["createdAt"] as? Timestamp
         )
     }
@@ -257,6 +255,7 @@ class OhPardonViewModel(
         }
         else {
             _toastMessage.value = "Not allowed to skip another player's turn!"
+            return
         }
     }
 
@@ -265,13 +264,13 @@ class OhPardonViewModel(
         val gameState = currentGame.gameState
 
         if (gameState.currentTurnUid != currentUserUid) {
-            Log.w("OhPardonVM", "Not your turn")
+            _toastMessage.value = "Not your turn!"
             return
         }
 
         val diceRoll = gameState.diceRoll
         if (diceRoll == null) {
-            Log.w("OhPardonVM", "Dice not rolled yet")
+            _toastMessage.value = "Roll the dice first!"
             return
         }
 
@@ -330,14 +329,7 @@ class OhPardonViewModel(
                 if (totalSteps >= 40) {
                     val victoryCell = 40 + (totalSteps - 40)
                     if (victoryCell > 43) {
-                        Log.d("OhPardonVM", "Cannot move beyond victory")
-                        val updates = mapOf(
-                            "gameState.ohpardon.diceRoll" to null,
-                            "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
-                        )
-                        firestore.collection("rooms")
-                            .document(roomCode)
-                            .update(updates)
+                        _toastMessage.value = "Invalid move!"
                         return
                     }
                     victoryCell
@@ -348,27 +340,13 @@ class OhPardonViewModel(
             currentPos in victoryRange -> {
                 val newVictoryPos = currentPos + diceRoll
                 if (newVictoryPos > 43) {
-                    Log.d("OhPardonVM", "Cannot move beyond victory")
-                    val updates = mapOf(
-                        "gameState.ohpardon.diceRoll" to null,
-                        "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
-                    )
-                    firestore.collection("rooms")
-                        .document(roomCode)
-                        .update(updates)
+                    _toastMessage.value = "Invalid move!"
                     return
                 }
                 newVictoryPos
             }
             else -> {
-                Log.d("OhPardonVM", "Invalid move")
-                val updates = mapOf(
-                    "gameState.ohpardon.diceRoll" to null,
-                    "gameState.ohpardon.currentPlayer" to getNextPlayerUid(currentGame, currentUserUid)
-                )
-                firestore.collection("rooms")
-                    .document(roomCode)
-                    .update(updates)
+                _toastMessage.value = "Invalid move!"
                 return
             }
         }
@@ -435,6 +413,47 @@ class OhPardonViewModel(
                 diceRoll = null
             )
         )
+
+        val winningPlayer = updatedPlayers.find { player ->
+            val victoryPositions = setOf(40, 41, 42, 43)
+            player.pawns.map { it.position }.toSet() == victoryPositions
+        }
+
+        if (winningPlayer != null) {
+            val victoryMessage = "${winningPlayer.name} has won the game!"
+            _toastMessage.value = victoryMessage
+
+            // Update game state to finished
+            val updates = mapOf(
+                "players" to updatedPlayerMaps,
+                "gameState.ohpardon.diceRoll" to null,
+                "gameState.ohpardon.currentPlayer" to nextPlayerUid,
+                "gameState.ohpardon.gameResult" to "${winningPlayer.name} wins!",
+                "status" to "over"
+            )
+
+            firestore.collection("rooms")
+                .document(roomCode)
+                .update(updates)
+                .addOnSuccessListener {
+                    Log.d("OhPardonVM", "Game over. ${winningPlayer.name} wins!")
+                }
+                .addOnFailureListener {
+                    Log.e("OhPardonVM", "Failed to update game over state", it)
+                }
+
+            _gameRoom.value = currentGame.copy(
+                players = updatedPlayers,
+                gameState = currentGame.gameState.copy(
+                    currentTurnUid = nextPlayerUid,
+                    diceRoll = null,
+                    gameResult = "${winningPlayer.name} wins!"
+                ),
+                status = "over"
+            )
+
+            return // Skip remaining update block
+        }
 
         val updates = mapOf(
             "players" to updatedPlayerMaps,

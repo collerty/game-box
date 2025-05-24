@@ -82,6 +82,18 @@ val colorConfigs = mapOf(
     )
 )
 
+// Define shared path
+val nonColoredPath = listOf(
+    Pair(1, 4), Pair(2, 4), Pair(3, 4), Pair(4, 4),
+    Pair(4, 3), Pair(4, 2), Pair(4, 1), Pair(4, 0),
+    Pair(5, 0), Pair(6, 1), Pair(6, 2), Pair(6, 3),
+    Pair(6, 4), Pair(7, 4), Pair(8, 4), Pair(9, 4),
+    Pair(10, 4), Pair(10, 5), Pair(9, 6), Pair(8, 6),
+    Pair(7, 6), Pair(6, 6), Pair(6, 7), Pair(6, 8),
+    Pair(6, 9), Pair(6, 10), Pair(5, 10), Pair(4, 9),
+    Pair(4, 8), Pair(4, 7), Pair(4, 6), Pair(3, 6),
+    Pair(2, 6), Pair(1, 6), Pair(0, 6), Pair(0, 5)
+)
 
 class OhPardonViewModel(
     application: Application,
@@ -348,8 +360,8 @@ class OhPardonViewModel(
 
         //Move logic
         val newPosition = when {
-            currentPos == -1 && diceRoll == 6 -> playerOffset // Enter from home
-
+            currentPos == -1 && diceRoll == 6 -> 0
+            //^^ THIS BREAKS THE GAME, FIX IT ASAP
             currentPos in 0 until 40 -> {
                 val stepsTaken = (currentPos - playerOffset + 40) % 40
                 val totalSteps = stepsTaken + diceRoll
@@ -509,7 +521,11 @@ class OhPardonViewModel(
         return game.players[nextIndex].uid
     }
 
-    fun getCoordinatesFromPosition(position: Int, color: Color, pawnIndex: Int = 0): Pair<Int, Int> {
+    fun getCoordinatesFromPosition(
+        position: Int,
+        color: Color,
+        pawnIndex: Int = 0
+    ): Pair<Int, Int> {
         val offset = when (color) {
             Color.Red -> 0
             Color.Green -> 20
@@ -518,37 +534,40 @@ class OhPardonViewModel(
             else -> 0
         }
 
-        // --- 1. Board path layout (0 to 39)
-        val path = listOf(
-            5 to 0, 5 to 1, 5 to 2, 5 to 3, 5 to 4,
-            6 to 4, 7 to 4, 8 to 4, 9 to 4, 10 to 4,
-            10 to 5, 9 to 5, 8 to 5, 7 to 5, 6 to 5,
-            5 to 6, 5 to 7, 5 to 8, 5 to 9, 5 to 10,
-            4 to 10, 4 to 9, 4 to 8, 4 to 7, 4 to 6,
-            3 to 5, 2 to 5, 1 to 5, 0 to 5,
-            0 to 4, 1 to 4, 2 to 4, 3 to 4, 4 to 4,
-            4 to 3, 4 to 2, 4 to 1, 4 to 0,
-            5 to 0 // back to start
-        )
-
         val config = colorConfigs[color]
+
+        // Define shared path
+        val fullPath = listOf(
+            Pair(0, 4),
+            Pair(1, 4), Pair(2, 4), Pair(3, 4), Pair(4, 4),
+            Pair(4, 3), Pair(4, 2), Pair(4, 1), Pair(4, 0),
+            Pair(5, 0), Pair(6, 0), Pair(6, 1), Pair(6, 2), Pair(6, 3),
+            Pair(6, 4), Pair(7, 4), Pair(8, 4), Pair(9, 4),
+            Pair(10, 4), Pair(10, 5), Pair(10, 6), Pair(9, 6), Pair(8, 6),
+            Pair(7, 6), Pair(6, 6), Pair(6, 7), Pair(6, 8),
+            Pair(6, 9), Pair(6, 10), Pair(5, 10), Pair(4, 10), Pair(4, 9),
+            Pair(4, 8), Pair(4, 7), Pair(4, 6), Pair(3, 6),
+            Pair(2, 6), Pair(1, 6), Pair(0, 6), Pair(0, 5)
+        )
 
         return when {
             position == -1 -> {
                 // Home: choose index (e.g., pawnIndex) to spread pawns uniquely
                 config?.homePositions?.getOrNull(pawnIndex % 4) ?: (0 to 0)
             }
+
             position in 0..39 -> {
                 val index = (position + offset) % 40
-                path.getOrElse(index) { 5 to 0 }
+                fullPath.getOrElse(index) { 5 to 5 }
             }
+
             position in 40..43 -> {
                 config?.goalPath?.getOrNull(position - 40) ?: (5 to 5)
             }
+
             else -> (5 to 5) // fallback to center
         }
     }
-
 
 
     fun getBoardForUI(players: List<Player>): List<List<BoardCell>> {
@@ -570,19 +589,6 @@ class OhPardonViewModel(
             board[ey][ex] = BoardCell(ex, ey, type = CellType.ENTRY, color = color)
         }
 
-        // Define shared path
-        val nonColoredPath = listOf(
-            Pair(1, 4), Pair(2, 4), Pair(3, 4), Pair(4, 4),
-            Pair(4, 3), Pair(4, 2), Pair(4, 1), Pair(4, 0),
-            Pair(5, 0), Pair(6, 1), Pair(6, 2), Pair(6, 3),
-            Pair(6, 4), Pair(7, 4), Pair(8, 4), Pair(9, 4),
-            Pair(10, 4), Pair(10, 5), Pair(9, 6), Pair(8, 6),
-            Pair(7, 6), Pair(6, 6), Pair(6, 7), Pair(6, 8),
-            Pair(6, 9), Pair(6, 10), Pair(5, 10), Pair(4, 9),
-            Pair(4, 8), Pair(4, 7), Pair(4, 6), Pair(3, 6),
-            Pair(2, 6), Pair(1, 6), Pair(0, 6), Pair(0, 5)
-        )
-
         nonColoredPath.forEach { (x, y) ->
             board[y][x] = BoardCell(x, y, type = CellType.PATH, color = Color.White)
         }
@@ -600,7 +606,6 @@ class OhPardonViewModel(
 
         return board
     }
-
 
 
     override fun onCleared() {

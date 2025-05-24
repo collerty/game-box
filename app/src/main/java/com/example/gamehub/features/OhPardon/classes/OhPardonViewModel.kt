@@ -322,7 +322,8 @@ class OhPardonViewModel(
         //Move logic
         val newPosition = when {
             currentPos == -1 && diceRoll == 6 -> playerOffset // Enter from home
-            currentPos in 0 until stepsToVictoryStart -> {
+
+            currentPos in 0 until 40 -> {
                 val stepsTaken = (currentPos - playerOffset + 40) % 40
                 val totalSteps = stepsTaken + diceRoll
 
@@ -337,6 +338,7 @@ class OhPardonViewModel(
                     (playerOffset + totalSteps) % 40
                 }
             }
+
             currentPos in victoryRange -> {
                 val newVictoryPos = currentPos + diceRoll
                 if (newVictoryPos > 43) {
@@ -345,11 +347,13 @@ class OhPardonViewModel(
                 }
                 newVictoryPos
             }
+
             else -> {
                 _toastMessage.value = "Invalid move!"
                 return
             }
         }
+
 
         val isBlockedByOpponent = isProtectedStartCellBlocked(newPosition, currentUserUid, currentGame)
         val isBlockedBySelf = isOwnPawnBlocking(newPosition, pawnId, player)
@@ -420,8 +424,6 @@ class OhPardonViewModel(
         }
 
         if (winningPlayer != null) {
-            val victoryMessage = "${winningPlayer.name} has won the game!"
-            _toastMessage.value = victoryMessage
 
             // Update game state to finished
             val updates = mapOf(

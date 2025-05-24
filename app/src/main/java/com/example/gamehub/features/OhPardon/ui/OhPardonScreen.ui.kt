@@ -271,7 +271,7 @@ fun BoardCellView(cell: BoardCell, onPawnClick: (Int) -> Unit) {
     ) {
         cell.pawn?.let {
             Canvas(modifier = Modifier.size(20.dp)) {
-                drawCircle(color = it.color)
+                drawCircle(color = Color.Cyan)
             }
         }
     }

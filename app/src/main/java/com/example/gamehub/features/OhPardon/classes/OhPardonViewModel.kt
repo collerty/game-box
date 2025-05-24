@@ -33,6 +33,13 @@ data class GameRoom(
     val createdAt: Timestamp?
 )
 
+data class ColorConfig(
+    val homePositions: List<Pair<Int, Int>>,
+    val goalPath: List<Pair<Int, Int>>,
+    val entryCell: Pair<Int, Int>
+)
+
+
 data class GameState(
     val currentTurnUid: String,
     val diceRoll: Int? = null,
@@ -50,6 +57,29 @@ data class Player(
 data class Pawn(
     val id: String,
     var position: Int = -1 // -1 means at home
+)
+
+val colorConfigs = mapOf(
+    Color.Red to ColorConfig(
+        homePositions = listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1),
+        goalPath = listOf(1 to 5, 2 to 5, 3 to 5, 4 to 5),
+        entryCell = 0 to 4
+    ),
+    Color.Blue to ColorConfig(
+        homePositions = listOf(9 to 0, 10 to 0, 9 to 1, 10 to 1),
+        goalPath = listOf(5 to 1, 5 to 2, 5 to 3, 5 to 4),
+        entryCell = 6 to 0
+    ),
+    Color.Green to ColorConfig(
+        homePositions = listOf(9 to 10, 10 to 10, 9 to 9, 10 to 9),
+        goalPath = listOf(9 to 5, 8 to 5, 7 to 5, 6 to 5),
+        entryCell = 10 to 6
+    ),
+    Color.Yellow to ColorConfig(
+        homePositions = listOf(0 to 10, 0 to 9, 1 to 10, 1 to 9),
+        goalPath = listOf(5 to 9, 5 to 8, 5 to 7, 5 to 6),
+        entryCell = 4 to 10
+    )
 )
 
 
@@ -479,7 +509,7 @@ class OhPardonViewModel(
         return game.players[nextIndex].uid
     }
 
-    fun getCoordinatesFromPosition(position: Int, color: Color): Pair<Int, Int> {
+    fun getCoordinatesFromPosition(position: Int, color: Color, pawnIndex: Int = 0): Pair<Int, Int> {
         val offset = when (color) {
             Color.Red -> 0
             Color.Green -> 20
@@ -488,7 +518,7 @@ class OhPardonViewModel(
             else -> 0
         }
 
-        // --- 1. Board path layout in order of positions 0 to 39 (circular path)
+        // --- 1. Board path layout (0 to 39)
         val path = listOf(
             5 to 0, 5 to 1, 5 to 2, 5 to 3, 5 to 4,
             6 to 4, 7 to 4, 8 to 4, 9 to 4, 10 to 4,
@@ -501,37 +531,24 @@ class OhPardonViewModel(
             5 to 0 // back to start
         )
 
-        // --- 2. Goal paths per color (positions 40 to 43)
-        val goalPaths = mapOf(
-            Color.Red to listOf(5 to 1, 5 to 2, 5 to 3, 5 to 4),
-            Color.Blue to listOf(9 to 5, 8 to 5, 7 to 5, 6 to 5),
-            Color.Green to listOf(5 to 9, 5 to 8, 5 to 7, 5 to 6),
-            Color.Yellow to listOf(1 to 5, 2 to 5, 3 to 5, 4 to 5)
-        )
-
-        // --- 3. Home cell anchor (can use this to place up to 4 pawns inside)
-        val homePositions = mapOf(
-            Color.Red to listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1),
-            Color.Blue to listOf(9 to 0, 10 to 0, 10 to 1, 9 to 1),
-            Color.Green to listOf(9 to 9, 10 to 9, 9 to 10, 10 to 10),
-            Color.Yellow to listOf(0 to 9, 1 to 9, 0 to 10, 1 to 10)
-        )
+        val config = colorConfigs[color]
 
         return when {
             position == -1 -> {
-                // Pick any one of the home cells (or use pawn.id to index for uniqueness)
-                homePositions[color]?.get(0) ?: (0 to 0)
+                // Home: choose index (e.g., pawnIndex) to spread pawns uniquely
+                config?.homePositions?.getOrNull(pawnIndex % 4) ?: (0 to 0)
             }
             position in 0..39 -> {
                 val index = (position + offset) % 40
                 path.getOrElse(index) { 5 to 0 }
             }
             position in 40..43 -> {
-                goalPaths[color]?.get(position - 40) ?: (5 to 5)
+                config?.goalPath?.getOrNull(position - 40) ?: (5 to 5)
             }
-            else -> (5 to 5) // default fallback: center
+            else -> (5 to 5) // fallback to center
         }
     }
+
 
 
     fun getBoardForUI(players: List<Player>): List<List<BoardCell>> {
@@ -541,128 +558,49 @@ class OhPardonViewModel(
             }
         }
 
-        // Define colored cells
-        val redHome = listOf(Pair(0, 0), Pair(1, 0), Pair(0, 1), Pair(1, 1))
-        val redGoalPath = listOf(Pair(1, 5), Pair(2, 5), Pair(3, 5), Pair(4, 5))
-        val redEntry = Pair(0, 4)
-
-        val blueHome = listOf(Pair(9, 0), Pair(10, 0), Pair(9, 1), Pair(10, 1))
-        val blueGoalPath = listOf(Pair(5, 1), Pair(5, 2), Pair(5, 3), Pair(5, 4))
-        val blueEntry = Pair(6, 0)
-
-        val greenHome = listOf(Pair(9, 10), Pair(10, 10), Pair(9, 9), Pair(10, 9))
-        val greenGoalPath = listOf(Pair(9, 5), Pair(8, 5), Pair(7, 5), Pair(6, 5))
-        val greenEntry = Pair(10, 6)
-
-        val yellowHome = listOf(Pair(0, 10), Pair(0, 9), Pair(1, 10), Pair(1, 9))
-        val yellowGoalPath = listOf(Pair(5, 9), Pair(5, 8), Pair(5, 7), Pair(5, 6))
-        val yellowEntry = Pair(4, 10)
-
-        //red
-        redHome.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.HOME, color = Color.Red)
+        // Mark home, goal, and entry cells based on colorConfigs
+        colorConfigs.forEach { (color, config) ->
+            config.homePositions.forEach { (x, y) ->
+                board[y][x] = BoardCell(x, y, type = CellType.HOME, color = color)
+            }
+            config.goalPath.forEach { (x, y) ->
+                board[y][x] = BoardCell(x, y, type = CellType.GOAL, color = color)
+            }
+            val (ex, ey) = config.entryCell
+            board[ey][ex] = BoardCell(ex, ey, type = CellType.ENTRY, color = color)
         }
-        redGoalPath.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.GOAL, color = Color.Red)
-        }
-        board[redEntry.second][redEntry.first] =
-            BoardCell(redEntry.first, redEntry.second, type = CellType.ENTRY, color = Color.Red)
 
-        //blue
-        blueHome.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.HOME, color = Color.Blue)
-        }
-        blueGoalPath.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.GOAL, color = Color.Blue)
-        }
-        board[blueEntry.second][blueEntry.first] =
-            BoardCell(blueEntry.first, blueEntry.second, type = CellType.ENTRY, color = Color.Blue)
-
-        //green
-        greenHome.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.HOME, color = Color.Green)
-        }
-        greenGoalPath.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.GOAL, color = Color.Green)
-        }
-        board[greenEntry.second][greenEntry.first] = BoardCell(
-            greenEntry.first,
-            greenEntry.second,
-            type = CellType.ENTRY,
-            color = Color.Green
-        )
-
-        //yellow
-        yellowHome.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.HOME, color = Color.Yellow)
-        }
-        yellowGoalPath.forEach { (x, y) ->
-            board[y][x] = BoardCell(x, y, type = CellType.GOAL, color = Color.Yellow)
-        }
-        board[yellowEntry.second][yellowEntry.first] = BoardCell(
-            yellowEntry.first,
-            yellowEntry.second,
-            type = CellType.ENTRY,
-            color = Color.Yellow
-        )
-
-        //non colored paths
+        // Define shared path
         val nonColoredPath = listOf(
-            Pair(1, 4),
-            Pair(2, 4),
-            Pair(3, 4),
-            Pair(4, 4),
-            Pair(4, 3),
-            Pair(4, 2),
-            Pair(4, 1),
-            Pair(4, 0),
-            Pair(5, 0),
-            Pair(6, 1),
-            Pair(6, 2),
-            Pair(6, 3),
-            Pair(6, 4),
-            Pair(7, 4),
-            Pair(8, 4),
-            Pair(9, 4),
-            Pair(10, 4),
-            Pair(10, 5),
-            Pair(9, 6),
-            Pair(8, 6),
-            Pair(7, 6),
-            Pair(6, 6),
-            Pair(6, 7),
-            Pair(6, 8),
-            Pair(6, 9),
-            Pair(6, 10),
-            Pair(5, 10),
-            Pair(4, 9),
-            Pair(4, 8),
-            Pair(4, 7),
-            Pair(4, 6),
-            Pair(3, 6),
-            Pair(2, 6),
-            Pair(1, 6),
-            Pair(0, 6),
-            Pair(0, 5),
+            Pair(1, 4), Pair(2, 4), Pair(3, 4), Pair(4, 4),
+            Pair(4, 3), Pair(4, 2), Pair(4, 1), Pair(4, 0),
+            Pair(5, 0), Pair(6, 1), Pair(6, 2), Pair(6, 3),
+            Pair(6, 4), Pair(7, 4), Pair(8, 4), Pair(9, 4),
+            Pair(10, 4), Pair(10, 5), Pair(9, 6), Pair(8, 6),
+            Pair(7, 6), Pair(6, 6), Pair(6, 7), Pair(6, 8),
+            Pair(6, 9), Pair(6, 10), Pair(5, 10), Pair(4, 9),
+            Pair(4, 8), Pair(4, 7), Pair(4, 6), Pair(3, 6),
+            Pair(2, 6), Pair(1, 6), Pair(0, 6), Pair(0, 5)
         )
 
         nonColoredPath.forEach { (x, y) ->
             board[y][x] = BoardCell(x, y, type = CellType.PATH, color = Color.White)
         }
 
-
-        players.forEach { player: Player ->
-
-            // Place pawns
+        // Place pawns
+        players.forEach { player ->
             player.pawns.forEach { pawn ->
-                val (x, y) = getCoordinatesFromPosition(pawn.position, player.color)
-                board[y][x] = board[y][x].copy(pawn = PawnForUI(color = player.color, id = pawn.id.filter { it.isDigit() }.toInt()))
+                val pawnId = pawn.id.filter { it.isDigit() }.toIntOrNull() ?: 0
+                val (x, y) = getCoordinatesFromPosition(pawn.position, player.color, pawnId)
+                board[y][x] = board[y][x].copy(
+                    pawn = PawnForUI(color = player.color, id = pawnId)
+                )
             }
-
-            return board
         }
+
         return board
     }
+
 
 
     override fun onCleared() {

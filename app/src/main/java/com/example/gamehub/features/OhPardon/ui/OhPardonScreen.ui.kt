@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
+import com.example.gamehub.features.ohpardon.Player
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -166,24 +167,27 @@ fun OhPardonScreen(
             if (gameRoom != null) {
                 val board = viewModel.getBoardForUI(gameRoom!!.players)
 
-                GameBoard(board = board, onPawnClick = { pawnId ->
-                    selectedPawnId = pawnId
-                })
+                GameBoard(
+                    board = board, onPawnClick = { pawnId ->
+                        selectedPawnId = pawnId
+                    },
+                    currentPlayer = currentPlayer
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val currentPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+                val currentTurnPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
 
-                if (currentPlayer != null) {
+                if (currentTurnPlayer != null) {
                     Text(
-                        text = "It's ${currentPlayer.name}'s turn!",
+                        text = "It's ${currentTurnPlayer.name}'s turn!",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
                     gameRoom!!.gameState.diceRoll?.let {
                         Text(
-                            text = "${currentPlayer.name} rolled a $it!",
+                            text = "${currentTurnPlayer.name} rolled a $it!",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
@@ -239,20 +243,28 @@ fun OhPardonScreen(
 }
 
 @Composable
-fun GameBoard(board: List<List<BoardCell>>, onPawnClick: (Int) -> Unit) {
+fun GameBoard(
+    board: List<List<BoardCell>>,
+    onPawnClick: (Int) -> Unit,
+    currentPlayer: Player?
+) {
     Column {
         board.forEach { row ->
             Row {
                 row.forEach { cell ->
-                    BoardCellView(cell = cell, onPawnClick = onPawnClick)
+                    BoardCellView(cell = cell, currentPlayer = currentPlayer, onPawnClick = onPawnClick)
                 }
             }
         }
     }
 }
 
+
 @Composable
-fun BoardCellView(cell: BoardCell, onPawnClick: (Int) -> Unit) {
+fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) -> Unit) {
+
+    val isMyPawn = cell.pawn?.color == currentPlayer?.color
+
     val backgroundColor = when (cell.type) {
         CellType.EMPTY -> Color.LightGray
         CellType.PATH -> cell.color ?: Color.White
@@ -266,7 +278,7 @@ fun BoardCellView(cell: BoardCell, onPawnClick: (Int) -> Unit) {
             .size(32.dp)
             .border(1.dp, Color.Black)
             .background(backgroundColor)
-            .clickable(enabled = cell.pawn != null) {
+            .clickable(enabled = isMyPawn) {
                 cell.pawn?.let { onPawnClick(it.id) }
             },
         contentAlignment = Alignment.Center

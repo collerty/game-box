@@ -111,16 +111,6 @@ fun OhPardonScreen(
     }
 
 
-    fun colorToString(color: Color): String {
-        return when (color) {
-            Color.Red -> "Red"
-            Color.Green -> "Green"
-            Color.Blue -> "Blue"
-            Color.Yellow -> "Yellow"
-            else -> "Unknown"
-        }
-    }
-
     val currentPlayer = gameRoom?.players?.find { it.name == userName }
     val isHost = gameRoom?.hostUid == currentPlayer?.uid
 

@@ -1,17 +1,19 @@
+// app/src/main/java/com/example/gamehub/ui/GuestGameScreen.kt
 package com.example.gamehub.ui
 
-import android.net.Uri  // ← Add this import!
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.google.firebase.auth.ktx.auth
+import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.example.gamehub.navigation.NavRoutes
+import com.google.firebase.auth.ktx.auth
+import kotlinx.coroutines.launch
 
 @Composable
 fun GuestGameScreen(
@@ -21,32 +23,23 @@ fun GuestGameScreen(
     userName: String
 ) {
     val db = Firebase.firestore
+    var status by remember { mutableStateOf("waiting") }
 
-    var players    by remember { mutableStateOf<List<String>>(emptyList()) }
-    var maxPlayers by remember { mutableStateOf(0) }
-    var status     by remember { mutableStateOf("waiting") }
-
-    // Listen for room updates
+    // Listen for room status
     LaunchedEffect(code) {
         db.collection("rooms").document(code)
             .addSnapshotListener { snap, _ ->
-                if (snap == null || !snap.exists()) {
-                    navController.popBackStack()
-                } else {
-                    players = (snap.get("players") as? List<Map<String,Any>>)
-                        ?.mapNotNull { it["name"] as? String }
-                        ?: emptyList()
-                    maxPlayers = snap.getLong("maxPlayers")?.toInt() ?: 0
-                    status     = snap.getString("status") ?: "waiting"
+                if (snap != null && snap.exists()) {
+                    status = snap.getString("status") ?: "waiting"
                 }
             }
     }
 
-    // Navigate when game starts
+    // When status flips to started, navigate *this* guest into vote
     LaunchedEffect(status) {
         if (status == "started") {
             val route = when (gameId) {
-                "battleships" -> NavRoutes.BATTLESHIPS_GAME
+                "battleships" -> NavRoutes.BATTLE_VOTE
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
                 else          -> null
             }
@@ -59,42 +52,21 @@ fun GuestGameScreen(
         }
     }
 
-    Scaffold { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("Room ID: $code", style = MaterialTheme.typography.headlineSmall)
-            Spacer(Modifier.height(8.dp))
-            Text("Players (${players.size}/$maxPlayers):")
-            players.forEach { Text("• $it") }
-            Spacer(Modifier.height(24.dp))
-            Text(
-                if (status == "started") "Game is starting!"
-                else "Waiting for host…",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = {
-                db.collection("rooms").document(code)
-                    .update(
-                        "players",
-                        FieldValue.arrayRemove(
-                            mapOf(
-                                "uid"  to Firebase.auth.uid,
-                                "name" to userName
-                            )
-                        )
+    // … UI for showing “waiting for host” + “Leave” button …
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Waiting for host to start…")
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = {
+            db.collection("rooms").document(code)
+                .update(
+                    "players",
+                    FieldValue.arrayRemove(
+                        mapOf("uid" to Firebase.auth.uid, "name" to userName)
                     )
-                    .addOnSuccessListener {
-                        navController.popBackStack()
-                    }
-            }) {
-                Text("Leave Room")
-            }
+                )
+                .addOnSuccessListener { navController.popBackStack() }
+        }) {
+            Text("Leave Room")
         }
     }
 }

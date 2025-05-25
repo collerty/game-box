@@ -341,7 +341,6 @@ class OhPardonViewModel(
         val playerOffset = getBoardOffsetForPlayer(player.color)
         val currentPos = pawn.position
 
-        val stepsToVictoryStart = 40
         val victoryRange = 40..43
 
         fun isProtectedStartCellBlocked(
@@ -360,8 +359,8 @@ class OhPardonViewModel(
 
         //Move logic
         val newPosition = when {
-            currentPos == -1 && diceRoll == 6 -> 0
-            //^^ THIS BREAKS THE GAME, FIX IT ASAP
+            currentPos == -1 && diceRoll == 6 -> playerOffset
+
             currentPos in 0 until 40 -> {
                 val stepsTaken = (currentPos - playerOffset + 40) % 40
                 val totalSteps = stepsTaken + diceRoll
@@ -417,7 +416,7 @@ class OhPardonViewModel(
             if (p.uid == currentUserUid) {
                 val updatedPawns = p.pawns.map {
                     if (it.id == "pawn$pawnId") {
-                        if (isMoveBlocked) it else it.copy(position = newPosition)
+                        if (newPosition == getBoardOffsetForPlayer(p.color)) it.copy(position = newPosition - getBoardOffsetForPlayer(p.color)) else it.copy(position = newPosition)
                     } else it
                 }
                 p.copy(pawns = updatedPawns)

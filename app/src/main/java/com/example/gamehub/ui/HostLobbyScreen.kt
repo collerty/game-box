@@ -131,16 +131,30 @@ fun HostLobbyScreen(
                         }
 
                         try {
-                            db.collection("rooms").document(roomId).update(
-                                mapOf(
-                                    "status" to "started",
-                                    "gameState.$gameId" to initialGameState,
-                                    "rematchVotes" to rematchVotes
-                                )
-                            ).addOnSuccessListener {
-                                println("✅ Game started successfully")
-                            }.addOnFailureListener {
-                                println("❌ Failed to start game: ${it.message}")
+                            if(gameId == "battleships") {
+                                db.collection("rooms").document(roomId).update(
+                                    mapOf(
+                                        "status" to "started",
+                                        "gameState.$gameId" to initialGameState,
+                                        "rematchVotes" to rematchVotes
+                                    )
+                                ).addOnSuccessListener {
+                                    println("✅ Game started successfully")
+                                }.addOnFailureListener {
+                                    println("❌ Failed to start game: ${it.message}")
+                                }
+                            }
+                            else{
+                                db.collection("rooms").document(roomId).update(
+                                    mapOf(
+                                        "status" to "started",
+                                        "gameState.$gameId" to initialGameState,
+                                    )
+                                ).addOnSuccessListener {
+                                    println("✅ Game started successfully")
+                                }.addOnFailureListener {
+                                    println("❌ Failed to start game: ${it.message}")
+                                }
                             }
                         } catch (e: Exception) {
                             println("🔥 Exception during game start: ${e.message}")

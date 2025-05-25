@@ -88,6 +88,7 @@ object LobbyService {
             "status" to "waiting",
             "players" to listOf(playerObj),
             "gameState" to initialGameState,
+            "createdAt" to FieldValue.serverTimestamp(),
             "rematchVotes" to emptyMap<String, Boolean>(),
             "createdAt" to FieldValue.serverTimestamp()
         )

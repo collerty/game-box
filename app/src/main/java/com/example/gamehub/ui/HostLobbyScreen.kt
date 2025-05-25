@@ -22,7 +22,7 @@ fun HostLobbyScreen(
     roomId: String
 ) {
     val db = Firebase.firestore
-    val auth = com.google.firebase.auth.ktx.auth.FirebaseAuth.getInstance()
+    val auth = Firebase.auth
     val scope = rememberCoroutineScope()
 
     var roomName by remember { mutableStateOf<String?>(null) }

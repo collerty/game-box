@@ -22,7 +22,7 @@ sealed class PowerUp(val cost: Int) {
             Cell(o.row + 1, o.col + 1)
         )
     }
-    object Laser   : PowerUp(2) {
+    object Laser   : PowerUp(4) { // <<== set to 4!
         override fun expand(o: Cell) = (0 until 10).map { c -> Cell(o.row, c) }
     }
 }
@@ -33,6 +33,7 @@ sealed class PowerUp(val cost: Int) {
 @Composable
 fun PowerUpPanel(
     energy: Int,
+    hasPlacedMineThisTurn: Boolean,
     onSelect: (PowerUp) -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp)) {
@@ -40,16 +41,24 @@ fun PowerUpPanel(
         Spacer(Modifier.height(8.dp))
 
         listOf(PowerUp.Mine, PowerUp.Bomb2x2, PowerUp.Laser).forEach { pu ->
+            val isMine = pu == PowerUp.Mine
+            val enabled = if (isMine) {
+                energy >= pu.cost && !hasPlacedMineThisTurn
+            } else {
+                energy >= pu.cost
+            }
             Button(
-                onClick = { onSelect(pu) },
-                enabled = energy >= pu.cost,
+                onClick = { if (enabled) onSelect(pu) },
+                enabled = enabled,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             ) {
                 Text(
-                    when (pu) {
-                        PowerUp.Mine    -> "Mine (2ℇ)"
-                        PowerUp.Bomb2x2 -> "Bomb 2×2 (3ℇ)"
-                        PowerUp.Laser   -> "Laser (2ℇ)"
+                    when {
+                        isMine && hasPlacedMineThisTurn -> "You placed a mine!"
+                        isMine -> "Mine (2ℇ)"
+                        pu == PowerUp.Bomb2x2 -> "Bomb 2×2 (3ℇ)"
+                        pu == PowerUp.Laser   -> "Laser (2ℇ)"
+                        else -> ""
                     }
                 )
             }

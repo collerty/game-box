@@ -1,5 +1,6 @@
 package com.example.gamehub.lobby
 
+import com.example.gamehub.features.battleships.model.Cell
 import com.example.gamehub.features.battleships.ui.Orientation
 import com.example.gamehub.lobby.codec.BattleshipsCodec
 import com.example.gamehub.lobby.model.GameSession
@@ -27,7 +28,8 @@ class FirestoreSession(
     val stateFlow = callbackFlow<GameSession> {
         val registration = room.addSnapshotListener { snap, _ ->
             val gs = snap?.get("gameState") as? Map<*, *> ?: return@addSnapshotListener
-            val bs = gs["battleships"] as? Map<String, Any?> ?: return@addSnapshotListener
+            val bs = (gs["battleships"] as? Map<*, *>)?.entries?.associate { it.key as String to it.value } ?: return@addSnapshotListener
+
             println(
                 "FirestoreSession DEBUG: snapshot received, gameResult=${bs["gameResult"]}, moves=${bs["moves"]}, currentTurn=${bs["currentTurn"]}, rematchVotes=${bs["rematchVotes"]}, status=${snap.get("status")}"
             )
@@ -40,6 +42,8 @@ class FirestoreSession(
         initialValue = GameSession.empty(roomCode)
     )
 
+
+
     /**
      * Fire one shot at (x,y) and switch turns, then write
      * *only* the nested `gameState.battleships` map back.
@@ -47,7 +51,7 @@ class FirestoreSession(
     suspend fun submitMove(x: Int, y: Int, playerId: String) {
         val snap = room.get().await()
         val gs = snap.get("gameState") as? Map<*, *> ?: error("Missing gameState")
-        val bs = gs["battleships"] as? Map<String, Any?> ?: error("Missing battleships")
+        val bs = (gs["battleships"] as? Map<*, *>)?.entries?.associate { it.key as String to it.value } ?: error("Missing battleships")
 
         val current = codec.decode(bs)
         println("DEBUG: submitMove: playerId=$playerId, player1Id=${current.player1Id}, player2Id=${current.player2Id}, gameResult=${current.gameResult}")
@@ -68,20 +72,17 @@ class FirestoreSession(
             current.player1Id
         }
 
-        val updated = current.copy(
-            moves = current.moves + Move(x, y, playerId),
-            currentTurn = opponent
-        )
+        val move = Move(x, y, playerId)
+        val newMoves = current.moves + move
 
-        val p1Ships = current.ships[current.player1Id] ?: emptyList()
-        val p2Ships = current.player2Id?.let { current.ships[it] } ?: emptyList()
-        val moves = updated.moves
+        // --- MINE RETALIATION LOGIC ---
+        val mineRetaliationUpdates = mutableMapOf<String, Any>()
+        var newPlacedMines = current.placedMines.toMutableMap()
 
-        println(
-            "DEBUG: p1Ships=${p1Ships.size} (${p1Ships}), p2Ships=${p2Ships.size} (${p2Ships}), moves=${moves.size} (${
-                moves.map { "(${it.x},${it.y},${it.playerId})" }
-            })"
-        )
+        // 1. Check if player hits a mine on opponent's board
+        val defenderMines = current.placedMines[opponent] ?: emptyList()
+        val moveCell = Cell(y, x)
+        val hitMine = defenderMines.contains(moveCell)
 
         fun isAllShipsSunk(
             ships: List<com.example.gamehub.lobby.model.Ship>,
@@ -117,6 +118,81 @@ class FirestoreSession(
             }
         }
 
+        if (hitMine) {
+            // 2. Remove mine that was hit
+            val updatedOpponentMines = defenderMines.filter { it != moveCell }
+            newPlacedMines[opponent] = updatedOpponentMines
+            val prevTriggered = current.triggeredMines[opponent] ?: emptyList()
+            val newTriggered = prevTriggered + moveCell
+            val newTriggeredMines = current.triggeredMines.toMutableMap()
+            newTriggeredMines[opponent] = newTriggered
+
+            // 3. Retaliate: pick 3 random valid (not yet attacked) cells on attacker's board
+            val attackedCells = newMoves.filter { it.playerId == opponent }.map { Cell(it.y, it.x) }.toSet()
+            val allCells = (0 until 10).flatMap { row -> (0 until 10).map { col -> Cell(row, col) } }
+            val unhitCells = allCells.filter { it !in attackedCells }
+
+            // Pick up to 3 random
+            val retaliationTargets = unhitCells.shuffled().take(3)
+
+            val retaliationMoves = retaliationTargets.map { cell ->
+                Move(cell.col, cell.row, opponent)
+            }
+            // Add retaliation moves to moves list
+            val finalMoves = newMoves + retaliationMoves
+
+            // You could also update a "triggeredMines" list in your state for board drawing
+
+            // Now continue with this new move list
+            val updated = current.copy(
+                moves = finalMoves,
+                currentTurn = opponent,
+                placedMines = newPlacedMines,
+                triggeredMines = newTriggeredMines
+            )
+
+            // Also add to Firestore update!
+            mineRetaliationUpdates["gameState.battleships.moves"] = updated.moves
+            mineRetaliationUpdates["gameState.battleships.currentTurn"] = updated.currentTurn
+            mineRetaliationUpdates["gameState.battleships.placedMines"] =
+                updated.placedMines.mapValues { it.value.map { c -> mapOf("row" to c.row, "col" to c.col) } }
+
+            // Win check logic as in your code:
+            val p1Ships = updated.ships[updated.player1Id] ?: emptyList()
+            val p2Ships = updated.player2Id?.let { updated.ships[it] } ?: emptyList()
+            val moves = updated.moves
+
+            val isP1Sunk = isAllShipsSunk(p1Ships, moves, updated.player1Id)
+            val isP2Sunk = isAllShipsSunk(p2Ships, moves, updated.player2Id ?: "")
+
+            val winnerUid: String? = when {
+                p1Ships.isNotEmpty() && isP1Sunk -> updated.player2Id
+                p2Ships.isNotEmpty() && isP2Sunk -> updated.player1Id
+                else -> null
+            }
+            if (!winnerUid.isNullOrEmpty()) {
+                mineRetaliationUpdates["gameState.battleships.gameResult"] = winnerUid
+            }
+
+            room.update(mineRetaliationUpdates).await()
+            return
+        }
+
+        val updated = current.copy(
+            moves = current.moves + Move(x, y, playerId),
+            currentTurn = opponent
+        )
+
+        val p1Ships = current.ships[current.player1Id] ?: emptyList()
+        val p2Ships = current.player2Id?.let { current.ships[it] } ?: emptyList()
+        val moves = updated.moves
+
+        println(
+            "DEBUG: p1Ships=${p1Ships.size} (${p1Ships}), p2Ships=${p2Ships.size} (${p2Ships}), moves=${moves.size} (${
+                moves.map { "(${it.x},${it.y},${it.playerId})" }
+            })"
+        )
+
         val isP1Sunk = isAllShipsSunk(p1Ships, moves, current.player1Id)
         val isP2Sunk = isAllShipsSunk(p2Ships, moves, current.player2Id ?: "")
 
@@ -140,7 +216,10 @@ class FirestoreSession(
             updates["gameState.battleships.gameResult"] = winnerUid
         }
 
+
+
         println("DEBUG: Firestore update: $updates")
         room.update(updates).await()
     }
+
 }

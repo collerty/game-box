@@ -46,7 +46,7 @@ object LobbyService {
             "currentTurn"  to hostUid,
             "moves"        to emptyList<String>(),
             "powerUps"     to mapOf(hostUid to listOf("RADAR", "BOMB")),
-            "energy"       to mapOf(hostUid to 5),
+            "energy"       to mapOf(hostUid to 3),
             "mapVotes"     to emptyMap<String, Int>(),
             "chosenMap"    to null,
             "powerUpMoves" to emptyList<String>()

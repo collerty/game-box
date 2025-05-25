@@ -3,7 +3,7 @@ package com.example.gamehub.features.ohpardon.ui
 import android.app.Application
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,16 +17,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
 import com.example.gamehub.features.ohpardon.Player
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
-
+import com.example.gamehub.R
 
 enum class CellType {
     EMPTY, PATH, HOME, GOAL, ENTRY
@@ -259,10 +261,20 @@ fun GameBoard(
     }
 }
 
+@Composable
+fun getPawnImageRes(color: Color?): Int {
+    return when (color) {
+        Color.Red -> R.drawable.pawn_red
+        Color.Blue -> R.drawable.pawn_blue
+        Color.Green -> R.drawable.pawn_green
+        Color.Yellow -> R.drawable.pawn_yellow
+        else -> R.drawable.pawn_default // fallback image
+    }
+}
+
 
 @Composable
 fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) -> Unit) {
-
     val isMyPawn = cell.pawn?.color == currentPlayer?.color
 
     val backgroundColor = when (cell.type) {
@@ -284,10 +296,22 @@ fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) ->
         contentAlignment = Alignment.Center
     ) {
         cell.pawn?.let {
-            Canvas(modifier = Modifier.size(20.dp)) {
-                drawCircle(color = Color.Cyan)
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(Color.LightGray, shape = CircleShape)
+                    .border(1.dp, Color.DarkGray, shape = CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = getPawnImageRes(it.color)),
+                    contentDescription = "Pawn",
+                    modifier = Modifier.size(28.dp)
+                )
             }
+
         }
+
     }
 }
 

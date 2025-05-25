@@ -172,6 +172,24 @@ fun OhPardonScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                val currentPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+
+                if (currentPlayer != null) {
+                    Text(
+                        text = "It's ${currentPlayer.name}'s turn!",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    gameRoom!!.gameState.diceRoll?.let {
+                        Text(
+                            text = "${currentPlayer.name} rolled a $it!",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+                }
+
                 val isMyTurn = gameRoom!!.gameState.currentTurnUid == currentPlayer?.uid
 
                 if (isMyTurn) {
@@ -209,24 +227,8 @@ fun OhPardonScreen(
                         Text("Skip Turn")
                     }
 
-                    val currentPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
-
-                    if (currentPlayer != null) {
-                        Text(
-                            text = "It's ${currentPlayer.name}'s turn!",
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
-                        gameRoom!!.gameState.diceRoll?.let {
-                            Text(
-                                text = "${currentPlayer.name} rolled a $it!",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            )
-                        }
-                    }
                 }
+
             } else {
                 CircularProgressIndicator()
                 Text("Loading game data...")

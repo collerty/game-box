@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Modifier.Companion.any
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -111,7 +112,7 @@ fun BattleshipMap(
                                 Image(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.mine_big),
                                     contentDescription = "Mine",
-                                    modifier = Modifier.size(cellSize * 0.8f)
+                                    modifier = Modifier.size(cellSize * 2f)
                                 )
                             }
 
@@ -120,11 +121,11 @@ fun BattleshipMap(
                                 Image(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.mine_big), // Or explosion
                                     contentDescription = "Triggered Mine",
-                                    modifier = Modifier.size(cellSize * 0.8f)
+                                    modifier = Modifier.size(cellSize * 2f)
                                 )
                             }
                             // If no triggered mine, but it's a hit, draw hit circle (do NOT cover a triggered mine)
-                            else if (attacks[cell] == AttackResult.Hit) {
+                            else if (attacks[cell] == AttackResult.Hit && cell !in triggeredMines) {
                                 Image(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.hit_circle),
                                     contentDescription = null,
@@ -132,7 +133,7 @@ fun BattleshipMap(
                                 )
                             }
                             // If miss, draw miss circle
-                            else if (attacks[cell] == AttackResult.Miss) {
+                            else if (attacks[cell] == AttackResult.Miss && cell !in triggeredMines) {
                                 Image(
                                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.miss_circle),
                                     contentDescription = null,

@@ -110,7 +110,7 @@ fun HostLobbyScreen(
                                 "currentTurn" to startingPlayerUid,
                                 "moves" to emptyList<String>(),
                                 "powerUps" to players.associate { it["uid"] as String to listOf("RADAR", "BOMB") },
-                                "energy" to players.associate { it["uid"] as String to 5 },
+                                "energy" to players.associate { it["uid"] as String to 3 },
                                 "gameResult" to null,
                                 "mapVotes" to emptyMap<String, Int>(),
                                 "chosenMap" to null,

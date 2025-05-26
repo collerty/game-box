@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -35,6 +36,7 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.example.gamehub.navigation.NavRoutes
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import kotlinx.coroutines.tasks.await
 
@@ -185,6 +187,13 @@ fun BattleshipsPlayScreen(
     }
     val hasPlacedMineThisTurn = myMines.size > minesAtTurnStart
 
+    suspend fun spendEnergy(roomRef: com.google.firebase.firestore.DocumentReference, uid: String, amount: Int) {
+        roomRef.update(
+            "gameState.battleships.energy.$uid",
+            FieldValue.increment(-amount.toLong())
+        ).await()
+    }
+
     DisposableEffect(roomCode) {
         val reg = roomRef.addSnapshotListener { snap, _ ->
             val bs = ((snap?.get("gameState") as? Map<*, *>)?.get("battleships") as? Map<*, *>) ?: return@addSnapshotListener
@@ -253,12 +262,7 @@ fun BattleshipsPlayScreen(
                         IconButton(
                             onClick = { showSurrenderDialog = true }
                         ) {
-                            Icon(Icons.Default.ExitToApp, contentDescription = "Surrender", tint = Color.White)
-                        }
-                        IconButton(
-                            onClick = { }
-                        ) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Surrender", tint = Color.White)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -302,15 +306,14 @@ fun BattleshipsPlayScreen(
                             onCellClick = { row, col ->
                                 val isMineHere = myMines.any { it.row == row && it.col == col }
                                 val alreadyHit = oppMoves.any { it.x == col && it.y == row }
-                                if (!isMineHere && !alreadyHit) {
+                                if (!isMineHere && !alreadyHit && (state.energy[uid] ?: 0) >= PowerUp.Mine.cost) {
                                     scope.launch {
                                         try {
+                                            spendEnergy(roomRef, uid, PowerUp.Mine.cost)
                                             val updatedMines = myMines + Cell(row, col)
                                             roomRef.update(
                                                 "gameState.battleships.placedMines.$uid",
-                                                updatedMines.map {
-                                                    mapOf("row" to it.row, "col" to it.col)
-                                                }
+                                                updatedMines.map { mapOf("row" to it.row, "col" to it.col) }
                                             ).await()
                                             placingMine = false
                                             selectedPowerUp = null
@@ -320,10 +323,6 @@ fun BattleshipsPlayScreen(
                                     }
                                 }
                             }
-                        )
-                        Text(
-                            "Select a square on your board to place the mine.",
-                            color = Color.White
                         )
                     }
                     else {
@@ -345,9 +344,10 @@ fun BattleshipsPlayScreen(
 
                                     when (selectedPowerUp) {
                                         PowerUp.Bomb2x2 -> {
-                                            if (row in 0 until 9 && col in 0 until 9) {
-                                                val targets = PowerUp.Bomb2x2.expand(Cell(row, col))
+                                            if (row in 0 until 9 && col in 0 until 9 && (state.energy[uid] ?: 0) >= PowerUp.Bomb2x2.cost) {
                                                 scope.launch {
+                                                    spendEnergy(roomRef, uid, PowerUp.Bomb2x2.cost)
+                                                    val targets = PowerUp.Bomb2x2.expand(Cell(row, col))
                                                     targets.forEach { targetCell ->
                                                         session.submitMove(targetCell.col, targetCell.row, uid)
                                                     }
@@ -356,22 +356,32 @@ fun BattleshipsPlayScreen(
                                             }
                                         }
                                         PowerUp.Laser -> {
-                                            // --- LASER USAGE LOGIC ---
-                                            val targets = if (laserOrientation == Orientation.Horizontal) {
-                                                (0 until 10).map { c -> Cell(row, c) }
-                                            } else {
-                                                (0 until 10).map { r -> Cell(r, col) }
-                                            }
-                                            scope.launch {
-                                                targets.forEach { targetCell ->
-                                                    session.submitMove(targetCell.col, targetCell.row, uid)
+                                            if ((state.energy[uid] ?: 0) >= PowerUp.Laser.cost) {
+                                                scope.launch {
+                                                    // 2. Spend energy
+                                                    spendEnergy(roomRef, uid, PowerUp.Laser.cost)
+
+                                                    // 3. Calculate Laser targets
+                                                    val targets = if (laserOrientation == Orientation.Horizontal) {
+                                                        (0 until 10).map { c -> Cell(row, c) }
+                                                    } else {
+                                                        (0 until 10).map { r -> Cell(r, col) }
+                                                    }
+
+                                                    // 4. Fire all laser shots (could also do in parallel)
+                                                    targets.forEach { targetCell ->
+                                                        session.submitMove(targetCell.col, targetCell.row, uid)
+                                                    }
+                                                    selectedPowerUp = null
+
                                                 }
-                                                selectedPowerUp = null
                                             }
                                         }
                                         else -> {
                                             if (cell !in myHitCells) {
                                                 scope.launch {
+                                                    val beforeState = state
+                                                    println("DEBUG: BEFORE (uid: $uid): myShips=${myDestroyedShips.size}, oppShips=${oppDestroyedShips.size}, moves=${state.moves.size}")
                                                     session.submitMove(col, row, uid)
                                                 }
                                             }
@@ -391,6 +401,80 @@ fun BattleshipsPlayScreen(
                                 triggeredMines = myTriggeredMines,
                                 onCellClick = { _, _ -> }
                             )
+                        }
+                    }
+                }
+
+                if (placingMine) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Select a square on your board to place the mine.",
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+                else if (selectedPowerUp is PowerUp.Bomb2x2) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Select a 2x2 zone on your opponent's board to drop the bomb. The cell you click will be the top-left corner of the bomb.",
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+                else if (selectedPowerUp is PowerUp.Laser) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Select a row or column to fire the laser. The laser will hit all cells in that row/column. Press the button below to toggle between row and column.",
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+
+                if (selectedPowerUp != null || placingMine) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Button(
+                            onClick = {
+                                selectedPowerUp = null
+                                placingMine = false
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .width(200.dp)
+                                .height(48.dp)
+                        ) {
+                            Text("Cancel PowerUp")
                         }
                     }
                 }
@@ -422,7 +506,6 @@ fun BattleshipsPlayScreen(
                             .padding(12.dp)
                             .fillMaxWidth()
                     ) {
-                        Text("Energy: $energy", color = Color.White, style = MaterialTheme.typography.titleMedium)
                         PowerUpPanel(energy, hasPlacedMineThisTurn) { pu ->
                             when (pu) {
                                 PowerUp.Mine -> {
@@ -611,14 +694,14 @@ fun BoardGrid(
                                     Image(
                                         painter = painterResource(com.example.gamehub.R.drawable.mine), // Or an explosion drawable if you want
                                         contentDescription = "Triggered Mine",
-                                        modifier = Modifier.size(cellSize * 1.2f)
+                                        modifier = Modifier.size(cellSize * 2f)
                                     )
                                 }
                                 mineCells.any { it.row == cell.row && it.col == cell.col } -> {
                                     Image(
                                         painter = painterResource(com.example.gamehub.R.drawable.mine),
                                         contentDescription = "Mine",
-                                        modifier = Modifier.size(cellSize * 1.2f)
+                                        modifier = Modifier.size(cellSize * 2f)
                                     )
                                 }
                                 attacks[cell] == AttackResult.Hit -> {

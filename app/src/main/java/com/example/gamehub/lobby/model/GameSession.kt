@@ -1,5 +1,7 @@
 package com.example.gamehub.lobby.model
 
+import com.example.gamehub.features.battleships.model.Cell
+
 data class GameSession(
     val gameId: String,
     val player1Id: String,
@@ -12,7 +14,9 @@ data class GameSession(
     val powerUpMoves: List<String> = emptyList(),
     val mapVotes: Map<String, Int> = emptyMap(),
     val chosenMap: Int? = null,
-    val gameResult: String? = null
+    val gameResult: String? = null,
+    val placedMines: Map<String, List<Cell>> = emptyMap(),
+    val triggeredMines: Map<String, List<Cell>> = emptyMap()
 ) {
     companion object {
         fun empty(id: String) = GameSession(
@@ -22,8 +26,14 @@ data class GameSession(
             currentTurn = "",
             moves = emptyList(),
             ships = emptyMap(),
-            availablePowerUps = emptyMap()
-
+            availablePowerUps = emptyMap(),
+            energy = emptyMap(),
+            powerUpMoves = emptyList(),
+            mapVotes = emptyMap(),
+            chosenMap = null,
+            gameResult = null,
+            placedMines = emptyMap(),
+            triggeredMines = emptyMap()
         )
     }
 

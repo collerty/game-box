@@ -2,6 +2,7 @@ package com.example.gamehub.features.battleships.ui
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,11 +13,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Modifier.Companion.any
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.gamehub.R
+import com.example.gamehub.features.battleships.model.Cell
+
+// You'll also need AttackResult enum (as in your BoardGrid)
 
 @Composable
 fun BattleshipMap(
@@ -24,11 +29,12 @@ fun BattleshipMap(
     cellSize: Dp = 32.dp,
     ships: List<Ship> = emptyList(),
 
-    // — water‐animation params —
+    mineCells: List<Cell> = emptyList(),            // Cells with (armed) mines
+    triggeredMines: List<Cell> = emptyList(),       // Cells where a mine exploded
+    attacks: Map<Cell, AttackResult> = emptyMap(),  // Usual hit/miss overlays
+
     @DrawableRes waterSprite: Int = R.drawable.ocean_spritesheet,
     waterFps: Int = 16,
-
-    // — optional interactivity —
     onCellClick: ((row: Int, col: Int) -> Unit)? = null,
     highlightShip: ((row: Int, col: Int) -> Boolean)? = null
 ) {
@@ -48,7 +54,7 @@ fun BattleshipMap(
         )
     )
 
-    // --- FIX: Set a precise, fixed size for the whole grid ---
+    // --- Fixed size for the whole grid ---
     Box(
         modifier = Modifier
             .size(cellSize * gridSize)
@@ -71,6 +77,8 @@ fun BattleshipMap(
                             }
                         }
 
+                        val cell = Cell(row, col)
+
                         Box(
                             modifier = Modifier
                                 .size(cellSize)
@@ -79,7 +87,6 @@ fun BattleshipMap(
                             if (isShipCell) {
                                 BattleshipCell(size = cellSize, isShip = true)
                             } else {
-                                // 2) Pass the shared 'frame' here
                                 AnimatedWaterCell(
                                     frame        = frame,
                                     spriteRes    = waterSprite,
@@ -89,11 +96,48 @@ fun BattleshipMap(
                                 )
                             }
 
+                            // --- Ship placement highlight ---
                             if (highlightShip?.invoke(row, col) == true) {
                                 Box(
                                     modifier = Modifier
                                         .matchParentSize()
                                         .background(Color.White.copy(alpha = 0.1f))
+                                )
+                            }
+
+                            // --- MINE PNG overlays ---
+
+                            // Draw mine PNG if present and not triggered
+                            if (cell in mineCells && cell !in triggeredMines) {
+                                Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.mine_big),
+                                    contentDescription = "Mine",
+                                    modifier = Modifier.size(cellSize * 2f)
+                                )
+                            }
+
+                            // Draw mine PNG if triggered (you can use a different drawable for explosion if you want)
+                            if (cell in triggeredMines) {
+                                Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.mine_big), // Or explosion
+                                    contentDescription = "Triggered Mine",
+                                    modifier = Modifier.size(cellSize * 2f)
+                                )
+                            }
+                            // If no triggered mine, but it's a hit, draw hit circle (do NOT cover a triggered mine)
+                            else if (attacks[cell] == AttackResult.Hit && cell !in triggeredMines) {
+                                Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.hit_circle),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(cellSize * 0.6f)
+                                )
+                            }
+                            // If miss, draw miss circle
+                            else if (attacks[cell] == AttackResult.Miss && cell !in triggeredMines) {
+                                Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.miss_circle),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(cellSize * 0.6f)
                                 )
                             }
                         }
@@ -116,7 +160,7 @@ fun BattleshipMap(
             )
         }
 
-        // grid lines
+        // --- Grid lines ---
         Box(modifier = Modifier.matchParentSize()) {
             for (i in 1 until gridSize) {
                 Box(

@@ -1,5 +1,6 @@
 package com.example.gamehub.lobby.model
 
+import com.example.gamehub.features.battleships.model.Cell
 import com.example.gamehub.features.battleships.ui.Orientation
 
 data class Ship(
@@ -23,4 +24,10 @@ data class Ship(
             orientation = Orientation.valueOf(map["orientation"] as String)
         )
     }
+}
+
+fun Ship.coveredCells(): List<Cell> = if (orientation == Orientation.Horizontal) {
+    (0 until size).map { offset -> Cell(startRow, startCol + offset) }
+} else {
+    (0 until size).map { offset -> Cell(startRow + offset, startCol) }
 }

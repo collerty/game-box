@@ -1,5 +1,6 @@
 package com.example.gamehub.lobby.codec
 
+import com.example.gamehub.features.battleships.model.Cell
 import com.example.gamehub.lobby.model.GameSession
 import com.example.gamehub.lobby.model.Move
 import com.example.gamehub.lobby.model.Ship
@@ -25,8 +26,9 @@ object BattleshipsCodec {
         "energy"           to session.energy,            // Map<String,Int>
 
         // ← OPTIONAL: record of power-up moves (list of "PU_NAME:x,y" strings)
-        "powerUpMoves"     to session.powerUpMoves       // List<String>
-    )
+        "powerUpMoves"     to session.powerUpMoves,      // List<String>
+        "placedMines"      to session.placedMines.mapValues { it.value.map { cell -> mapOf("row" to cell.row, "col" to cell.col) } }
+        )
 
     /** Decode Firestore data back into your GameSession model */
     fun decode(data: Map<String, Any?>): GameSession {
@@ -61,6 +63,24 @@ object BattleshipsCodec {
         // ← OPTIONAL: power-up moves
         val rawPUMoves  = data["powerUpMoves"] as? List<String> ?: emptyList()
 
+        @Suppress("UNCHECKED_CAST")
+        val rawMines = data["placedMines"] as? Map<String, List<Map<String, Any?>>>
+        val placedMines = rawMines?.mapValues { entry ->
+            entry.value.map { cellMap ->
+                val row = when (val r = cellMap["row"]) {
+                    is Int -> r
+                    is Long -> r.toInt()
+                    else -> 0 // Or handle error
+                }
+                val col = when (val c = cellMap["col"]) {
+                    is Int -> c
+                    is Long -> c.toInt()
+                    else -> 0 // Or handle error
+                }
+                Cell(row, col)
+            }
+        } ?: emptyMap()
+
         return GameSession(
             gameId            = gameId,
             player1Id         = p1,
@@ -73,7 +93,8 @@ object BattleshipsCodec {
             mapVotes          = mapVotes,
             chosenMap         = chosenMap,
             energy            = energy,
-            powerUpMoves      = rawPUMoves
+            powerUpMoves      = rawPUMoves,
+            placedMines      = placedMines
         )
     }
 }

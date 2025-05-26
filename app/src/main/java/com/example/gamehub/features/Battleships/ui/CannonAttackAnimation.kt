@@ -39,8 +39,8 @@ fun CannonAttackAnimation(
     }
 
     val end = Offset(
-        boardOffset.x + cell.col * cellSizePx - cellSizePx/6,
-        boardOffset.y + cell.row * cellSizePx - cellSizePx/4
+        boardOffset.x + cell.col * cellSizePx - cellSizePx / 6,
+        boardOffset.y + cell.row * cellSizePx - cellSizePx / 4
     )
 
     // --- 3. Curved trajectory control point ---
@@ -67,7 +67,7 @@ fun CannonAttackAnimation(
         fraction = 1f
         animStage = 1
         // Play hit/miss sequence
-        for (f in 0..4) {
+        for (f in 0..5) {
             hitFrame = f
             delay(80)
         }
@@ -138,5 +138,6 @@ fun missFrameResId(frame: Int): Int = when (frame) {
     2 -> com.example.gamehub.R.drawable.miss_2
     3 -> com.example.gamehub.R.drawable.miss_3
     4 -> com.example.gamehub.R.drawable.miss_4
+    5 -> com.example.gamehub.R.drawable.miss_5 // 5th frame is the same as 4th
     else -> com.example.gamehub.R.drawable.miss_4
 }

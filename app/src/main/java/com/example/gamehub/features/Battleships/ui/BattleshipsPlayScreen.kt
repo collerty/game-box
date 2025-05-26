@@ -23,6 +23,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavHostController
 import com.example.gamehub.features.battleships.model.Cell
 import com.example.gamehub.features.battleships.ui.Ship as UiShip
@@ -39,6 +43,7 @@ import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import kotlinx.coroutines.tasks.await
+import com.example.gamehub.features.battleships.ui.CannonAttackAnimation
 
 private fun UiShip.coveredCells(): List<Cell> = if (orientation == Orientation.Horizontal) {
     (0 until size).map { offset -> Cell(startRow, startCol + offset) }
@@ -160,6 +165,10 @@ fun BattleshipsPlayScreen(
     var surrenderedUserId by remember { mutableStateOf<String?>(null) }
     var showSurrenderDialog by remember { mutableStateOf(false) }
 
+    var animatingMove by remember { mutableStateOf<Cell?>(null) }
+    var animIsHit by remember { mutableStateOf<Boolean?>(null) }
+    var pendingMove by remember { mutableStateOf<Triple<Int, Int, (() -> Unit)>?>(null) }
+
     val havePlacedShips = myShips.isNotEmpty() && oppShips.isNotEmpty()
     val myMoves = state.moves.filter { it.playerId == uid }
     val oppMoves = state.moves.filter { it.playerId == opponentId }
@@ -186,6 +195,9 @@ fun BattleshipsPlayScreen(
         mutableStateOf(myMines.size)
     }
     val hasPlacedMineThisTurn = myMines.size > minesAtTurnStart
+
+    var boardOffset by remember { mutableStateOf(Offset.Zero) }
+    var cellSizePx by remember { mutableStateOf(0f) }
 
     suspend fun spendEnergy(roomRef: com.google.firebase.firestore.DocumentReference, uid: String, amount: Int) {
         roomRef.update(
@@ -378,15 +390,26 @@ fun BattleshipsPlayScreen(
                                             }
                                         }
                                         else -> {
-                                            if (cell !in myHitCells) {
-                                                scope.launch {
-                                                    val beforeState = state
-                                                    println("DEBUG: BEFORE (uid: $uid): myShips=${myDestroyedShips.size}, oppShips=${oppDestroyedShips.size}, moves=${state.moves.size}")
-                                                    session.submitMove(col, row, uid)
+                                            if (cell !in myHitCells && animatingMove == null && cellSizePx > 0f) {
+                                                println("DEBUG: boardOffset=$boardOffset, cellSizePx=$cellSizePx, cell=$cell")
+
+                                                // 1. Mark animation as in progress and what type
+                                                val isHit = oppShips.any { it.covers(row, col) }
+                                                animatingMove = cell
+                                                animIsHit = isHit
+                                                // 2. Store the move to send after animation
+                                                pendingMove = Triple(col, row) {
+                                                    scope.launch {
+                                                        session.submitMove(col, row, uid)
+                                                    }
                                                 }
                                             }
                                         }
                                     }
+                                },
+                                onBoardPositioned = { offset, cellPx ->
+                                    boardOffset = offset
+                                    cellSizePx = cellPx
                                 }
                             )
                         } else {
@@ -461,20 +484,48 @@ fun BattleshipsPlayScreen(
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Button(
-                            onClick = {
-                                selectedPowerUp = null
-                                placingMine = false
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Black,
-                                contentColor = Color.White
-                            ),
-                            modifier = Modifier
-                                .width(200.dp)
-                                .height(48.dp)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("Cancel PowerUp")
+                            // Cancel PowerUp button (unchanged)
+                            Button(
+                                onClick = {
+                                    selectedPowerUp = null
+                                    placingMine = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.Black,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(48.dp)
+                            ) {
+                                Text("Cancel PowerUp")
+                            }
+
+                            // Laser orientation button (if needed)
+                            if (selectedPowerUp == PowerUp.Laser) {
+                                Spacer(Modifier.height(10.dp))
+                                Button(
+                                    onClick = {
+                                        laserOrientation =
+                                            if (laserOrientation == Orientation.Horizontal)
+                                                Orientation.Vertical
+                                            else
+                                                Orientation.Horizontal
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.Black,
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier
+                                        .width(200.dp)
+                                        .height(48.dp)
+                                ) {
+                                    Text("Laser: ${if (laserOrientation == Orientation.Horizontal) "Row" else "Column"}")
+                                }
+                            }
                         }
                     }
                 }
@@ -606,6 +657,22 @@ fun BattleshipsPlayScreen(
                 )
             }
         }
+        if (animatingMove != null) {
+            CannonAttackAnimation(
+                boardOffset = boardOffset,
+                cell = animatingMove!!,
+                cellSizePx = cellSizePx,
+                isHit = animIsHit,
+                onFinished = {
+                    // After animation is done, submit the move and clear state
+                    val (x, y, submitFn) = pendingMove!!
+                    submitFn()
+                    animatingMove = null
+                    animIsHit = null
+                    pendingMove = null
+                }
+            )
+        }
     }
 }
 
@@ -635,8 +702,11 @@ fun BoardGrid(
     destroyedShips: List<UiShip> = emptyList(),
     mineCells: List<Cell> = emptyList(),
     triggeredMines: List<Cell> = emptyList(),
-    onCellClick: (row: Int, col: Int) -> Unit
+    onCellClick: (row: Int, col: Int) -> Unit,
+    onBoardPositioned: ((Offset, Float) -> Unit)? = null
 ) {
+    val density = LocalDensity.current
+
     val frame = rememberWaterFrame(
         spriteRes    = com.example.gamehub.R.drawable.ocean_spritesheet,
         framesPerRow = 8,
@@ -649,6 +719,13 @@ fun BoardGrid(
             .size(cellSize * gridSize)
             .clipToBounds()
             .border(4.dp, Color.Black, RectangleShape)
+            .onGloballyPositioned { coordinates ->
+                // Give the parent the board offset and the cell size in px
+                val position = coordinates.positionInRoot()
+                val offset = Offset(position.x, position.y)
+                val cellPx = with(density) { cellSize.toPx() }
+                onBoardPositioned?.invoke(offset, cellPx)
+            }
     ) {
         Column(
             modifier = Modifier.fillMaxSize()

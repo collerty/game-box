@@ -254,11 +254,11 @@ fun GameBoard(
 @Composable
 fun getPawnImageRes(color: Color?): Int {
     return when (color) {
-        Color.Red -> R.drawable.ic_ohpardon
-        Color.Blue -> R.drawable.ic_ohpardon
-        Color.Green -> R.drawable.ic_ohpardon
-        Color.Yellow -> R.drawable.ic_ohpardon
-        else -> R.drawable.ic_ohpardon // fallback image
+        Color.Red -> R.drawable.pawn_red
+        Color.Blue -> R.drawable.pawn_blue
+        Color.Green -> R.drawable.pawn_green
+        Color.Yellow -> R.drawable.pawn_yellow
+        else -> R.drawable.pawn_default // fallback image
     }
 }
 

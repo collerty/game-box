@@ -34,13 +34,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.gamehub.features.spaceinvaders.classes.EnemyType
 
 
 @Composable
 fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
     val engine = viewModel.gameEngine
     val tick by viewModel.tick
-
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
     val density = LocalDensity.current
@@ -65,15 +65,37 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
         }
     }
 
+
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Game Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val frame = tick
             drawRect(
                 color = Color.Green,
                 topLeft = Offset(engine.player.x, engine.player.y),
                 size = Size(100f, 30f)
             )
+
+            // Draw enemies
+            engine.enemyController.enemies.forEach { row ->
+                row.forEach { enemy ->
+                    if (enemy.isAlive) {
+                        val color = when (enemy.type) {
+                            EnemyType.SHOOTER -> Color.Red
+                            EnemyType.MIDDLE -> Color.Yellow
+                            EnemyType.BOTTOM -> Color.Blue
+                        }
+                        drawRect(
+                            color = color,
+                            topLeft = Offset(enemy.x, enemy.y),
+                            size = Size(60f, 40f)
+                        )
+                    }
+                }
+            }
         }
+
 
         // Overlay control buttons
         Row(

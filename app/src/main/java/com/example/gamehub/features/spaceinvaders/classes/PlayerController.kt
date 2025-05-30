@@ -11,11 +11,20 @@ class PlayerController(
     var screenHeightPx: Float = 0f
     val playerBullets = mutableListOf<Bullet>()
 
+    private var lastShotTime = 0L
+    private val fireCooldown = 500L // milliseconds between shots
+
+
     fun shootBullet() {
-        val bulletX = player.x + 50f - 5f // Center of player (assuming width 100), and bullet width = 10
-        val bulletY = player.y - 10f
-        playerBullets.add(Bullet(x = bulletX, y = bulletY))
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastShotTime >= fireCooldown) {
+            val bulletX = player.x + 50f - 5f // center of player
+            val bulletY = player.y - 10f
+            playerBullets.add(Bullet(x = bulletX, y = bulletY))
+            lastShotTime = currentTime
+        }
     }
+
 
     fun updateBullets(screenHeight: Float) {
         playerBullets.forEach { bullet ->

@@ -10,7 +10,7 @@ class PlayerController(
     var screenWidthPx: Float = 0f
     var screenHeightPx: Float = 0f
     val playerBullets = mutableListOf<Bullet>()
-
+    private val screenPadding = 300f
     private var lastShotTime = 0L
     private val fireCooldown = 500L // milliseconds between shots
 
@@ -48,11 +48,15 @@ class PlayerController(
         this.player = player
     }
 
+
     private fun moveLeft(step: Float) {
-        player = player.copy(x = (player.x - step).coerceAtLeast(0f))
+        player = player.copy(x = (player.x - step).coerceAtLeast(screenPadding))
     }
 
     private fun moveRight(step: Float) {
-        player = player.copy(x = (player.x + step).coerceAtMost(screenWidthPx - playerWidth))
+        player = player.copy(
+            x = (player.x + step).coerceAtMost(screenWidthPx - playerWidth - screenPadding)
+        )
     }
+
 }

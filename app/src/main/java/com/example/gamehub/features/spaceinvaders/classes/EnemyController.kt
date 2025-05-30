@@ -46,9 +46,10 @@ class EnemyController {
     }
 
     fun setBounds(screenWidthPx: Float) {
-        leftBound = 0f
-        rightBound = screenWidthPx - (enemyWidth + 20f) * enemyMap[0].size // account for spacing
+        leftBound = 300f
+        rightBound = screenWidthPx - 300f
     }
+
 
 
     fun updateEnemies() {

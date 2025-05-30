@@ -1,30 +1,36 @@
 package com.example.gamehub.features.spaceinvaders.classes
 
-import android.util.Log
-import androidx.compose.runtime.*
-
 class SpaceInvadersGameEngine {
     var player = Player(x = 0f, y = 0f)
-
-    val playerWidth = 100f
-    var isMovingLeft = false
-    var isMovingRight = false
-    val enemyController = EnemyController()
+    private val playerWidth = 100f
     private val moveSpeed = 10f
-    var screenWidthPx: Float = 0f // Set this from Composable
+    var screenWidthPx: Float = 0f
+        set(value) {
+            field = value
+            playerController.screenWidthPx = value
+        }
+    var screenHeightPx: Float = 500f
+        set(value) {
+            field = value
+            playerController.screenHeightPx = value
+        }
 
-    private fun moveLeft(step: Float) {
-        player = player.copy(x = (player.x - step).coerceAtLeast(0f))
-    }
+    val playerController = PlayerController(player, playerWidth, moveSpeed)
+    val enemyController = EnemyController()
 
-    private fun moveRight(step: Float) {
-        player = player.copy(x = (player.x + step).coerceAtMost(screenWidthPx - playerWidth))
-    }
+    var isMovingLeft: Boolean
+        get() = playerController.isMovingLeft
+        set(value) { playerController.isMovingLeft = value }
+
+    var isMovingRight: Boolean
+        get() = playerController.isMovingRight
+        set(value) { playerController.isMovingRight = value }
 
     fun updateGame() {
         enemyController.setBounds(screenWidthPx)
-        if (isMovingLeft) moveLeft(moveSpeed)
-        if (isMovingRight) moveRight(moveSpeed)
+        playerController.updatePlayerMovement()
+        player = playerController.getPlayer()
+        playerController.updateBullets(screenHeightPx)
         enemyController.updateEnemies()
     }
 

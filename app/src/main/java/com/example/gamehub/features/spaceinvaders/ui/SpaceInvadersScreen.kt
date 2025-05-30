@@ -56,10 +56,18 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
         engine.screenWidthPx = screenWidthPx
     }
 
+    // Set screen height in engine
+    LaunchedEffect(screenHeightPx) {
+        engine.screenHeightPx = screenHeightPx
+        engine.playerController.setPlayer(
+            engine.player.copy(y = screenHeightPx - 100f)
+        )
+    }
+
+
     // Lock orientation to landscape
     DisposableEffect(Unit) {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        engine.player = engine.player.copy(y = screenHeightPx - 100f) // 100f = player height
         onDispose {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
@@ -70,12 +78,26 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
     Box(modifier = Modifier.fillMaxSize()) {
         // Game Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val frame = tick
+            val frame = tick // Do not remove
+
+            // Draw player
             drawRect(
                 color = Color.Green,
                 topLeft = Offset(engine.player.x, engine.player.y),
                 size = Size(100f, 30f)
             )
+
+            // Draw bullets
+            engine.playerController.playerBullets.forEach { bullet ->
+                if (bullet.isActive) {
+                    drawRect(
+                        color = Color.Black,
+                        topLeft = Offset(bullet.x, bullet.y),
+                        size = Size(10f, 20f) // width, height of bullet
+                    )
+                }
+            }
+
 
             // Draw enemies
             engine.enemyController.enemies.forEach { row ->
@@ -142,6 +164,24 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
             ) {
                 Text("→", color = Color.White, fontSize = 24.sp)
             }
+
+            // Shoot Button
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(Color.Red, shape = CircleShape)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                engine.playerController.shootBullet()
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Shoot", color = Color.White, fontSize = 18.sp)
+            }
+
         }
     }
 }

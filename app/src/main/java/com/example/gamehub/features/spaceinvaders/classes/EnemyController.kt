@@ -77,6 +77,5 @@ class EnemyController {
         allEnemies.forEach { it.y += 20f } // drop down by 20 pixels
     }
 
-
 }
 

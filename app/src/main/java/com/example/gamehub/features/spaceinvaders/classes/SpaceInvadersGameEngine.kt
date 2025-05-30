@@ -7,6 +7,7 @@ class SpaceInvadersGameEngine {
     private val playerWidth = 100f
     private val moveSpeed = 10f
     private var enemyShootCooldown = 0
+    var score = 0
     var screenWidthPx: Float = 0f
         set(value) {
             field = value
@@ -40,7 +41,15 @@ class SpaceInvadersGameEngine {
                 if (enemy.isAlive && bulletCollidesWithEnemy(bullet, enemy)) {
                     bullet.isActive = false
                     enemy.isAlive = false
-                    // You could also add score handling here
+
+                    // Scoring logic
+                    val points = when (enemy.type) {
+                        EnemyType.SHOOTER -> 40
+                        EnemyType.MIDDLE  -> 20
+                        EnemyType.BOTTOM  -> 10
+                        EnemyType.UFO     -> listOf(50, 100, 150, 300).random()
+                    }
+                    score += points
                 }
             }
         }

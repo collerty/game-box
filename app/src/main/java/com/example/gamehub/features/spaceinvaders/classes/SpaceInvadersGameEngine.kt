@@ -1,5 +1,7 @@
 package com.example.gamehub.features.spaceinvaders.classes
 
+import android.util.Log
+
 class SpaceInvadersGameEngine {
     var player = Player(x = 0f, y = 0f)
     private val playerWidth = 100f
@@ -56,14 +58,32 @@ class SpaceInvadersGameEngine {
                 bullet.y + bulletHeight > enemy.y
     }
 
+    private fun checkPlayerHit() {
+        enemyController.enemyBullets.forEach { bullet ->
+            if (bullet.isActive && bulletHitsPlayer(bullet, player)) {
+                bullet.isActive = false
+                Log.d("checkPlayerHit", "hit")
+            }
+        }
+    }
 
+    private fun bulletHitsPlayer(bullet: Bullet, player: Player): Boolean {
+        val bulletWidth = 10f
+        val bulletHeight = 20f
+        val playerWidth = 100f
+        val playerHeight = 30f
 
-
+        return bullet.x < player.x + playerWidth &&
+                bullet.x + bulletWidth > player.x &&
+                bullet.y < player.y + playerHeight &&
+                bullet.y + bulletHeight > player.y
+    }
 
 
     fun updateGame() {
         enemyController.setBounds(screenWidthPx)
         playerController.updatePlayerMovement()
+        checkPlayerHit()
         player = playerController.getPlayer()
         playerController.updateBullets(screenHeightPx)
         enemyController.updateEnemies()

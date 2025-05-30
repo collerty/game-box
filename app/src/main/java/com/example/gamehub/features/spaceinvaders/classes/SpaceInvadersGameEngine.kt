@@ -4,6 +4,7 @@ class SpaceInvadersGameEngine {
     var player = Player(x = 0f, y = 0f)
     private val playerWidth = 100f
     private val moveSpeed = 10f
+    private var enemyShootCooldown = 0
     var screenWidthPx: Float = 0f
         set(value) {
             field = value
@@ -58,6 +59,8 @@ class SpaceInvadersGameEngine {
 
 
 
+
+
     fun updateGame() {
         enemyController.setBounds(screenWidthPx)
         playerController.updatePlayerMovement()
@@ -65,6 +68,15 @@ class SpaceInvadersGameEngine {
         playerController.updateBullets(screenHeightPx)
         enemyController.updateEnemies()
         checkBulletEnemyCollisions()
+
+        if (enemyShootCooldown <= 0) {
+            enemyController.enemyShoot()
+            enemyShootCooldown = 60
+        } else {
+            enemyShootCooldown--
+        }
+
+        enemyController.updateEnemyBullets(screenHeightPx)
     }
 
 }

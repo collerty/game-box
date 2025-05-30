@@ -11,6 +11,7 @@ class EnemyController {
 
 
     val enemies: Array<Array<Enemy>> = createEnemies()
+    val enemyBullets = mutableListOf<Bullet>()
 
     var direction = 1 // 1 = right, -1 = left
     val speed = 5f
@@ -19,6 +20,21 @@ class EnemyController {
     // Movement bounds (set these based on your screen width in pixels)
     var leftBound = 0f
     var rightBound = 0f
+
+    fun enemyShoot() {
+        // SHOOTER-type enemies can fire
+        val shooters = enemies.flatten().filter { it.isAlive && it.type == EnemyType.SHOOTER }
+
+        if (shooters.isEmpty()) return
+
+
+        val shooter = shooters.randomOrNull() ?: return
+
+        val bulletX = shooter.x + 60f / 2 - 5f // enemy width 60, bullet width 10
+        val bulletY = shooter.y + 40f         // enemy height 40
+
+        enemyBullets.add(Bullet(x = bulletX, y = bulletY, isActive = true, speed = 10f))
+    }
 
 
     fun createEnemies(): Array<Array<Enemy>> {
@@ -72,6 +88,16 @@ class EnemyController {
         // Move enemies horizontally
         allEnemies.forEach { it.x += speed * direction }
     }
+
+    fun updateEnemyBullets(screenHeight: Float) {
+        enemyBullets.forEach { bullet ->
+            bullet.y += bullet.speed
+            if (bullet.y > screenHeight) bullet.isActive = false
+        }
+
+        enemyBullets.removeAll { !it.isActive }
+    }
+
 
     fun moveEnemiesDown() {
         val allEnemies = enemies.flatten().filter { it.isAlive }

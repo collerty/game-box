@@ -87,7 +87,7 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
                 size = Size(100f, 30f)
             )
 
-            // Draw bullets
+            // Draw player bullets
             engine.playerController.playerBullets.forEach { bullet ->
                 if (bullet.isActive) {
                     drawRect(
@@ -96,6 +96,15 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
                         size = Size(10f, 20f) // width, height of bullet
                     )
                 }
+            }
+
+            // Draw enemy bullets
+            engine.enemyController.enemyBullets.forEach { bullet ->
+                drawRect(
+                    color = Color.Red,
+                    topLeft = Offset(bullet.x, bullet.y),
+                    size = Size(10f, 20f)
+                )
             }
 
 

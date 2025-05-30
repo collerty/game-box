@@ -26,12 +26,45 @@ class SpaceInvadersGameEngine {
         get() = playerController.isMovingRight
         set(value) { playerController.isMovingRight = value }
 
+    private fun checkBulletEnemyCollisions() {
+        val bullets = playerController.playerBullets
+        val enemies = enemyController.enemies
+
+        bullets.forEach { bullet ->
+            if (!bullet.isActive) return@forEach
+
+            enemies.flatten().forEach { enemy ->
+                if (enemy.isAlive && bulletCollidesWithEnemy(bullet, enemy)) {
+                    bullet.isActive = false
+                    enemy.isAlive = false
+                    // You could also add score handling here
+                }
+            }
+        }
+    }
+
+    private fun bulletCollidesWithEnemy(bullet: Bullet, enemy: Enemy): Boolean {
+        val bulletWidth = 10f
+        val bulletHeight = 20f
+        val enemyWidth = 60f
+        val enemyHeight = 40f
+
+        return bullet.x < enemy.x + enemyWidth &&
+                bullet.x + bulletWidth > enemy.x &&
+                bullet.y < enemy.y + enemyHeight &&
+                bullet.y + bulletHeight > enemy.y
+    }
+
+
+
+
     fun updateGame() {
         enemyController.setBounds(screenWidthPx)
         playerController.updatePlayerMovement()
         player = playerController.getPlayer()
         playerController.updateBullets(screenHeightPx)
         enemyController.updateEnemies()
+        checkBulletEnemyCollisions()
     }
 
 }

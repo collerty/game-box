@@ -29,8 +29,9 @@ class PlayerController(
     fun updateBullets(screenHeight: Float) {
         playerBullets.forEach { bullet ->
             bullet.y -= bullet.speed
-            if (bullet.y < 0) bullet.isActive = false
+            if (bullet.y < 0 || bullet.y > screenHeight) bullet.isActive = false
         }
+
 
         // Remove inactive bullets
         playerBullets.removeAll { !it.isActive }

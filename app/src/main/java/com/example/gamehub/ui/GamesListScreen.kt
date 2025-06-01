@@ -43,6 +43,7 @@ fun GamesListScreen(navController: NavController) {
                                 "spy"         -> NavRoutes.SPY_GAME
                                 "jorisjump"   -> NavRoutes.JORISJUMP_GAME
                                 "screamosaur" -> NavRoutes.SCREAMOSAUR_GAME
+                                "memoryMatching" -> NavRoutes.MEMORY_MATCHING_GAME
                                 else          -> NavRoutes.SPY_GAME
                             }
                             navController.navigate(route)

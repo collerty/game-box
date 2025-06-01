@@ -21,8 +21,8 @@ fun HostLobbyScreen(
     gameId: String,
     roomId: String
 ) {
+    val auth = Firebase.auth
     val db = Firebase.firestore
-    val auth = com.google.firebase.auth.ktx.auth.FirebaseAuth.getInstance()
     val scope = rememberCoroutineScope()
 
     var roomName by remember { mutableStateOf<String?>(null) }
@@ -161,9 +161,9 @@ fun HostLobbyScreen(
                         }
                     }
                 },
-                enabled = players.size >= maxPlayers // Only when lobby is full
+                enabled = players.size >= 2 // Only when lobby is full
             ) {
-                Text(if (players.size >= maxPlayers) "Start Game" else "Waiting for players…")
+                Text(if (players.size >= 2) "Start Game" else "Waiting for players…")
             }
 
             Spacer(Modifier.height(16.dp))

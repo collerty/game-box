@@ -9,15 +9,19 @@ import android.hardware.SensorManager
 import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.gamehub.features.ohpardon.ui.BoardCell
 import com.example.gamehub.features.ohpardon.ui.CellType
 import com.example.gamehub.features.ohpardon.ui.PawnForUI
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 data class GameRoom(
@@ -82,6 +86,15 @@ val colorConfigs = mapOf(
     )
 )
 
+sealed class UiEvent {
+    object PlayMoveSound : UiEvent()
+    object PlayDiceRollSound: UiEvent()
+    object PlayCaptureSound: UiEvent()
+    object PlayIllegalMoveSound: UiEvent()
+    object Vibrate : UiEvent()
+}
+
+
 // Define shared path
 val nonColoredPath = listOf(
     Pair(1, 4), Pair(2, 4), Pair(3, 4), Pair(4, 4),
@@ -101,6 +114,9 @@ class OhPardonViewModel(
     private val currentUserName: String
 ) : AndroidViewModel(application), SensorEventListener {
 
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
+    val uiEvent = _uiEvent.asSharedFlow()
+
     private val _gameRoom = MutableStateFlow<GameRoom?>(null)
     val gameRoom: StateFlow<GameRoom?> = _gameRoom.asStateFlow()
 
@@ -116,6 +132,10 @@ class OhPardonViewModel(
     private val SHAKE_SLOP_TIME_MS = 500
 
     fun rollDice(): Int {
+        viewModelScope.launch {
+            _uiEvent.emit(UiEvent.PlayDiceRollSound)
+            _uiEvent.emit(UiEvent.Vibrate)
+        }
         return (1..6).random()
     }
 
@@ -369,6 +389,10 @@ class OhPardonViewModel(
                     val victoryCell = 40 + (totalSteps - 40)
                     if (victoryCell > 43) {
                         _toastMessage.value = "Invalid move!"
+                        viewModelScope.launch {
+                            _uiEvent.emit(UiEvent.PlayIllegalMoveSound)
+                            _uiEvent.emit(UiEvent.Vibrate)
+                        }
                         return
                     }
                     victoryCell
@@ -381,6 +405,10 @@ class OhPardonViewModel(
                 val newVictoryPos = currentPos + diceRoll
                 if (newVictoryPos > 43) {
                     _toastMessage.value = "Invalid move!"
+                    viewModelScope.launch {
+                        _uiEvent.emit(UiEvent.PlayIllegalMoveSound)
+                        _uiEvent.emit(UiEvent.Vibrate)
+                    }
                     return
                 }
                 newVictoryPos
@@ -388,6 +416,10 @@ class OhPardonViewModel(
 
             else -> {
                 _toastMessage.value = "Invalid move!"
+                viewModelScope.launch {
+                    _uiEvent.emit(UiEvent.PlayIllegalMoveSound)
+                    _uiEvent.emit(UiEvent.Vibrate)
+                }
                 return
             }
         }
@@ -407,6 +439,10 @@ class OhPardonViewModel(
                 else -> "Invalid move."
             }
             _toastMessage.value = message
+            viewModelScope.launch {
+                _uiEvent.emit(UiEvent.PlayIllegalMoveSound)
+                _uiEvent.emit(UiEvent.Vibrate)
+            }
             return
         }
 
@@ -425,9 +461,17 @@ class OhPardonViewModel(
                     val opponentStartCell = getBoardOffsetForPlayer(p.color)
                     val isProtected = it.position == opponentStartCell
                     if (it.position == newPosition && !isProtected && newPosition < 40) {
+                        viewModelScope.launch {
+                            _uiEvent.emit(UiEvent.PlayCaptureSound)
+                            _uiEvent.emit(UiEvent.Vibrate)
+                        }
                         Log.d("OhPardonVM", "Captured pawn ${it.id} from ${p.uid}")
                         it.copy(position = -1)
                     } else it
+                }
+                viewModelScope.launch {
+                    _uiEvent.emit(UiEvent.PlayMoveSound)
+                    _uiEvent.emit(UiEvent.Vibrate)
                 }
 
                 p.copy(pawns = updatedPawns)

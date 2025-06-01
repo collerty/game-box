@@ -1,8 +1,10 @@
 package com.example.gamehub.features.ohpardon.ui
 
 import android.app.Application
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +31,9 @@ import com.example.gamehub.features.ohpardon.Player
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.gamehub.R
+import com.example.gamehub.features.OhPardon.classes.SoundManager
+import com.example.gamehub.features.OhPardon.classes.VibrationManager
+import com.example.gamehub.features.ohpardon.UiEvent
 
 enum class CellType {
     EMPTY, PATH, HOME, GOAL, ENTRY
@@ -45,6 +50,7 @@ data class BoardCell(
 data class PawnForUI(val color: Color, val id: Int)
 
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun OhPardonScreen(
     navController: NavController,
@@ -55,10 +61,26 @@ fun OhPardonScreen(
     val application = context.applicationContext as Application
     val firestore = FirebaseFirestore.getInstance()
 
+    val soundManager = remember { SoundManager(context) }
+    val vibrationManager = remember { VibrationManager(context) }
+
+
 
     val viewModel: OhPardonViewModel = viewModel(
         factory = OhPardonViewModelFactory(application, code, userName)
     )
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                UiEvent.PlayMoveSound -> soundManager.playSound("move_self")
+                UiEvent.PlayCaptureSound -> soundManager.playSound("capture")
+                UiEvent.PlayIllegalMoveSound -> soundManager.playSound("illegal")
+                UiEvent.PlayDiceRollSound -> soundManager.playSound("diceroll")
+                UiEvent.Vibrate -> vibrationManager.vibrate()
+            }
+        }
+    }
 
     val gameRoom by viewModel.gameRoom.collectAsState()
     val currentDiceRoll = gameRoom?.gameState?.diceRoll
@@ -76,7 +98,6 @@ fun OhPardonScreen(
             showVictoryDialog.value = true
         }
     }
-
 
     // Debugging logs
     LaunchedEffect(gameRoom) {

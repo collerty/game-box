@@ -12,3 +12,8 @@ data class Bullet(
     val speed: Float = 15f,
     var isActive: Boolean = true
 )
+
+enum class GameState {
+    PLAYING,
+    GAME_OVER
+}

@@ -151,7 +151,7 @@ fun GameHubApp() {
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
-            composable(NavRoutes.SPACE_INVADERS_GAME) { SpaceInvadersScreen() }
+            composable(NavRoutes.SPACE_INVADERS_GAME) { SpaceInvadersScreen(navController = navController) }
         }
     }
 }

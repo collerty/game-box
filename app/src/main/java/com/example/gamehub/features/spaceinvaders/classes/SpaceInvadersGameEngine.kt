@@ -1,13 +1,21 @@
 package com.example.gamehub.features.spaceinvaders.classes
 
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 class SpaceInvadersGameEngine {
+    var playerLives by mutableStateOf(3)
+        private set
+    var gameState by mutableStateOf(GameState.PLAYING)
+        private set
     var player = Player(x = 0f, y = 0f)
     private val playerWidth = 100f
     private val moveSpeed = 10f
     private var enemyShootCooldown = 0
     var score = 0
+        private set
     var screenWidthPx: Float = 0f
         set(value) {
             field = value
@@ -24,11 +32,15 @@ class SpaceInvadersGameEngine {
 
     var isMovingLeft: Boolean
         get() = playerController.isMovingLeft
-        set(value) { playerController.isMovingLeft = value }
+        set(value) {
+            playerController.isMovingLeft = value
+        }
 
     var isMovingRight: Boolean
         get() = playerController.isMovingRight
-        set(value) { playerController.isMovingRight = value }
+        set(value) {
+            playerController.isMovingRight = value
+        }
 
     private fun checkBulletEnemyCollisions() {
         val bullets = playerController.playerBullets
@@ -45,9 +57,9 @@ class SpaceInvadersGameEngine {
                     // Scoring logic
                     val points = when (enemy.type) {
                         EnemyType.SHOOTER -> 40
-                        EnemyType.MIDDLE  -> 20
-                        EnemyType.BOTTOM  -> 10
-                        EnemyType.UFO     -> listOf(50, 100, 150, 300).random()
+                        EnemyType.MIDDLE -> 20
+                        EnemyType.BOTTOM -> 10
+                        EnemyType.UFO -> listOf(50, 100, 150, 300).random()
                     }
                     score += points
                 }
@@ -71,7 +83,10 @@ class SpaceInvadersGameEngine {
         enemyController.enemyBullets.forEach { bullet ->
             if (bullet.isActive && bulletHitsPlayer(bullet, player)) {
                 bullet.isActive = false
-                Log.d("checkPlayerHit", "hit")
+                playerLives = (playerLives - 1).coerceAtLeast(0)
+                if (playerLives == 0) {
+                    gameState = GameState.GAME_OVER
+                }
             }
         }
     }

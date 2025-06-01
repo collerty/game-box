@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 
 class SpaceInvadersViewModel(application: Application) : AndroidViewModel(application), SensorEventListener {
 
-    private val _gameEngine = SpaceInvadersGameEngine()
+    private var _gameEngine = SpaceInvadersGameEngine()
     val gameEngine: SpaceInvadersGameEngine get() = _gameEngine
 
     private val _tick = mutableStateOf(0)
@@ -53,6 +53,12 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
                 _tick.value++ // Trigger UI recomposition
             }
         }
+    }
+
+    fun restartGame() {
+        _gameEngine = SpaceInvadersGameEngine()
+        //Implement proper restarting!!!
+        TODO()
     }
 
     override fun onSensorChanged(event: SensorEvent?) {

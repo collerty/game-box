@@ -34,11 +34,14 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.gamehub.features.spaceinvaders.classes.EnemyType
+import com.example.gamehub.features.spaceinvaders.classes.GameState
+import com.example.gamehub.navigation.NavRoutes
 
 
 @Composable
-fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
+fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navController: NavController) {
     val engine = viewModel.gameEngine
     val tick by viewModel.tick
     val configuration = LocalConfiguration.current
@@ -73,129 +76,150 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
         }
     }
 
+    if (engine.gameState == GameState.GAME_OVER) {
+        SpaceInvadersGameOverScreen(
+            score = engine.score,
+            onRestart = {
+                viewModel.restartGame()
+            },
+            onExit = {
+                navController.navigate(NavRoutes.GAMES_LIST)
+            }
+        )
+    } else {
 
+        Box(modifier = Modifier.fillMaxSize()) {
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Game Canvas
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val frame = tick // Do not remove
-
-            // Draw player
-            drawRect(
-                color = Color.Green,
-                topLeft = Offset(engine.player.x, engine.player.y),
-                size = Size(100f, 30f)
+            Text(
+                text = "Lives: ${engine.playerLives}",
+                color = Color.Black,
+                fontSize = 24.sp,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp)
             )
 
-            // Draw player bullets
-            engine.playerController.playerBullets.forEach { bullet ->
-                if (bullet.isActive) {
-                    drawRect(
-                        color = Color.Black,
-                        topLeft = Offset(bullet.x, bullet.y),
-                        size = Size(10f, 20f) // width, height of bullet
-                    )
-                }
-            }
+            // Game Canvas
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val frame = tick // Do not remove
 
-            // Draw enemy bullets
-            engine.enemyController.enemyBullets.forEach { bullet ->
+                // Draw player
                 drawRect(
-                    color = Color.Red,
-                    topLeft = Offset(bullet.x, bullet.y),
-                    size = Size(10f, 20f)
+                    color = Color.Green,
+                    topLeft = Offset(engine.player.x, engine.player.y),
+                    size = Size(100f, 30f)
                 )
-            }
 
-
-            // Draw enemies
-            engine.enemyController.enemies.forEach { row ->
-                row.forEach { enemy ->
-                    if (enemy.isAlive) {
-                        val color = when (enemy.type) {
-                            EnemyType.SHOOTER -> Color.Red
-                            EnemyType.MIDDLE -> Color.Yellow
-                            EnemyType.BOTTOM -> Color.Blue
-                            EnemyType.UFO -> TODO()
-                        }
+                // Draw player bullets
+                engine.playerController.playerBullets.forEach { bullet ->
+                    if (bullet.isActive) {
                         drawRect(
-                            color = color,
-                            topLeft = Offset(enemy.x, enemy.y),
-                            size = Size(60f, 40f)
+                            color = Color.Black,
+                            topLeft = Offset(bullet.x, bullet.y),
+                            size = Size(10f, 20f) // width, height of bullet
                         )
                     }
                 }
-            }
-        }
+
+                // Draw enemy bullets
+                engine.enemyController.enemyBullets.forEach { bullet ->
+                    drawRect(
+                        color = Color.Red,
+                        topLeft = Offset(bullet.x, bullet.y),
+                        size = Size(10f, 20f)
+                    )
+                }
 
 
-        // Overlay control buttons
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Bottom
-        ) {
-            // Left Button
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(Color.Gray, shape = CircleShape)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                engine.isMovingLeft = true
-                                tryAwaitRelease()
-                                engine.isMovingLeft = false
+                // Draw enemies
+                engine.enemyController.enemies.forEach { row ->
+                    row.forEach { enemy ->
+                        if (enemy.isAlive) {
+                            val color = when (enemy.type) {
+                                EnemyType.SHOOTER -> Color.Red
+                                EnemyType.MIDDLE -> Color.Yellow
+                                EnemyType.BOTTOM -> Color.Blue
+                                EnemyType.UFO -> TODO()
                             }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("←", color = Color.White, fontSize = 24.sp)
+                            drawRect(
+                                color = color,
+                                topLeft = Offset(enemy.x, enemy.y),
+                                size = Size(60f, 40f)
+                            )
+                        }
+                    }
+                }
             }
 
-            // Right Button
-            Box(
+
+            // Overlay control buttons
+            Row(
                 modifier = Modifier
-                    .size(100.dp)
-                    .background(Color.Gray, shape = CircleShape)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                engine.isMovingRight = true
-                                tryAwaitRelease()
-                                engine.isMovingRight = false
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .padding(32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
             ) {
-                Text("→", color = Color.White, fontSize = 24.sp)
-            }
+                // Left Button
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .background(Color.Gray, shape = CircleShape)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    engine.isMovingLeft = true
+                                    tryAwaitRelease()
+                                    engine.isMovingLeft = false
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("←", color = Color.White, fontSize = 24.sp)
+                }
 
-            // Shoot Button
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(Color.Red, shape = CircleShape)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = {
-                                engine.playerController.shootBullet()
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Shoot", color = Color.White, fontSize = 18.sp)
-            }
+                // Right Button
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .background(Color.Gray, shape = CircleShape)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    engine.isMovingRight = true
+                                    tryAwaitRelease()
+                                    engine.isMovingRight = false
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("→", color = Color.White, fontSize = 24.sp)
+                }
 
-            Button(onClick = { viewModel.toggleTiltControl() }) {
-                Text(if (viewModel.tiltControlEnabled) "Tilt Control ON" else "Tilt Control OFF")
-            }
+                // Shoot Button
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .background(Color.Red, shape = CircleShape)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = {
+                                    engine.playerController.shootBullet()
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Shoot", color = Color.White, fontSize = 18.sp)
+                }
 
+                Button(onClick = { viewModel.toggleTiltControl() }) {
+                    Text(if (viewModel.tiltControlEnabled) "Tilt Control ON" else "Tilt Control OFF")
+                }
+
+            }
         }
     }
 }

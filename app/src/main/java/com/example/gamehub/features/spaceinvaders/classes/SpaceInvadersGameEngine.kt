@@ -10,7 +10,6 @@ class SpaceInvadersGameEngine {
         private set
     var gameState by mutableStateOf(GameState.PLAYING)
         private set
-    var player = Player(x = 0f, y = 0f)
     private val playerWidth = 100f
     private val moveSpeed = 10f
     private var enemyShootCooldown = 0
@@ -26,6 +25,8 @@ class SpaceInvadersGameEngine {
             field = value
             playerController.screenHeightPx = value
         }
+
+    var player = Player(x = 300f, y = 0f)
 
     val playerController = PlayerController(player, playerWidth, moveSpeed)
     val enemyController = EnemyController()

@@ -1,5 +1,7 @@
 package com.example.gamehub.features.spaceinvaders.classes
 
+import android.util.Log
+
 class PlayerController(
     private var player: Player,
     private val playerWidth: Float,
@@ -22,6 +24,13 @@ class PlayerController(
             val bulletY = player.y - 10f
             playerBullets.add(Bullet(x = bulletX, y = bulletY))
             lastShotTime = currentTime
+        }
+    }
+
+    fun updateFromTilt(xTilt: Float) {
+        when {
+            xTilt > 2 -> moveLeft(moveSpeed)
+            xTilt < -2 -> moveRight(moveSpeed)
         }
     }
 

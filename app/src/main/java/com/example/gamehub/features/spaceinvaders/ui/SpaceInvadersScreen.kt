@@ -116,6 +116,7 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
                             EnemyType.SHOOTER -> Color.Red
                             EnemyType.MIDDLE -> Color.Yellow
                             EnemyType.BOTTOM -> Color.Blue
+                            EnemyType.UFO -> TODO()
                         }
                         drawRect(
                             color = color,
@@ -189,6 +190,10 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel()) {
                 contentAlignment = Alignment.Center
             ) {
                 Text("Shoot", color = Color.White, fontSize = 18.sp)
+            }
+
+            Button(onClick = { viewModel.toggleTiltControl() }) {
+                Text(if (viewModel.tiltControlEnabled) "Tilt Control ON" else "Tilt Control OFF")
             }
 
         }

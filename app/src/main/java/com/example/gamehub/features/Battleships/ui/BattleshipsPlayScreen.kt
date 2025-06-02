@@ -192,10 +192,12 @@ fun BattleshipsPlayScreen(
         } ?: false
     }
 
-    fun vibrateDevice(context: Context, duration: Long = 200) {
+    fun vibrateDevice(context: Context, duration: Long = 500) { // Try 500-800ms
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(duration, 255) // 255 = max amplitude
+            )
         } else {
             @Suppress("DEPRECATION")
             vibrator.vibrate(duration)
@@ -291,6 +293,11 @@ fun BattleshipsPlayScreen(
         }
     }
 
+    LaunchedEffect(animIsHit) {
+        if (animIsHit == true) {
+            vibrateDevice(context, 500) // 500ms for a stronger vibration!
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // --- FULLSCREEN BACKGROUND IMAGE ---

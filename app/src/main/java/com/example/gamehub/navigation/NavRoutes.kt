@@ -31,4 +31,9 @@ object NavRoutes {
     const val BATTLE_VOTE    = "battleships/{code}/{userName}/vote"
     const val BATTLE_PLACE = "battleships/{code}/{userName}/place/{mapId}"
 
+    //TriviaToe
+    const val TRIVIATOE_GAME = "triviatoe/{code}/{userName}"
+    const val TRIVIATOE_XO_ASSIGN = "triviatoe/{code}/{userName}/xo"
+
+
 }

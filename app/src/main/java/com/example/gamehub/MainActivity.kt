@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -27,10 +28,16 @@ import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
 import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
 import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
+import com.example.gamehub.features.triviatoe.FirestoreTriviatoeSession
+import com.example.gamehub.features.triviatoe.ui.TriviatoePlayScreen
 import com.example.gamehub.ui.GuestGameScreen
 import com.example.gamehub.ui.HostLobbyScreen
 import com.example.gamehub.ui.LobbyMenuScreen
+import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
+import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
+import com.google.firebase.auth.ktx.auth
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -150,6 +157,42 @@ fun GameHubApp() {
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
+
+            composable(
+                NavRoutes.TRIVIATOE_XO_ASSIGN,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                val session = remember(code) { FirestoreTriviatoeSession(code) }
+                val playerId = Firebase.auth.currentUser?.uid ?: ""
+                TriviatoeXOAssignScreen(
+                    session = session,
+                    playerId = playerId,
+                    userName = userName,
+                    navController = navController
+                )
+            }
+
+            composable(
+                NavRoutes.TRIVIATOE_GAME,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                val session = remember(code) { FirestoreTriviatoeSession(code) }
+                val playerId = Firebase.auth.currentUser?.uid ?: ""
+                TriviatoePlayScreen(
+                    session = session,
+                    playerId = playerId
+                )
+            }
         }
     }
 }

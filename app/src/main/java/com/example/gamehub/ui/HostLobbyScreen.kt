@@ -122,6 +122,19 @@ fun HostLobbyScreen(
                                 "gameResult" to null,
                                 "diceRoll" to null
                             )
+                            "triviatoe" -> mapOf(
+                                "players"      to players,
+                                "board"        to emptyList<Map<String, Any>>(),
+                                "moves"        to emptyList<Map<String, Any>>(),
+                                "currentRound" to 0,
+                                "quizQuestion" to null,
+                                "answers"      to emptyMap<String, Any>(),
+                                "firstToMove"  to null,
+                                "currentTurn"  to startingPlayerUid,
+                                "winner"       to null,
+                                "state"        to "QUESTION",
+                                "usedQuestions" to emptyList<Int>()
+                            )
                             else -> emptyMap()
                         }
 
@@ -181,6 +194,7 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                        "triviatoe" -> NavRoutes.TRIVIATOE_XO_ASSIGN
                         else -> null
                     }
                     route?.let {

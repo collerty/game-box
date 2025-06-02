@@ -44,6 +44,13 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import kotlinx.coroutines.tasks.await
 import com.example.gamehub.features.battleships.ui.CannonAttackAnimation
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import androidx.compose.runtime.Composable
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+
 
 private fun UiShip.coveredCells(): List<Cell> = if (orientation == Orientation.Horizontal) {
     (0 until size).map { offset -> Cell(startRow, startCol + offset) }
@@ -121,6 +128,8 @@ fun BattleshipsPlayScreen(
     roomCode: String,
     userName: String
 ) {
+
+    val context = LocalContext.current
     val uid = Firebase.auth.uid ?: return
     val scope = rememberCoroutineScope()
     val db = Firebase.firestore
@@ -174,6 +183,31 @@ fun BattleshipsPlayScreen(
     val oppMoves = state.moves.filter { it.playerId == opponentId }
     val iSunkOpponent = havePlacedShips && areAllShipsSunk(oppShips, myMoves)
     val opponentSunkMe = havePlacedShips && areAllShipsSunk(myShips, oppMoves)
+
+    // Find the last move by opponent (on your board)
+    val lastOppMove = oppMoves.lastOrNull()
+    val wasHit = remember(lastOppMove) {
+        lastOppMove?.let { move ->
+            myShips.any { it.covers(move.y, move.x) }
+        } ?: false
+    }
+
+    fun vibrateDevice(context: Context, duration: Long = 200) {
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(duration)
+        }
+    }
+
+    // Vibrate if opponent hit you (when new move appears)
+    LaunchedEffect(lastOppMove) {
+        if (wasHit && lastOppMove != null) {
+            vibrateDevice(context)
+        }
+    }
 
     val gameResult = state.gameResult
     val isWinner = gameResult == uid
@@ -256,6 +290,7 @@ fun BattleshipsPlayScreen(
             }
         }
     }
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         // --- FULLSCREEN BACKGROUND IMAGE ---

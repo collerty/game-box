@@ -16,6 +16,10 @@ import com.example.gamehub.features.battleships.model.Cell
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
+import android.media.MediaPlayer
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+
 @Composable
 fun CannonAttackAnimation(
     boardOffset: Offset,
@@ -83,6 +87,9 @@ fun CannonAttackAnimation(
         ) {
             // --- Animate cannonball flying along a quadratic Bezier curve ---
             if (animStage == 0) {
+               if (animStage == 0 && fraction == 0f) {
+                   playSound(com.example.gamehub.R.raw.cannon)
+               }
                 val t = fraction
                 val x = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * control.x + t * t * end.x
                 val y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * control.y + t * t * end.y
@@ -102,6 +109,9 @@ fun CannonAttackAnimation(
             }
             // --- Animate PNG hit/miss sequence ---
             else if (animStage == 1) {
+                if (animStage == 1 && hitFrame == 0) {
+                    if (isHit == true) playSound(com.example.gamehub.R.raw.hit) else playSound(com.example.gamehub.R.raw.miss)
+                }
                 val centerX = end.x  // adjust for image centering
                 val centerY = end.y
                 val frameRes = if (isHit == true)
@@ -140,4 +150,14 @@ fun missFrameResId(frame: Int): Int = when (frame) {
     4 -> com.example.gamehub.R.drawable.miss_4
     5 -> com.example.gamehub.R.drawable.miss_5 // 5th frame is the same as 4th
     else -> com.example.gamehub.R.drawable.miss_4
+}
+
+@Composable
+fun playSound(resId: Int) {
+    val context = LocalContext.current
+    LaunchedEffect(resId) {
+        val mediaPlayer = MediaPlayer.create(context, resId)
+        mediaPlayer.setOnCompletionListener { it.release() }
+        mediaPlayer.start()
+    }
 }

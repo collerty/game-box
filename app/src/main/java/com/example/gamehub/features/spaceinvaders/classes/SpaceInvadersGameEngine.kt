@@ -122,6 +122,10 @@ class SpaceInvadersGameEngine {
         }
 
         enemyController.updateEnemyBullets(screenHeightPx)
+
+        if (enemyController.hasEnemyReachedPlayerLine(player.y + -100f)) {
+            gameState = GameState.GAME_OVER
+        }
     }
 
 }

@@ -141,6 +141,13 @@ class EnemyController {
         enemyBullets.removeAll { !it.isActive }
     }
 
+    fun hasEnemyReachedPlayerLine(playerY: Float): Boolean {
+        val allEnemies = enemies.flatten().filter { it.isAlive }
+        return allEnemies.any { it.y + 40f >= playerY } // 40f is enemy height
+    }
+
+
+
 
     fun moveEnemiesDown() {
         val allEnemies = enemies.flatten().filter { it.isAlive }

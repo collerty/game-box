@@ -6,6 +6,12 @@ data class Enemy(var x: Float, var y: Float, var isAlive: Boolean = true, var ty
 
 enum class EnemyType { SHOOTER, BOTTOM, MIDDLE, UFO }
 
+data class PlayerScore(
+    val player: String = "",
+    val score: Int = 0
+)
+
+
 data class Bullet(
     var x: Float,
     var y: Float,

@@ -41,7 +41,7 @@ import com.example.gamehub.navigation.NavRoutes
 
 
 @Composable
-fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navController: NavController) {
+fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navController: NavController, name : String) {
     val engine = viewModel.gameEngine
     val tick by viewModel.tick
     val configuration = LocalConfiguration.current
@@ -53,6 +53,7 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
     val context = LocalContext.current
     val activity = context as? Activity
 
+    Log.d("playerName", name)
 
     // Set screen width in engine
     LaunchedEffect(screenWidthPx) {
@@ -80,9 +81,11 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
         SpaceInvadersGameOverScreen(
             score = engine.score,
             onRestart = {
+                viewModel.submitScore(name, engine.score)
                 viewModel.restartGame()
             },
             onExit = {
+                viewModel.submitScore(name, engine.score)
                 navController.navigate(NavRoutes.GAMES_LIST)
             }
         )

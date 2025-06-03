@@ -27,6 +27,7 @@ import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
 import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
 import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
+import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersPreGameScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersScreen
 import com.example.gamehub.ui.GuestGameScreen
 import com.example.gamehub.ui.HostLobbyScreen
@@ -148,10 +149,21 @@ fun GameHubApp() {
                 OhPardonScreen(navController, code, userName)
             }
 
+            composable(
+                "${NavRoutes.SPACE_INVADERS_GAME}/{name}",
+                arguments = listOf(
+                    navArgument("name") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val name = backStack.arguments?.getString("name") ?: return@composable
+                SpaceInvadersScreen(navController = navController, name = name)
+            }
+
+
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
-            composable(NavRoutes.SPACE_INVADERS_GAME) { SpaceInvadersScreen(navController = navController) }
+            composable(NavRoutes.SPACE_INVADERS_PREGAME) { SpaceInvadersPreGameScreen(navController = navController) }
         }
     }
 }

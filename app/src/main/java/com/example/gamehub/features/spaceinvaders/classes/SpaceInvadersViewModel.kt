@@ -6,10 +6,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.util.Log
 import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class SpaceInvadersViewModel(application: Application) : AndroidViewModel(application), SensorEventListener {
@@ -27,10 +31,59 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
 
     var tiltControlEnabled by mutableStateOf(false)
         private set
-    
+
+    private val db = FirebaseFirestore.getInstance()
+
+    var playerName = MutableStateFlow("")
+        private set
+
+    val highScores = MutableStateFlow<List<PlayerScore>>(emptyList())
+
+    fun onPlayerNameChanged(newName: String) {
+        playerName.value = newName
+    }
+
+    private fun fetchHighScores() {
+        db.collection("space-invaders")
+            .orderBy("score", Query.Direction.DESCENDING)
+            .limit(10)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null || snapshot == null) return@addSnapshotListener
+
+                val scores = snapshot.documents.mapNotNull {
+                    it.toObject(PlayerScore::class.java)
+                }
+                highScores.value = scores
+            }
+    }
+
+    fun submitScore(playerName: String, newScore: Int) {
+        val docRef = db.collection("space-invaders")
+            .document(playerName.lowercase())
+
+        docRef.get()
+            .addOnSuccessListener { document ->
+                val currentScore = document.getLong("score")?.toInt() ?: 0
+                if (newScore > currentScore) {
+                    docRef.set(mapOf(
+                        "player" to playerName,
+                        "score" to newScore
+                    ))
+                    Log.d("Firestore", "New high score saved.")
+                } else {
+                    Log.d("Firestore", "Score not updated (not higher).")
+                }
+            }
+            .addOnFailureListener {
+                Log.e("Firestore", "Failed to read existing score", it)
+            }
+    }
+
+
 
     init {
         startGameLoop()
+        fetchHighScores()
     }
 
     fun toggleTiltControl() {

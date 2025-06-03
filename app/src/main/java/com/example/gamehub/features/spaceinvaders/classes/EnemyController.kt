@@ -99,6 +99,11 @@ class EnemyController {
         enemyBullets.add(Bullet(x = bulletX, y = bulletY, isActive = true, speed = 10f))
     }
 
+    fun isWaveCleared(): Boolean {
+        return enemies.flatten().none { it.isAlive }
+    }
+
+
     fun createEnemies(enemyMap: Array<Array<Int>>): Array<Array<Enemy>> {
         val enemyHeight = 40f
         val spacingX = 20f

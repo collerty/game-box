@@ -147,9 +147,15 @@ class SpaceInvadersGameEngine {
 
         enemyController.updateEnemyBullets(screenHeightPx)
 
+        // Check if the wave is cleared
+        if (enemyController.isWaveCleared()) {
+            enemyController.loadMap((enemyController.enemyMaps.indices).random()) // Load random new map
+        }
+
         if (enemyController.hasEnemyReachedPlayerLine(player.y + -100f)) {
             gameState = GameState.GAME_OVER
         }
     }
+
 
 }

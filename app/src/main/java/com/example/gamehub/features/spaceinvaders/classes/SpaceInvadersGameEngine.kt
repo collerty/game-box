@@ -11,7 +11,7 @@ class SpaceInvadersGameEngine {
     var gameState by mutableStateOf(GameState.PLAYING)
         private set
     private val playerWidth = 100f
-    private val moveSpeed = 10f
+    private val moveSpeed = 15f
     private var enemyShootCooldown = 0
     var score = 0
         private set

@@ -142,7 +142,6 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
                                 EnemyType.SHOOTER -> Color.Red
                                 EnemyType.MIDDLE -> Color.Yellow
                                 EnemyType.BOTTOM -> Color.Blue
-                                EnemyType.UFO -> TODO()
                             }
                             drawRect(
                                 color = color,
@@ -152,6 +151,16 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
                         }
                     }
                 }
+
+                // Draw UFO
+                if (engine.enemyController.ufo.isActive) {
+                    drawRect(
+                        color = Color.Red,
+                        topLeft = Offset(engine.enemyController.ufo.x, engine.enemyController.ufo.y),
+                        size = Size(engine.enemyController.ufo.width, engine.enemyController.ufo.height)
+                    )
+                }
+
             }
 
 

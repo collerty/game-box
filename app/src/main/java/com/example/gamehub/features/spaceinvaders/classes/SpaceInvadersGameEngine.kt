@@ -60,12 +60,35 @@ class SpaceInvadersGameEngine {
                         EnemyType.SHOOTER -> 40
                         EnemyType.MIDDLE -> 20
                         EnemyType.BOTTOM -> 10
-                        EnemyType.UFO -> listOf(50, 100, 150, 300).random()
                     }
                     score += points
                 }
             }
         }
+
+        // Check if UFO was hit
+        if (enemyController.ufo.isActive) {
+            val ufo = enemyController.ufo
+            val bulletWidth = 10f
+            val bulletHeight = 20f
+
+            playerController.playerBullets.forEach { bullet ->
+                if (!bullet.isActive) return@forEach
+
+                val collides = bullet.x < ufo.x + ufo.width &&
+                        bullet.x + bulletWidth > ufo.x &&
+                        bullet.y < ufo.y + ufo.height &&
+                        bullet.y + bulletHeight > ufo.y
+
+                if (collides) {
+                    bullet.isActive = false
+                    ufo.isActive = false
+
+                    score += listOf(50, 100, 150, 300).random()
+                }
+            }
+        }
+
     }
 
     private fun bulletCollidesWithEnemy(bullet: Bullet, enemy: Enemy): Boolean {
@@ -112,6 +135,7 @@ class SpaceInvadersGameEngine {
         player = playerController.getPlayer()
         playerController.updateBullets(screenHeightPx)
         enemyController.updateEnemies()
+        enemyController.updateUFO(screenWidthPx)
         checkBulletEnemyCollisions()
 
         if (enemyShootCooldown <= 0) {

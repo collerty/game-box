@@ -15,12 +15,12 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Stefan\.android\avd\Pixel_7_Pro_2.avd" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCW424HPXW" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCW424HPXW" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Stefan\.android\avd\Pixel_7_Pro.avd" />
               </handle>
             </Target>
           </targets>

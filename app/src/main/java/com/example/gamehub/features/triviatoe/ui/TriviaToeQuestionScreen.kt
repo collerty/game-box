@@ -1,4 +1,5 @@
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,13 +11,18 @@ import com.example.gamehub.features.triviatoe.model.PlayerAnswer
 import com.example.gamehub.features.triviatoe.model.TriviatoePlayer
 import com.example.gamehub.features.triviatoe.model.TriviatoeQuestion
 import kotlinx.coroutines.delay
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun TriviatoeQuestionScreen(
     question: TriviatoeQuestion.MultipleChoice,
     playerId: String,
     players: List<TriviatoePlayer>,
-    allAnswers: Map<String, PlayerAnswer?>, // playerId -> PlayerAnswer (null if not answered)
+    allAnswers: Map<String, PlayerAnswer?>,
     correctIndex: Int,
     onAnswer: (PlayerAnswer) -> Unit,
     onQuestionResolved: (winnerId: String) -> Unit
@@ -38,9 +44,6 @@ fun TriviatoeQuestionScreen(
     var winnerName by remember { mutableStateOf<String?>(null) }
     var randomized by remember { mutableStateOf(false) }
 
-    // Debug
-    Log.d("TriviatoeDebug", "RENDER players: ${players.map { it.uid }} answers: $allAnswers, timeLeft=$timeLeft, state host=$isHost showWinner=$showWinner winnerId=$winnerId")
-
     // Reset all UI state on new question
     LaunchedEffect(question) {
         timeLeft = 10f
@@ -50,12 +53,10 @@ fun TriviatoeQuestionScreen(
         winnerName = null
         randomized = false
         selectedAnswer = null
-        Log.d("TriviatoeDebug", "New question started - resetting timer")
     }
 
     // Timer loop watches for both time and allAnswers
     LaunchedEffect(question, allAnswers.values.toList()) {
-        // Only run timer if there are unanswered players
         while (timeLeft > 0 && players.size == 2 && allAnswers.values.any { it == null }) {
             delay(50)
             timeLeft -= 0.05f
@@ -67,12 +68,10 @@ fun TriviatoeQuestionScreen(
     LaunchedEffect(
         question, allAnswers.values.toList(), timeLeft
     ) {
-        Log.d("TriviatoeDebug", "LaunchedEffect: isHost=$isHost, showWinner=$showWinner, answers=$allAnswers, timeLeft=$timeLeft")
         val allAnsweredWithTimestamps = players.all {
             val ans = allAnswers[it.uid]
             ans != null && ans.timestamp != null
         }
-
         if (
             isHost &&
             players.size == 2 &&
@@ -82,22 +81,18 @@ fun TriviatoeQuestionScreen(
                             || timeLeft <= 0f
                     )
         ) {
-            // Find correct answers, with timestamps!
             val correctPlayersWithTime = allAnswers
                 .filter { (_, ans) -> ans?.answerIndex == correctIndex && ans.timestamp != null }
                 .toList()
                 .sortedBy { it.second?.timestamp ?: Long.MAX_VALUE }
-
-            // Pick winner: fastest correct, else random
             winnerId = when {
                 correctPlayersWithTime.isNotEmpty() -> correctPlayersWithTime.first().first
-                allAnswers.isNotEmpty() -> allAnswers.keys.random() // fallback if nobody correct
+                allAnswers.isNotEmpty() -> allAnswers.keys.random()
                 else -> null
             }
             winnerName = players.find { it.uid == winnerId }?.name ?: "?"
             randomized = correctPlayersWithTime.isEmpty()
             showWinner = true
-            Log.d("TriviatoeDebug", "Winner resolved: winnerId=$winnerId winnerName=$winnerName randomized=$randomized")
             delay(1500)
             if (winnerId != null) {
                 onQuestionResolved(winnerId!!)
@@ -107,75 +102,136 @@ fun TriviatoeQuestionScreen(
 
     val resolved = showWinner && winnerId != null
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    // This Box fills the screen and centers the panel
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        LinearProgressIndicator(
-            progress = progress.coerceAtLeast(0f),
+        // This Box is your panel, with the image background, sizing to the content
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp)
-        )
-        Spacer(Modifier.height(8.dp))
-        Text("Time remaining: ${timeLeft.toInt()}s")
-        Spacer(Modifier.height(16.dp))
-        Text(
-            question.question,
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        Column {
-            for (row in 0 until 2) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    for (col in 0 until 2) {
-                        val idx = row * 2 + col
-                        OutlinedButton(
-                            onClick = {
-                                if (selectedAnswer == null && !resolved) {
-                                    selectedAnswer = idx
-                                    onAnswer(PlayerAnswer(idx, null)) // Just pass null, timestamp set by server!
-                                }
-                            },
-                            enabled = selectedAnswer == null && allAnswers[playerId] == null && !resolved,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(4.dp)
-                                .height(56.dp)
+                .widthIn(max = 420.dp)
+                .fillMaxWidth(0.95f)
+                .clip(RoundedCornerShape(32.dp))
+                .padding(3.dp)
+        ) {
+            // Panel background image
+            Image(
+                painter = painterResource(id = com.example.gamehub.R.drawable.triviatoe_box1),
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.matchParentSize()
+            )
+
+            // The actual question UI
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 48.dp, vertical = 64.dp) // Try more padding!
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                LinearProgressIndicator(
+                    progress = progress.coerceAtLeast(0f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp),
+                    color = Color(0xFF4C2232) // Green color
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Time remaining: ${timeLeft.toInt()}s",
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    question.question,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                Spacer(Modifier.height(20.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    for (row in 0 until 2) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            Text(
-                                question.answers.getOrNull(idx) ?: "",
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
+                            for (col in 0 until 2) {
+                                val idx = row * 2 + col
+                                OutlinedButton(
+                                    onClick = {
+                                        if (selectedAnswer == null && !resolved) {
+                                            selectedAnswer = idx
+                                            onAnswer(PlayerAnswer(idx, null))
+                                        }
+                                    },
+                                    enabled = selectedAnswer == null && allAnswers[playerId] == null && !resolved,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(4.dp)
+                                        .height(56.dp)
+                                ) {
+                                    Text(
+                                        question.answers.getOrNull(idx) ?: "",
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = Color.White
+                                    )
+                                }
+                            }
                         }
                     }
                 }
+                Spacer(Modifier.height(28.dp))
+                if (resolved) {
+                    if (randomized) {
+                        Text(
+                            "Both players wrong or didn't answer! Randomized winner: $winnerName",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        Text(
+                            "Player $winnerName has won!",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                selectedAnswer?.let {
+                    Text(
+                        "You selected: ${question.answers[it]}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
-        Spacer(Modifier.height(24.dp))
-        if (resolved) {
-            if (randomized) {
-                Text(
-                    "Both players wrong or didn't answer! Randomized winner: $winnerName",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            } else {
-                Text(
-                    "Player $winnerName has won!",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleMedium
-                )
+        // Defensive timer: if stuck for 10s, show retry UI
+        var questionTimeout by remember { mutableStateOf(false) }
+        LaunchedEffect(showWinner) {
+            if (showWinner) {
+                delay(10000)
+                questionTimeout = true
             }
         }
-        selectedAnswer?.let {
-            Text(
-                "You selected: ${question.answers[it]}",
-                style = MaterialTheme.typography.bodySmall
-            )
+        if (questionTimeout) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "Still waiting... Host may have network issues.",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    // Optional: Add reload or leave button
+                }
+            }
         }
     }
 }

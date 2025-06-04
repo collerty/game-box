@@ -15,6 +15,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.gamehub.R
 import com.example.gamehub.features.triviatoe.model.TriviatoeRoundState
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun TriviatoeXOAssignScreen(
@@ -95,49 +100,85 @@ fun TriviatoeXOAssignScreen(
             "O" -> R.drawable.o_icon
             else -> R.drawable.x_icon // fallback to X
         }
-
-    Column(
-        Modifier
+    Box(
+        modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
-        Text("Deciding who will be X and who will be O…", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(40.dp))
-
-        // --- ANIMATION / SYMBOL DISPLAY ---
-        val currentRes = if (showResult && assignedSymbol != null)
-            symbolRes(assignedSymbol)
-        else
-            symbolRes(animationSymbol)
         Image(
-            painter = painterResource(currentRes),
+            painter = painterResource(id = R.drawable.triviatoe_bg1),
             contentDescription = null,
-            modifier = Modifier.size(96.dp)
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.matchParentSize()
         )
 
-        Spacer(Modifier.height(32.dp))
-
-        if (showResult && assignedSymbol != null) {
-            Text("You are:", style = MaterialTheme.typography.titleLarge)
-            Image(
-                painter = painterResource(symbolRes(assignedSymbol)),
-                contentDescription = null,
-                modifier = Modifier.size(64.dp)
-            )
-            Spacer(Modifier.height(16.dp))
-            if (otherPlayer != null && otherSymbol != null) {
-                Text("${otherPlayer.name} is:", style = MaterialTheme.typography.titleMedium)
-                Image(
-                    painter = painterResource(symbolRes(otherSymbol)),
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp)
+        // Center the overlay box
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .align(Alignment.Center)
+                .background(
+                    color = Color.Black.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(24.dp)
                 )
+                .padding(vertical = 40.dp, horizontal = 20.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "YOU WILL BE",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(40.dp))
+
+                // Animation / symbol display
+                val currentRes = if (showResult && assignedSymbol != null)
+                    symbolRes(assignedSymbol)
+                else
+                    symbolRes(animationSymbol)
+                Image(
+                    painter = painterResource(currentRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(96.dp)
+                )
+
+                Spacer(Modifier.height(32.dp))
+
+                if (showResult && assignedSymbol != null) {
+//                    Text(
+//                        "You are:",
+//                        style = MaterialTheme.typography.titleLarge,
+//                        color = Color.White,
+//                        textAlign = TextAlign.Center
+//                    )
+//                    Image(
+//                        painter = painterResource(symbolRes(assignedSymbol)),
+//                        contentDescription = null,
+//                        modifier = Modifier.size(64.dp)
+//                    )
+//                    Spacer(Modifier.height(16.dp))
+                    if (otherPlayer != null && otherSymbol != null) {
+                        Text(
+                            "${otherPlayer.name} is:",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+                        Image(
+                            painter = painterResource(symbolRes(otherSymbol)),
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(32.dp))
+                }
             }
-            Spacer(Modifier.height(32.dp))
-
         }
-
     }
+
 }

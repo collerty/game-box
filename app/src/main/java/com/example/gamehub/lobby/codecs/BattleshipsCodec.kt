@@ -1,6 +1,7 @@
 package com.example.gamehub.lobby.codec
 
 import com.example.gamehub.features.battleships.model.Cell
+import com.example.gamehub.lobby.model.AttackAnimation
 import com.example.gamehub.lobby.model.GameSession
 import com.example.gamehub.lobby.model.Move
 import com.example.gamehub.lobby.model.Ship
@@ -27,7 +28,15 @@ object BattleshipsCodec {
 
         // ← OPTIONAL: record of power-up moves (list of "PU_NAME:x,y" strings)
         "powerUpMoves"     to session.powerUpMoves,      // List<String>
-        "placedMines"      to session.placedMines.mapValues { it.value.map { cell -> mapOf("row" to cell.row, "col" to cell.col) } }
+        "placedMines"      to session.placedMines.mapValues { it.value.map { cell -> mapOf("row" to cell.row, "col" to cell.col) } },
+        "currentAttack" to session.currentAttack?.let {
+            mapOf(
+                "x" to it.x,
+                "y" to it.y,
+                "playerId" to it.playerId,
+                "startedAt" to it.startedAt
+            )
+        }
         )
 
     /** Decode Firestore data back into your GameSession model */
@@ -81,6 +90,16 @@ object BattleshipsCodec {
             }
         } ?: emptyMap()
 
+        val rawAttack = data["currentAttack"] as? Map<String, Any?>
+        val currentAttack = rawAttack?.let {
+            AttackAnimation(
+                x = (it["x"] as? Number)?.toInt() ?: 0,
+                y = (it["y"] as? Number)?.toInt() ?: 0,
+                playerId = it["playerId"] as? String ?: "",
+                startedAt = (it["startedAt"] as? Number)?.toLong() ?: 0L
+            )
+        }
+
         return GameSession(
             gameId            = gameId,
             player1Id         = p1,
@@ -94,7 +113,8 @@ object BattleshipsCodec {
             chosenMap         = chosenMap,
             energy            = energy,
             powerUpMoves      = rawPUMoves,
-            placedMines      = placedMines
+            placedMines      = placedMines,
+            currentAttack     = currentAttack
         )
     }
 }

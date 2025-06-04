@@ -53,15 +53,15 @@ class FirestoreTriviatoeSession(
     }
 
     // Submit a quiz answer for this round
+
     suspend fun submitAnswer(playerId: String, answer: PlayerAnswer) {
         room.update(
             mapOf("gameState.triviatoe.answers.$playerId" to mapOf(
                 "answerIndex" to answer.answerIndex,
-                "timestamp" to answer.timestamp
+                "timestamp" to FieldValue.serverTimestamp() // This is the key change!
             ))
         ).await()
     }
-
 
     // Place an X or O on the grid
     suspend fun submitMove(playerId: String, row: Int, col: Int, symbol: String) {

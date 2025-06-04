@@ -68,12 +68,17 @@ fun TriviatoeQuestionScreen(
         question, allAnswers.values.toList(), timeLeft
     ) {
         Log.d("TriviatoeDebug", "LaunchedEffect: isHost=$isHost, showWinner=$showWinner, answers=$allAnswers, timeLeft=$timeLeft")
+        val allAnsweredWithTimestamps = players.all {
+            val ans = allAnswers[it.uid]
+            ans != null && ans.timestamp != null
+        }
+
         if (
             isHost &&
             players.size == 2 &&
             !showWinner &&
             (
-                    (allAnswers.size == 2 && allAnswers.values.all { it != null })
+                    allAnsweredWithTimestamps
                             || timeLeft <= 0f
                     )
         ) {
@@ -130,9 +135,8 @@ fun TriviatoeQuestionScreen(
                         OutlinedButton(
                             onClick = {
                                 if (selectedAnswer == null && !resolved) {
-                                    val now = System.currentTimeMillis()
                                     selectedAnswer = idx
-                                    onAnswer(PlayerAnswer(idx, now))
+                                    onAnswer(PlayerAnswer(idx, null)) // Just pass null, timestamp set by server!
                                 }
                             },
                             enabled = selectedAnswer == null && allAnswers[playerId] == null && !resolved,

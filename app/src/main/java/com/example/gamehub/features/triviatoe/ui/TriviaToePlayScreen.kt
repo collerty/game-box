@@ -276,7 +276,7 @@ fun BoardGrid(
                     val cell = board.find { it.row == row && it.col == col }
                     Box(
                         Modifier
-                            .size(28.dp)
+                            .size(36.dp)
                             .padding(1.dp)
                             .background(Color.White, RoundedCornerShape(4.dp))
                             .clickable { onCellClick(row, col) },

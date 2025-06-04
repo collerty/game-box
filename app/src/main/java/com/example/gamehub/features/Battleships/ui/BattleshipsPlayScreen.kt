@@ -176,16 +176,16 @@ fun BattleshipsPlayScreen(
 
     var animatingMove by remember { mutableStateOf<Cell?>(null) }
     var animIsHit by remember { mutableStateOf<Boolean?>(null) }
-    var pendingMove by remember { mutableStateOf<Triple<Int, Int, (() -> Unit)>?>(null) }
 
     val havePlacedShips = myShips.isNotEmpty() && oppShips.isNotEmpty()
     val myMoves = state.moves.filter { it.playerId == uid }
     val oppMoves = state.moves.filter { it.playerId == opponentId }
+
+    // --- For incoming attack animation ---
+    val lastOppMove = oppMoves.lastOrNull()
     val iSunkOpponent = havePlacedShips && areAllShipsSunk(oppShips, myMoves)
     val opponentSunkMe = havePlacedShips && areAllShipsSunk(myShips, oppMoves)
 
-    // Find the last move by opponent (on your board)
-    val lastOppMove = oppMoves.lastOrNull()
     val wasHit = remember(lastOppMove) {
         lastOppMove?.let { move ->
             myShips.any { it.covers(move.y, move.x) }
@@ -231,9 +231,6 @@ fun BattleshipsPlayScreen(
         mutableStateOf(myMines.size)
     }
     val hasPlacedMineThisTurn = myMines.size > minesAtTurnStart
-
-    var boardOffset by remember { mutableStateOf(Offset.Zero) }
-    var cellSizePx by remember { mutableStateOf(0f) }
 
     suspend fun spendEnergy(roomRef: com.google.firebase.firestore.DocumentReference, uid: String, amount: Int) {
         roomRef.update(
@@ -292,10 +289,27 @@ fun BattleshipsPlayScreen(
             }
         }
     }
+    // Place these after your val boardOffset/cellSizePx lines (or replace them)
+    var myBoardOffset by remember { mutableStateOf(Offset.Zero) }
+    var myCellSizePx by remember { mutableStateOf(0f) }
+    var oppBoardOffset by remember { mutableStateOf(Offset.Zero) }
+    var oppCellSizePx by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(animIsHit) {
-        if (animIsHit == true) {
-            vibrateDevice(context, 500) // 500ms for a stronger vibration!
+    LaunchedEffect(myBoardOffset, myCellSizePx, oppBoardOffset, oppCellSizePx) {
+        println("DEBUG: myBoardOffset = $myBoardOffset, myCellSizePx = $myCellSizePx, oppBoardOffset = $oppBoardOffset, oppCellSizePx = $oppCellSizePx")
+    }
+
+    // Right after you get attackAnim from state
+    val attackAnim = state.currentAttack
+
+    // Decide if the current attack is targeting ME or the opponent
+    val isAttackOnMe = attackAnim?.playerId != uid // true if you're being attacked
+
+    LaunchedEffect(attackAnim?.x, attackAnim?.y, attackAnim?.playerId, attackAnim?.startedAt) {
+        if (attackAnim != null && animatingMove == null) {
+            animatingMove = Cell(attackAnim.y, attackAnim.x)
+            animIsHit = oppShips.any { it.covers(attackAnim.y, attackAnim.x) } // If you want to show hit on enemy board
+            // Optionally: for your own board, you can check myShips.any { ... } instead!
         }
     }
 
@@ -376,6 +390,10 @@ fun BattleshipsPlayScreen(
                                         }
                                     }
                                 }
+                            },
+                            onBoardPositioned = { offset, cellPx ->
+                                myBoardOffset = offset
+                                myCellSizePx = cellPx
                             }
                         )
                     }
@@ -389,7 +407,7 @@ fun BattleshipsPlayScreen(
                                 attacks = buildAttackMap(oppShips, myMoves),
                                 enabled = !isLocallyGameOver,
                                 destroyedShips = oppDestroyedShips,
-                                mineCells = emptyList(),            // ← Hide untriggered mines and don't double-show triggered
+                                mineCells = emptyList(),
                                 triggeredMines = enemyTriggeredMines,
                                 onCellClick = { row, col ->
                                     if (!isMyTurn || isLocallyGameOver) return@BoardGrid
@@ -432,26 +450,28 @@ fun BattleshipsPlayScreen(
                                             }
                                         }
                                         else -> {
-                                            if (cell !in myHitCells && animatingMove == null && cellSizePx > 0f) {
-                                                println("DEBUG: boardOffset=$boardOffset, cellSizePx=$cellSizePx, cell=$cell")
-
-                                                // 1. Mark animation as in progress and what type
+                                            if (cell !in myHitCells && animatingMove == null && oppCellSizePx > 0f) {
                                                 val isHit = oppShips.any { it.covers(row, col) }
-                                                animatingMove = cell
-                                                animIsHit = isHit
-                                                // 2. Store the move to send after animation
-                                                pendingMove = Triple(col, row) {
-                                                    scope.launch {
-                                                        session.submitMove(col, row, uid)
-                                                    }
+                                                // NEW: Store pending move, don't fire immediately!
+                                                val startedAt = System.currentTimeMillis()
+                                                scope.launch {
+                                                    // Write to Firestore that a new attack animation should play
+                                                    roomRef.update(
+                                                        mapOf("gameState.battleships.currentAttack" to mapOf(
+                                                            "x" to col,
+                                                            "y" to row,
+                                                            "playerId" to uid,
+                                                            "startedAt" to startedAt
+                                                        ))
+                                                    ).await()
                                                 }
                                             }
                                         }
                                     }
                                 },
                                 onBoardPositioned = { offset, cellPx ->
-                                    boardOffset = offset
-                                    cellSizePx = cellPx
+                                    oppBoardOffset = offset
+                                    oppCellSizePx = cellPx
                                 }
                             )
                         } else {
@@ -464,7 +484,11 @@ fun BattleshipsPlayScreen(
                                 destroyedShips = myDestroyedShips,
                                 mineCells = myMines,
                                 triggeredMines = myTriggeredMines,
-                                onCellClick = { _, _ -> }
+                                onCellClick = { _, _ -> },
+                                onBoardPositioned = { offset, cellPx ->
+                                    myBoardOffset = offset
+                                    myCellSizePx = cellPx
+                                }
                             )
                         }
                     }
@@ -700,19 +724,27 @@ fun BattleshipsPlayScreen(
             }
         }
         if (animatingMove != null) {
+            // Always animate on the DEFENDER's board (the target of the attack)
+            val boardOffsetToUse = if (isAttackOnMe) myBoardOffset else oppBoardOffset
+            val cellSizeToUse = if (isAttackOnMe) myCellSizePx else oppCellSizePx
+
             CannonAttackAnimation(
-                boardOffset = boardOffset,
+                boardOffset = boardOffsetToUse,
                 cell = animatingMove!!,
-                cellSizePx = cellSizePx,
+                cellSizePx = cellSizeToUse,
                 isHit = animIsHit,
                 onFinished = {
-                    // After animation is done, submit the move and clear state
-                    val (x, y, submitFn) = pendingMove!!
-                    submitFn()
+                    scope.launch {
+                        val currentAttack = attackAnim
+                        if (currentAttack != null) {
+                            session.submitMove(currentAttack.x, currentAttack.y, currentAttack.playerId)
+                            roomRef.update(mapOf("gameState.battleships.currentAttack" to FieldValue.delete())).await()
+                        }
+                    }
                     animatingMove = null
                     animIsHit = null
-                    pendingMove = null
-                }
+                },
+                vibrateOnHit = { vibrateDevice(context, 500) }
             )
         }
     }

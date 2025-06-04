@@ -97,10 +97,19 @@ object TriviatoeCodec : GameCodec<TriviatoeMove, TriviatoeSession> {
 
     private fun decodeAnswer(map: Map<String, Any?>?): PlayerAnswer? {
         if (map == null) return null
+        val idx = (map["answerIndex"] as? Long)?.toInt() ?: 0
+        val timestampAny = map["timestamp"]
+        val millis = when (timestampAny) {
+            is com.google.firebase.Timestamp -> timestampAny.seconds * 1000 + timestampAny.nanoseconds / 1_000_000
+            is Long -> timestampAny
+            is Double -> timestampAny.toLong()
+            else -> null
+        }
         return PlayerAnswer(
-            answerIndex = (map["answerIndex"] as? Long)?.toInt() ?: 0,
-            timestamp = (map["timestamp"] as? Long) ?: 0L
+            answerIndex = idx,
+            timestamp = millis
         )
     }
+
 
 }

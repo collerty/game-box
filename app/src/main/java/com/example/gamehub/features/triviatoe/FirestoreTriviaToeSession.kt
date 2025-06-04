@@ -52,6 +52,16 @@ class FirestoreTriviatoeSession(
         )
     }
 
+    private suspend fun safeUpdate(map: Map<String, Any?>, actionName: String) {
+        try {
+            room.update(map).await()
+            println("Firestore update '$actionName' successful!")
+        } catch (e: Exception) {
+            println("Firestore update '$actionName' FAILED: ${e.message}")
+            // Optionally: retry logic here!
+        }
+    }
+
     // Submit a quiz answer for this round
 
     suspend fun submitAnswer(playerId: String, answer: PlayerAnswer) {

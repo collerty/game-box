@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 
 @Composable
 fun TriviatoeXOAssignScreen(
@@ -112,19 +113,28 @@ fun TriviatoeXOAssignScreen(
         )
 
         // Center the overlay box
+        // Center the overlay box
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .align(Alignment.Center)
-                .background(
-                    color = Color.Black.copy(alpha = 0.4f),
-                    shape = RoundedCornerShape(24.dp)
-                )
-                .padding(vertical = 40.dp, horizontal = 20.dp)
+                .clip(RoundedCornerShape(24.dp)) // round the corners
+                .height(IntrinsicSize.Min) // let height grow with content
         ) {
+            // --- Background sprite, stretches to fit the box! ---
+            Image(
+                painter = painterResource(id = R.drawable.triviatoe_box1), // <--- your sprite!
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.matchParentSize()
+            )
+
+            // --- Foreground UI goes here, exactly as before ---
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 40.dp, horizontal = 20.dp), // padding inside the sprite
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -150,18 +160,6 @@ fun TriviatoeXOAssignScreen(
                 Spacer(Modifier.height(32.dp))
 
                 if (showResult && assignedSymbol != null) {
-//                    Text(
-//                        "You are:",
-//                        style = MaterialTheme.typography.titleLarge,
-//                        color = Color.White,
-//                        textAlign = TextAlign.Center
-//                    )
-//                    Image(
-//                        painter = painterResource(symbolRes(assignedSymbol)),
-//                        contentDescription = null,
-//                        modifier = Modifier.size(64.dp)
-//                    )
-//                    Spacer(Modifier.height(16.dp))
                     if (otherPlayer != null && otherSymbol != null) {
                         Text(
                             "${otherPlayer.name} is:",
@@ -176,6 +174,30 @@ fun TriviatoeXOAssignScreen(
                         )
                     }
                     Spacer(Modifier.height(32.dp))
+                }
+            }
+
+        }
+    }
+    // Defensive timer: if stuck for 10s, show retry UI
+    var assignTimeout by remember { mutableStateOf(false) }
+    LaunchedEffect(showResult, assigned) {
+        if (showResult && assigned) {
+            delay(10000)
+            assignTimeout = true
+        }
+    }
+    if (assignTimeout) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Still waiting... Something may be wrong.",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { navController.popBackStack() }) {
+                    Text("Leave Room")
                 }
             }
         }

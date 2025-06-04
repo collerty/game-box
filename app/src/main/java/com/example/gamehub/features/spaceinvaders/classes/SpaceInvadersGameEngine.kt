@@ -156,6 +156,4 @@ class SpaceInvadersGameEngine {
             gameState = GameState.GAME_OVER
         }
     }
-
-
 }

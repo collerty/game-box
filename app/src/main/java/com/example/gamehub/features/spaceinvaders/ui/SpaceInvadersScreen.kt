@@ -16,6 +16,7 @@ import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -29,19 +30,32 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.gamehub.R
 import com.example.gamehub.features.spaceinvaders.classes.EnemyType
 import com.example.gamehub.features.spaceinvaders.classes.GameState
 import com.example.gamehub.navigation.NavRoutes
 
 
 @Composable
-fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navController: NavController, name : String) {
+fun SpaceInvadersScreen(
+    viewModel: SpaceInvadersViewModel = viewModel(),
+    navController: NavController,
+    name: String
+) {
     val engine = viewModel.gameEngine
     val tick by viewModel.tick
     val configuration = LocalConfiguration.current
@@ -52,6 +66,19 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
     val screenHeightPx = with(density) { screenHeightDp.dp.toPx() }
     val context = LocalContext.current
     val activity = context as? Activity
+
+    val shooterImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_top)
+    val middleImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_middle)
+    val bottomImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_bottom)
+    val ufoImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_ufo)
+    val tiltToggleImage = ImageBitmap.imageResource(id = R.drawable.tilt_icon)
+    // Add player image
+    val playerImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_player)
+
+
+    val retroFont = FontFamily(Font(R.font.space_invaders, FontWeight.Normal))
+    val greenTextColor = Color(0xFF00FF00)
+
 
     Log.d("playerName", name)
 
@@ -98,33 +125,62 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
         )
     } else {
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 
-            Text(
-                text = "Lives: ${engine.playerLives}",
-                color = Color.Black,
-                fontSize = 24.sp,
+            // Top right image button for tilt toggle
+            Image(
+                bitmap = tiltToggleImage,
+                contentDescription = if (viewModel.tiltControlEnabled) "Tilt Control ON" else "Tilt Control OFF",
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(48.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { viewModel.toggleTiltControl() }
+                        )
+                    }
+            )
+
+            // Top left: Lives and Score
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(16.dp)
-            )
+            ) {
+                androidx.compose.foundation.layout.Column {
+                    Text(
+                        text = "Lives: ${engine.playerLives}",
+                        color = greenTextColor,
+                        fontSize = 16.sp,
+                        fontFamily = retroFont,
+                    )
+                    Text(
+                        text = "Score: ${engine.score}",
+                        color = greenTextColor,
+                        fontSize = 16.sp,
+                        fontFamily = retroFont,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
 
             // Game Canvas
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val frame = tick // Do not remove
 
-                // Draw player
-                drawRect(
-                    color = Color.Green,
-                    topLeft = Offset(engine.player.x, engine.player.y),
-                    size = Size(100f, 30f)
+                // Draw player as image
+                drawImage(
+                    image = playerImage,
+                    dstOffset = IntOffset(engine.player.x.toInt(), engine.player.y.toInt()),
+                    dstSize = IntSize(100, 30)
                 )
 
                 // Draw player bullets
                 engine.playerController.playerBullets.forEach { bullet ->
                     if (bullet.isActive) {
                         drawRect(
-                            color = Color.Black,
+                            color = Color.White,
                             topLeft = Offset(bullet.x, bullet.y),
                             size = Size(10f, 20f) // width, height of bullet
                         )
@@ -141,30 +197,38 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
                 }
 
 
-                // Draw enemies
+                // Draw enemies as images
                 engine.enemyController.enemies.forEach { row ->
                     row.forEach { enemy ->
                         if (enemy.isAlive) {
-                            val color = when (enemy.type) {
-                                EnemyType.SHOOTER -> Color.Red
-                                EnemyType.MIDDLE -> Color.Yellow
-                                EnemyType.BOTTOM -> Color.Blue
+                            val image = when (enemy.type) {
+                                EnemyType.SHOOTER -> shooterImage
+                                EnemyType.MIDDLE -> middleImage
+                                EnemyType.BOTTOM -> bottomImage
                             }
-                            drawRect(
-                                color = color,
-                                topLeft = Offset(enemy.x, enemy.y),
-                                size = Size(60f, 40f)
+
+                            drawImage(
+                                image = image,
+                                dstOffset = IntOffset(enemy.x.toInt(), enemy.y.toInt()),
+                                dstSize = IntSize(80, 60)
                             )
                         }
                     }
                 }
 
+
                 // Draw UFO
                 if (engine.enemyController.ufo.isActive) {
-                    drawRect(
-                        color = Color.Red,
-                        topLeft = Offset(engine.enemyController.ufo.x, engine.enemyController.ufo.y),
-                        size = Size(engine.enemyController.ufo.width, engine.enemyController.ufo.height)
+                    drawImage(
+                        image = ufoImage,
+                        dstOffset = IntOffset(
+                            engine.enemyController.ufo.x.toInt(),
+                            engine.enemyController.ufo.y.toInt()
+                        ),
+                        dstSize = IntSize(
+                            engine.enemyController.ufo.width.toInt(),
+                            engine.enemyController.ufo.height.toInt()
+                        )
                     )
                 }
 
@@ -174,16 +238,16 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
             // Overlay control buttons
             Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .align(Alignment.BottomStart)
+                    .padding(start = 32.dp, bottom = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 // Left Button
                 Box(
                     modifier = Modifier
                         .size(100.dp)
-                        .background(Color.Gray, shape = CircleShape)
+                        .background(greenTextColor, shape = CircleShape)
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
@@ -195,14 +259,14 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("←", color = Color.White, fontSize = 24.sp)
+                    Text("←", color = Color.Black, fontSize = 24.sp)
                 }
 
                 // Right Button
                 Box(
                     modifier = Modifier
                         .size(100.dp)
-                        .background(Color.Gray, shape = CircleShape)
+                        .background(greenTextColor, shape = CircleShape)
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
@@ -214,30 +278,27 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("→", color = Color.White, fontSize = 24.sp)
+                    Text("→", color = Color.Black, fontSize = 24.sp)
                 }
+            }
 
-                // Shoot Button
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .background(Color.Red, shape = CircleShape)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = {
-                                    engine.playerController.shootBullet()
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Shoot", color = Color.White, fontSize = 18.sp)
-                }
-
-                Button(onClick = { viewModel.toggleTiltControl() }) {
-                    Text(if (viewModel.tiltControlEnabled) "Tilt Control ON" else "Tilt Control OFF")
-                }
-
+            // Shoot Button in bottom right corner
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 32.dp, bottom = 32.dp)
+                    .size(100.dp)
+                    .background(Color.Red, shape = CircleShape)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                engine.playerController.shootBullet()
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Shoot", color = Color.Black, fontFamily = retroFont, fontSize = 18.sp)
             }
         }
     }

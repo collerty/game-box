@@ -108,10 +108,24 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    fun restartGame() {
+    fun restartGame(screenWidthPx: Float, screenHeightPx: Float) {
+        if (tiltControlEnabled) {
+            sensorManager.unregisterListener(this)
+        }
         _gameEngine = SpaceInvadersGameEngine()
-        //Implement proper restarting!!!
-        TODO()
+        // Set screen dimensions in engine
+        _gameEngine.screenWidthPx = screenWidthPx
+        _gameEngine.screenHeightPx = screenHeightPx
+        // Set player Y position to bottom of screen
+        _gameEngine.playerController.setPlayer(
+            _gameEngine.player.copy(y = screenHeightPx - 100f)
+        )
+        xTilt = 0f
+        if (tiltControlEnabled) {
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+        }
+        _gameEngine.gameState = GameState.PLAYING
+        _tick.value++
     }
 
     override fun onSensorChanged(event: SensorEvent?) {

@@ -68,6 +68,13 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
         )
     }
 
+    // Reset player Y position on game restart (tick changes)
+    LaunchedEffect(tick) {
+        engine.playerController.setPlayer(
+            engine.player.copy(y = screenHeightPx - 100f)
+        )
+    }
+
 
     // Lock orientation to landscape
     DisposableEffect(Unit) {
@@ -82,7 +89,7 @@ fun SpaceInvadersScreen(viewModel: SpaceInvadersViewModel = viewModel(), navCont
             score = engine.score,
             onRestart = {
                 viewModel.submitScore(name, engine.score)
-                viewModel.restartGame()
+                viewModel.restartGame(screenWidthPx, screenHeightPx)
             },
             onExit = {
                 viewModel.submitScore(name, engine.score)

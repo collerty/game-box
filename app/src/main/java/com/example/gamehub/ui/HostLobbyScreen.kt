@@ -1,17 +1,18 @@
 package com.example.gamehub.ui
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
@@ -33,9 +34,14 @@ fun HostLobbyScreen(
     var status by remember { mutableStateOf("waiting") }
     var showExitDialog by remember { mutableStateOf(false) }
 
-    // 🔄 Listen to lobby document
-    LaunchedEffect(roomId) {
-        db.collection("rooms").document(roomId)
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
+
+    // Live-update lobby
+    DisposableEffect(roomId) {
+        val listener: ListenerRegistration = db.collection("rooms").document(roomId)
             .addSnapshotListener { snap, _ ->
                 if (snap == null || !snap.exists()) {
                     navController.popBackStack()
@@ -44,14 +50,14 @@ fun HostLobbyScreen(
                     hostName = snap.getString("hostName")
                     maxPlayers = snap.getLong("maxPlayers")?.toInt() ?: 0
                     status = snap.getString("status") ?: "waiting"
-
                     @Suppress("UNCHECKED_CAST")
                     players = snap.get("players") as? List<Map<String, Any>> ?: emptyList()
                 }
             }
+        onDispose { listener.remove() }
     }
 
-    // 🛑 BackHandler: confirm exit
+    // BackHandler: confirm exit
     BackHandler {
         showExitDialog = true
     }
@@ -68,27 +74,21 @@ fun HostLobbyScreen(
                         .addOnSuccessListener {
                             navController.popBackStack()
                         }
-                }) {
-                    Text("Close Room")
-                }
+                }) { Text("Close Room") }
             },
             dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showExitDialog = false }) { Text("Cancel") }
             }
         )
     }
 
     Scaffold { padding ->
         Column(
-            modifier = Modifier
+            Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-        )
-        {
+        ) {
             Text(
                 "Hosting: ${roomName ?: roomId}",
                 style = MaterialTheme.typography.headlineSmall
@@ -109,19 +109,39 @@ fun HostLobbyScreen(
                         val hostUid = auth.currentUser?.uid
                         if (startingPlayerUid.isNullOrEmpty() || hostUid.isNullOrEmpty()) return@launch
 
+                        // Game-specific initial state
                         val initialGameState = when (gameId) {
                             "battleships" -> mapOf(
+                                "player1Id" to players.getOrNull(0)?.get("uid"),
+                                "player2Id" to players.getOrNull(1)?.get("uid"),
                                 "currentTurn" to startingPlayerUid,
                                 "moves" to emptyList<String>(),
-                                "gameResult" to null
+                                "powerUps" to players.associate { it["uid"] as String to listOf("RADAR", "BOMB") },
+                                "energy" to players.associate { it["uid"] as String to 3 },
+                                "gameResult" to null,
+                                "mapVotes" to emptyMap<String, Int>(),
+                                "chosenMap" to null,
+                                "powerUpMoves" to emptyList<String>()
                             )
-
                             "ohpardon" -> mapOf(
                                 "currentPlayer" to startingPlayerUid,
+                                "scores" to emptyMap<String, Int>(),
                                 "gameResult" to null,
                                 "diceRoll" to null
                             )
-
+                            "triviatoe" -> mapOf(
+                                "players"      to players,
+                                "board"        to emptyList<Map<String, Any>>(),
+                                "moves"        to emptyList<Map<String, Any>>(),
+                                "currentRound" to 0,
+                                "quizQuestion" to null,
+                                "answers"      to emptyMap<String, Any>(),
+                                "firstToMove"  to null,
+                                "currentTurn"  to startingPlayerUid,
+                                "winner"       to null,
+                                "state"        to "QUESTION",
+                                "usedQuestions" to emptyList<Int>()
+                            )
                             else -> emptyMap()
                         }
 
@@ -131,25 +151,39 @@ fun HostLobbyScreen(
                         }
 
                         try {
-                            db.collection("rooms").document(roomId).update(
-                                mapOf(
-                                    "status" to "started",
-                                    "gameState.$gameId" to initialGameState,
-                                    "rematchVotes" to rematchVotes
-                                )
-                            ).addOnSuccessListener {
-                                println("✅ Game started successfully")
-                            }.addOnFailureListener {
-                                println("❌ Failed to start game: ${it.message}")
+                            if(gameId == "battleships") {
+                                db.collection("rooms").document(roomId).update(
+                                    mapOf(
+                                        "status" to "started",
+                                        "gameState.$gameId" to initialGameState,
+                                        "rematchVotes" to rematchVotes
+                                    )
+                                ).addOnSuccessListener {
+                                    println("✅ Game started successfully")
+                                }.addOnFailureListener {
+                                    println("❌ Failed to start game: ${it.message}")
+                                }
+                            }
+                            else{
+                                db.collection("rooms").document(roomId).update(
+                                    mapOf(
+                                        "status" to "started",
+                                        "gameState.$gameId" to initialGameState,
+                                    )
+                                ).addOnSuccessListener {
+                                    println("✅ Game started successfully")
+                                }.addOnFailureListener {
+                                    println("❌ Failed to start game: ${it.message}")
+                                }
                             }
                         } catch (e: Exception) {
                             println("🔥 Exception during game start: ${e.message}")
                         }
                     }
                 },
-                enabled = players.size >= 2
+                enabled = players.size >= maxPlayers // Only when lobby is full
             ) {
-                Text(if (players.size >= 2) "Start Game" else "Waiting for players…")
+                Text(if (players.size >= maxPlayers) "Start Game" else "Waiting for players…")
             }
 
             Spacer(Modifier.height(16.dp))
@@ -161,17 +195,19 @@ fun HostLobbyScreen(
                 Text("Close Room")
             }
 
-            // 🚀 Navigate to actual game screen when status flips
-            LaunchedEffect(status) {
+            // Navigate to next screen when status flips
+            LaunchedEffect(status, hostName) {
                 if (status == "started" && hostName != null) {
                     val route = when (gameId) {
-                        "battleships" -> NavRoutes.BATTLESHIPS_GAME
-                        "ohpardon" -> NavRoutes.OHPARDON_GAME
+                        "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
+                        "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
                         else -> null
                     }
                     route?.let {
                         navController.navigate(
-                            it.replace("{code}", roomId)
+                            it
+                                .replace("{code}", roomId)
                                 .replace("{userName}", Uri.encode(hostName!!))
                         )
                     }

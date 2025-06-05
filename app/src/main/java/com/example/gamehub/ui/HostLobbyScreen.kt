@@ -1,5 +1,7 @@
 package com.example.gamehub.ui
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -10,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.gamehub.features.codenames.service.CodenamesService
+import com.example.gamehub.features.codenames.ui.CodenamesActivity
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
@@ -22,7 +26,8 @@ import kotlinx.coroutines.launch
 fun HostLobbyScreen(
     navController: NavController,
     gameId: String,
-    roomId: String
+    roomId: String,
+    context: Context
 ) {
     val db = Firebase.firestore
     val auth = Firebase.auth
@@ -65,10 +70,29 @@ fun HostLobbyScreen(
             text = { Text("Closing the lobby will disconnect all players.") },
             confirmButton = {
                 TextButton(onClick = {
+                    // First get all players' information
                     db.collection("rooms").document(roomId)
-                        .delete()
-                        .addOnSuccessListener {
-                            navController.popBackStack()
+                        .get()
+                        .addOnSuccessListener { document ->
+                            @Suppress("UNCHECKED_CAST")
+                            val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                            
+                            // Remove all players with their full information
+                            val updates = mutableMapOf<String, Any>()
+                            currentPlayers.forEach { player ->
+                                updates["players"] = FieldValue.arrayRemove(player)
+                            }
+                            
+                            // Then delete the room
+                            db.collection("rooms").document(roomId)
+                                .update(updates)
+                                .addOnSuccessListener {
+                                    db.collection("rooms").document(roomId)
+                                        .delete()
+                                        .addOnSuccessListener {
+                                            navController.popBackStack()
+                                        }
+                                }
                         }
                 }) { Text("Close Room") }
             },
@@ -304,6 +328,7 @@ fun HostLobbyScreen(
                                 "gameResult" to null,
                                 "diceRoll" to null
                             )
+                            "codenames" -> CodenamesService.generateGameState()
                             else -> emptyMap()
                         }
 
@@ -363,7 +388,14 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
-                        "codenames"   -> NavRoutes.CODENAMES_GAME
+                        "codenames"   -> {
+                            val intent = Intent(context, CodenamesActivity::class.java).apply {
+                                putExtra("roomId", roomId)
+                                putExtra("userName", hostName)
+                            }
+                            context.startActivity(intent)
+                            null
+                        }
                         else -> null
                     }
                     route?.let {

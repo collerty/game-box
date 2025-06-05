@@ -1,6 +1,8 @@
 // app/src/main/java/com/example/gamehub/ui/GuestGameScreen.kt
 package com.example.gamehub.ui
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
@@ -10,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.gamehub.features.codenames.ui.CodenamesActivity
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
@@ -22,7 +25,8 @@ fun GuestGameScreen(
     navController: NavController,
     gameId: String,
     code: String,
-    userName: String
+    userName: String,
+    context: Context
 ) {
     val db = Firebase.firestore
     val auth = Firebase.auth
@@ -48,7 +52,14 @@ fun GuestGameScreen(
             val route = when (gameId) {
                 "battleships" -> NavRoutes.BATTLE_VOTE
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
-                "codenames"   -> NavRoutes.CODENAMES_GAME
+                "codenames"   -> {
+                    val intent = Intent(context, CodenamesActivity::class.java).apply {
+                        putExtra("roomId", code)
+                        putExtra("userName", userName)
+                    }
+                    context.startActivity(intent)
+                    null
+                }
                 else          -> null
             }
             route?.let {
@@ -241,14 +252,22 @@ fun GuestGameScreen(
             Spacer(Modifier.height(8.dp))
         }
         Button(onClick = {
+            // First get the current player's full information
             db.collection("rooms").document(code)
-                .update(
-                    "players",
-                    FieldValue.arrayRemove(
-                        mapOf("uid" to Firebase.auth.uid, "name" to userName)
-                    )
-                )
-                .addOnSuccessListener { navController.popBackStack() }
+                .get()
+                .addOnSuccessListener { document ->
+                    @Suppress("UNCHECKED_CAST")
+                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                    val currentPlayer = currentPlayers.find { it["uid"] == Firebase.auth.uid }
+                    
+                    // Remove the player with their full information
+                    db.collection("rooms").document(code)
+                        .update(
+                            "players",
+                            FieldValue.arrayRemove(currentPlayer)
+                        )
+                        .addOnSuccessListener { navController.popBackStack() }
+                }
         }) {
             Text("Leave Room")
         }

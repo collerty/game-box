@@ -18,10 +18,10 @@ object NavRoutes {
     const val HOST_LOBBY = "hostLobby/{gameId}/{code}"
     const val GUEST_GAME = "guestGame/{gameId}/{code}/{userName}"
 
-    // after “Start” pressed: per-game multiplayer join-in
+    // after "Start" pressed: per-game multiplayer join-in
     const val BATTLESHIPS_GAME = "battleships/{code}/{userName}"
     const val OHPARDON_GAME = "ohpardon/{code}/{userName}"
-    const val CODENAMES_GAME = "codenames/{code}/{userName}"
+    const val CODENAMES_GAME = "codenames_game/{code}/{userName}"
 
     // single-player / local
     const val SPY_GAME = "spy"

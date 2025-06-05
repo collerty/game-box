@@ -28,7 +28,8 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.GameHub" >
+            android:theme="@style/Theme.GameHub"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -40,6 +41,10 @@
             android:name=".features.spy.ui.SpyGameActivity"
             android:exported="false"
             android:theme="@style/Theme.GameHub" />
+        <activity
+            android:name=".features.codenames.ui.CodenamesActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
     </application>
 
 </manifest>

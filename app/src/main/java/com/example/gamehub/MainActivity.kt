@@ -9,6 +9,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -49,6 +50,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GameHubApp() {
     val navController = rememberNavController()
+    val context = LocalContext.current
 
     Scaffold { innerPadding ->
         NavHost(
@@ -78,7 +80,12 @@ fun GameHubApp() {
             ) { backStack ->
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
                 val code   = backStack.arguments?.getString("code")   ?: return@composable
-                HostLobbyScreen(navController, gameId, code)
+                HostLobbyScreen(
+                    navController = navController,
+                    gameId = gameId,
+                    roomId = code,
+                    context = context
+                )
             }
 
             composable(
@@ -92,7 +99,13 @@ fun GameHubApp() {
                 val gameId   = backStack.arguments?.getString("gameId")   ?: return@composable
                 val code     = backStack.arguments?.getString("code")     ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
-                GuestGameScreen(navController, gameId, code, userName)
+                GuestGameScreen(
+                    navController = navController,
+                    gameId = gameId,
+                    code = code,
+                    userName = userName,
+                    context = context
+                )
             }
 
             // Voting screen

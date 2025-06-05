@@ -26,6 +26,7 @@ object NavRoutes {
     const val SPY_GAME         = "spy"
     const val JORISJUMP_GAME   = "jorisjump"
     const val SCREAMOSAUR_GAME = "screamosaur"
+    const val WHERE_AND_WHEN_GAME = "whereandwhen_game" // New route for your game
 
     //Battleships
     const val BATTLE_VOTE    = "battleships/{code}/{userName}/vote"

@@ -31,6 +31,7 @@ import com.example.gamehub.ui.GuestGameScreen
 import com.example.gamehub.ui.HostLobbyScreen
 import com.example.gamehub.ui.LobbyMenuScreen
 import com.google.firebase.auth.FirebaseAuth
+import com.example.gamehub.features.whereandwhen.ui.WhereAndWhenScreen
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -150,6 +151,7 @@ fun GameHubApp() {
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
+            composable(NavRoutes.WHERE_AND_WHEN_GAME) { WhereAndWhenScreen() }
         }
     }
 }

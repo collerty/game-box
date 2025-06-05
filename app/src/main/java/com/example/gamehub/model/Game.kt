@@ -15,8 +15,9 @@ sealed class Game(
     object Spy          : Game("spy",        "Spy",          R.drawable.ic_spy,         online = false)
     object JorisJump    : Game("jorisjump",  "Joris Jump",   R.drawable.ic_jorisjump,   online = false)
     object ScreamoSaur  : Game("screamosaur","Scream-O-Saur",R.drawable.ic_screamosaur, online = false)
+    object WhereAndWhen : Game("whereandwhen", "Where & When", R.drawable.ic_where_and_when, online = false)
 
     companion object {
-        val all = listOf(BattleShips, OhPardon, Spy, JorisJump, ScreamoSaur)
+        val all = listOf(BattleShips, OhPardon, Spy, JorisJump, ScreamoSaur, WhereAndWhen)
     }
 }

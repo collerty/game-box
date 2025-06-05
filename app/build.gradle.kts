@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -15,6 +18,16 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        // Read local.properties
+        val localPropertiesFile = rootProject.file("local.properties")
+        val localProperties = Properties()
+        if (localPropertiesFile.exists()) {
+            localProperties.load(FileInputStream(localPropertiesFile))
+        }
+
+        // Define the manifest placeholder
+        manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "YOUR_DEFAULT_KEY_IF_NOT_FOUND")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -85,5 +98,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("io.coil-kt:coil-svg:2.4.0")
     implementation("com.google.android.material:material:1.11.0")
+    implementation("com.google.maps.android:maps-compose:2.11.4") // Check for the latest version
+    implementation("com.google.android.gms:play-services-maps:18.2.0") // Core Maps SDK
 
 }

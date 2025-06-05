@@ -86,7 +86,7 @@ class FirestoreTriviatoeSession(
             "round" to getCurrentRound(),
         )
 
-        // 1. Add the move and board update
+        // Add the move and board update
         safeUpdate(
             mapOf(
                 "gameState.triviatoe.moves" to FieldValue.arrayUnion(move),
@@ -96,14 +96,19 @@ class FirestoreTriviatoeSession(
             "submitMove"
         )
 
-        // 3. Fetch the latest session after the move is recorded
+        // Use the *latest* board plus your move, NOT the one from Firestore
         val snap = room.get().await()
         val gs = snap.get("gameState") as? Map<*, *> ?: return
         val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
         val session = TriviatoeCodec.decodeState(triviatoeState as Map<String, Any?>)
 
-        // 4. Check if this move creates a win (before any other player moves!)
-        if (checkWinForMove(session, row, col, symbol)) {
+        // Locally add this move if it's not already present (guard against duplicate)
+        val boardCells = session.board.toMutableList()
+        if (!boardCells.any { it.row == row && it.col == col }) {
+            boardCells.add(TriviatoeCell(row, col, symbol))
+        }
+        // Use this local version for win detection
+        if (checkWinForMoveBoard(boardCells, row, col, symbol, session.players)) {
             safeUpdate(
                 mapOf(
                     "gameState.triviatoe.state" to "FINISHED",
@@ -112,14 +117,11 @@ class FirestoreTriviatoeSession(
                 "instantWin"
             )
         } else {
-            // 5. If NOT a win, advance turn as usual:
-            // Find how many moves are in this round
             val movesThisRound = session.moves.count { it.round == session.currentRound }
             val playerIds = session.players.map { it.uid }
             val otherPlayerId = playerIds.firstOrNull { it != playerId }
 
             if (movesThisRound == 1 && otherPlayerId != null) {
-                // If first move in the round, set next turn to other player and state to MOVE_2
                 safeUpdate(
                     mapOf(
                         "gameState.triviatoe.currentTurn" to otherPlayerId,
@@ -128,7 +130,6 @@ class FirestoreTriviatoeSession(
                     "nextTurn"
                 )
             } else if (movesThisRound == 2) {
-                // If second move in the round, set state to CHECK_WIN (old logic)
                 safeUpdate(
                     mapOf(
                         "gameState.triviatoe.state" to "CHECK_WIN"
@@ -138,6 +139,43 @@ class FirestoreTriviatoeSession(
             }
         }
     }
+
+    // Helper that takes an explicit board state:
+    fun checkWinForMoveBoard(
+        board: List<TriviatoeCell>,
+        row: Int,
+        col: Int,
+        symbol: String,
+        players: List<TriviatoePlayer>
+    ): Boolean {
+        val size = 10
+        val arr = Array(size) { Array<String?>(size) { null } }
+        for (cell in board) {
+            arr[cell.row][cell.col] = cell.symbol
+        }
+        arr[row][col] = symbol // ensure this move is there!
+        val directions = listOf(Pair(0, 1), Pair(1, 0), Pair(1, 1), Pair(1, -1))
+        for ((dr, dc) in directions) {
+            var count = 1
+            var r = row + dr
+            var c = col + dc
+            while (r in 0 until size && c in 0 until size && arr[r][c] == symbol) {
+                count++
+                r += dr
+                c += dc
+            }
+            r = row - dr
+            c = col - dc
+            while (r in 0 until size && c in 0 until size && arr[r][c] == symbol) {
+                count++
+                r -= dr
+                c -= dc
+            }
+            if (count >= 4) return true
+        }
+        return false
+    }
+
 
 
 
@@ -280,6 +318,12 @@ class FirestoreTriviatoeSession(
 
     // Move from MOVE_1 to MOVE_2 (host only)
     suspend fun afterMove1(firstToMove: String, players: List<TriviatoePlayer>) {
+        val snap = room.get().await()
+        val gs = snap.get("gameState") as? Map<*, *> ?: return
+        val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
+        val state = triviatoeState["state"] as? String
+        if (state == TriviatoeRoundState.FINISHED.name) return
+
         val other = players.firstOrNull { it.uid != firstToMove }?.uid ?: return
         safeUpdate(
             mapOf(
@@ -292,6 +336,12 @@ class FirestoreTriviatoeSession(
 
     // Move from MOVE_2 to CHECK_WIN (host only)
     suspend fun afterMove2() {
+        val snap = room.get().await()
+        val gs = snap.get("gameState") as? Map<*, *> ?: return
+        val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
+        val state = triviatoeState["state"] as? String
+        if (state == TriviatoeRoundState.FINISHED.name) return // Early exit if game is already finished!
+
         safeUpdate(
             mapOf("gameState.triviatoe.state" to "CHECK_WIN"),
             "afterMove2"
@@ -300,6 +350,11 @@ class FirestoreTriviatoeSession(
 
     // Check for win and either finish or go to next question (host only)
     suspend fun finishMoveRound(session: TriviatoeSession) {
+        // Don't do anything if game is already finished!
+        if (session.state == TriviatoeRoundState.FINISHED) {
+            println("finishMoveRound: Already FINISHED, ignoring.")
+            return
+        }
         println("finishMoveRound called for round ${session.currentRound}")
         val winnerUid = checkWinConditionGetWinnerUid(session)
         if (winnerUid != null) {
@@ -314,6 +369,7 @@ class FirestoreTriviatoeSession(
             startNextRound()
         }
     }
+
 
     // Utility: Returns uid if winner found, or null
     fun checkWinConditionGetWinnerUid(session: TriviatoeSession): String? {

@@ -377,7 +377,7 @@ fun TriviatoeQuestionScreen(
                             }
                         }
                     }
-                    Spacer(Modifier.height(if (isSmallScreen) 30.dp else 14.dp))
+                    Spacer(Modifier.height(if (isSmallScreen) 50.dp else 14.dp))
                 }
 
                 // Big bottom padding for sprite border safety

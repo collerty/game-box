@@ -48,6 +48,7 @@ fun CodenamesScreen(
     var currentTurn by remember { mutableStateOf("RED") }
     var redWordsRemaining by remember { mutableStateOf(9) }
     var blueWordsRemaining by remember { mutableStateOf(8) }
+    var winner by remember { mutableStateOf<String?>(null) }
     
     // Add new state variables
     var redMasterClue by remember { mutableStateOf("") }
@@ -116,6 +117,7 @@ fun CodenamesScreen(
                     blueWordsRemaining = (state?.get("blueWordsRemaining") as? Number)?.toInt() ?: 8
                     currentTeam = (state?.get("currentTeam") as? String)?.uppercase() ?: "RED"
                     isMasterPhase = state?.get("isMasterPhase") as? Boolean ?: true
+                    winner = state?.get("winner") as? String
                     
                     // Debug logging for state updates
                     Log.d("CodenamesDebug", """
@@ -124,6 +126,7 @@ fun CodenamesScreen(
                         currentTeam: $currentTeam
                         isMasterPhase: $isMasterPhase
                         masterTeam: $currentMasterTeam
+                        winner: $winner
                         Raw values:
                         currentTeam from state: ${state?.get("currentTeam")}
                         currentTeam after uppercase: $currentTeam
@@ -138,6 +141,69 @@ fun CodenamesScreen(
                         .map { Clue(it["word"] as String, "BLUE") }
                 }
             }
+    }
+
+    // Game Over Screen
+    if (winner != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.9f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = when (winner) {
+                        "RED" -> "Red Team Wins!"
+                        "BLUE" -> "Blue Team Wins!"
+                        else -> "Game Over"
+                    },
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = when (winner) {
+                        "RED" -> Color.Red
+                        "BLUE" -> Color.Blue
+                        else -> Color.White
+                    }
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = when (winner) {
+                        "RED" -> "Red team found all their words!"
+                        "BLUE" -> "Blue team found all their words!"
+                        else -> "Game ended"
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White
+                )
+                
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Button(
+                    onClick = {
+                        navController.navigate("game_lobby/$roomId") {
+                            popUpTo("game_lobby/$roomId") {
+                                inclusive = true
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = when (winner) {
+                            "RED" -> Color.Red
+                            "BLUE" -> Color.Blue
+                            else -> Color.Gray
+                        }
+                    )
+                ) {
+                    Text("Return to Lobby", color = Color.White)
+                }
+            }
+        }
+        return
     }
 
     Row(
@@ -299,6 +365,7 @@ fun CodenamesScreen(
                     val word = card["word"] as? String ?: ""
                     val color = card["color"] as? String ?: "NEUTRAL"
                     val isRevealed = card["isRevealed"] as? Boolean ?: false
+                    val cardIndex = cards.indexOf(card)
 
                     Box(
                         modifier = Modifier
@@ -328,8 +395,63 @@ fun CodenamesScreen(
                                     else -> Color.White
                                 }
                             )
-                            .clickable(enabled = !isRevealed && !isMasterPhase && currentTurn == currentTeam) {
-                                // TODO: Handle card click
+                            .clickable(
+                                enabled = !isRevealed && !isMasterPhase && currentTeam == currentTurn && !isMaster && winner == null
+                            ) {
+                                // Update card's revealed state in Firestore
+                                db.collection("rooms").document(roomId)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        @Suppress("UNCHECKED_CAST")
+                                        val state = document.get("gameState.codenames") as? Map<String, Any>
+                                        @Suppress("UNCHECKED_CAST")
+                                        val currentCards = state?.get("cards") as? List<Map<String, Any>> ?: emptyList()
+                                        
+                                        // Create updated cards list with the selected card marked as revealed
+                                        val updatedCards = currentCards.toMutableList()
+                                        updatedCards[cardIndex] = updatedCards[cardIndex].toMutableMap().apply {
+                                            put("isRevealed", true)
+                                        }
+                                        
+                                        // Update remaining words count based on the revealed card's color
+                                        val updates = mutableMapOf<String, Any>(
+                                            "gameState.codenames.cards" to updatedCards
+                                        )
+                                        
+                                        when (color) {
+                                            "RED" -> {
+                                                val newCount = redWordsRemaining - 1
+                                                updates["gameState.codenames.redWordsRemaining"] = newCount
+                                                if (newCount == 0) {
+                                                    // Red team wins
+                                                    updates["gameState.codenames.winner"] = "RED"
+                                                }
+                                            }
+                                            "BLUE" -> {
+                                                val newCount = blueWordsRemaining - 1
+                                                updates["gameState.codenames.blueWordsRemaining"] = newCount
+                                                if (newCount == 0) {
+                                                    // Blue team wins
+                                                    updates["gameState.codenames.winner"] = "BLUE"
+                                                }
+                                            }
+                                            "ASSASSIN" -> {
+                                                // Game over - other team wins
+                                                updates["gameState.codenames.winner"] = if (currentTeam == "RED") "BLUE" else "RED"
+                                            }
+                                            "NEUTRAL" -> {
+                                                // Switch turns
+                                                val nextTeam = if (currentTeam == "RED") "BLUE" else "RED"
+                                                updates["gameState.codenames.currentTeam"] = nextTeam
+                                                updates["gameState.codenames.currentTurn"] = nextTeam
+                                                updates["gameState.codenames.isMasterPhase"] = true
+                                            }
+                                        }
+                                        
+                                        // Update Firestore
+                                        db.collection("rooms").document(roomId)
+                                            .update(updates)
+                                    }
                             },
                         contentAlignment = Alignment.Center
                     ) {

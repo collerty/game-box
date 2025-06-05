@@ -18,7 +18,9 @@ class FirestoreTriviatoeSession(
     val roomCode: String
 ) {
     private val db = FirebaseFirestore.getInstance()
-    private val room = db.collection("rooms").document(roomCode)
+    private val room = db.collection("rooms").document(
+        requireNotNull(roomCode.takeIf { it.isNotBlank() }) { "roomCode must not be empty or blank" }
+    )
 
     /**
      * Flow of the current session state, real-time.
@@ -76,23 +78,68 @@ class FirestoreTriviatoeSession(
 
     // Place an X or O on the grid
     suspend fun submitMove(playerId: String, row: Int, col: Int, symbol: String) {
-        // Add a new move and update board state accordingly
-        // You'll want to check turn, win conditions, etc before calling this!
         val move = mapOf(
             "playerId" to playerId,
             "row" to row,
             "col" to col,
             "symbol" to symbol,
-            "round" to getCurrentRound() // Implement this helper
+            "round" to getCurrentRound(),
         )
+
+        // 1. Add the move and board update
         safeUpdate(
             mapOf(
                 "gameState.triviatoe.moves" to FieldValue.arrayUnion(move),
-                "gameState.triviatoe.board" to FieldValue.arrayUnion(mapOf("row" to row, "col" to col, "symbol" to symbol))
+                "gameState.triviatoe.board" to FieldValue.arrayUnion(mapOf("row" to row, "col" to col, "symbol" to symbol)),
+                "gameState.triviatoe.lastMoveTimestamp" to FieldValue.serverTimestamp()
             ),
             "submitMove"
         )
+
+        // 3. Fetch the latest session after the move is recorded
+        val snap = room.get().await()
+        val gs = snap.get("gameState") as? Map<*, *> ?: return
+        val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
+        val session = TriviatoeCodec.decodeState(triviatoeState as Map<String, Any?>)
+
+        // 4. Check if this move creates a win (before any other player moves!)
+        if (checkWinForMove(session, row, col, symbol)) {
+            safeUpdate(
+                mapOf(
+                    "gameState.triviatoe.state" to "FINISHED",
+                    "gameState.triviatoe.winner" to playerId
+                ),
+                "instantWin"
+            )
+        } else {
+            // 5. If NOT a win, advance turn as usual:
+            // Find how many moves are in this round
+            val movesThisRound = session.moves.count { it.round == session.currentRound }
+            val playerIds = session.players.map { it.uid }
+            val otherPlayerId = playerIds.firstOrNull { it != playerId }
+
+            if (movesThisRound == 1 && otherPlayerId != null) {
+                // If first move in the round, set next turn to other player and state to MOVE_2
+                safeUpdate(
+                    mapOf(
+                        "gameState.triviatoe.currentTurn" to otherPlayerId,
+                        "gameState.triviatoe.state" to "MOVE_2"
+                    ),
+                    "nextTurn"
+                )
+            } else if (movesThisRound == 2) {
+                // If second move in the round, set state to CHECK_WIN (old logic)
+                safeUpdate(
+                    mapOf(
+                        "gameState.triviatoe.state" to "CHECK_WIN"
+                    ),
+                    "checkWin"
+                )
+            }
+        }
     }
+
+
 
     // Helpers (implement as needed)
     private fun encodeAnswer(answer: TriviatoeAnswer): Map<String, Any> =
@@ -125,6 +172,15 @@ class FirestoreTriviatoeSession(
         }
         val randomIndex = available.random()
         val question = TriviatoeQuestionBank.all[randomIndex]
+        val previousQuestion = triviatoe?.get("quizQuestion") as? Map<String, Any?>
+        val previousType = previousQuestion?.get("type") as? String
+        val previousQuestionWithType = if (previousQuestion != null && previousType == null) {
+            previousQuestion + mapOf("type" to "multiple_choice") // patch in type if missing
+        } else {
+            previousQuestion
+        }
+        val previousCorrectIndex = (previousQuestionWithType?.get("correctIndex") as? Long)?.toInt()
+
 
         val questionMap = mapOf(
             "type" to "multiple_choice",
@@ -141,9 +197,9 @@ class FirestoreTriviatoeSession(
                 "gameState.triviatoe.answers" to emptyMap<String, Any>(),
                 "gameState.triviatoe.usedQuestions" to usedQuestions + randomIndex,
                 "gameState.triviatoe.currentRound" to ((triviatoe?.get("currentRound") as? Long)?.toInt()?.plus(1) ?: 0),
-                "gameState.triviatoe.randomized" to FieldValue.delete(), // <-- ADD THIS LINE!
-                "gameState.triviatoe.firstToMove" to null,       // <---- add this
-                "gameState.triviatoe.randomized" to null         // <---- add this
+                "gameState.triviatoe.randomized" to FieldValue.delete(),
+                "gameState.triviatoe.firstToMove" to null,
+                "gameState.triviatoe.randomized" to null,
             ),
             "startNextRound"
         )
@@ -190,15 +246,30 @@ class FirestoreTriviatoeSession(
 
     // Example inside FirestoreTriviatoeSession:
     suspend fun setFirstToMoveAndAdvance(winnerId: String, randomized: Boolean) {
+        // Get the current quizQuestion and correctIndex from Firestore
+        println("setFirstToMoveAndAdvance called with winnerId=$winnerId, randomized=$randomized")
+        val snap = room.get().await()
+        val triviatoe = (snap.get("gameState") as? Map<*, *>)?.get("triviatoe") as? Map<*, *>
+        val quizQuestion = triviatoe?.get("quizQuestion") as? Map<String, Any?>
+        val quizType = quizQuestion?.get("type") as? String
+        val quizQuestionWithType = if (quizQuestion != null && quizType == null) {
+            quizQuestion + mapOf("type" to "multiple_choice")
+        } else {
+            quizQuestion
+        }
+        val correctIndex = (quizQuestionWithType?.get("correctIndex") as? Long)?.toInt()
+
         safeUpdate(
             mapOf(
                 "gameState.triviatoe.firstToMove" to winnerId,
-                "gameState.triviatoe.randomized" to randomized,   // <--- add this!
-                "gameState.triviatoe.answers" to emptyMap<String, Any>()
+                "gameState.triviatoe.answers" to emptyMap<String, Any>(),
+                "gameState.triviatoe.randomized" to randomized, // <--- ADD THIS LINE!
+                "gameState.triviatoe.lastQuestion" to quizQuestionWithType,
+                "gameState.triviatoe.lastCorrectIndex" to correctIndex
             ),
             "setFirstToMoveAndAdvance-winner"
         )
-        delay(1500)
+        delay(2500)
         safeUpdate(
             mapOf(
                 "gameState.triviatoe.state" to "REVEAL"
@@ -293,4 +364,98 @@ class FirestoreTriviatoeSession(
         return null
     }
 
+    fun checkWinForMove(session: TriviatoeSession, row: Int, col: Int, symbol: String): Boolean {
+        val size = 10
+        val board = Array(size) { Array<String?>(size) { null } }
+        for (cell in session.board) {
+            board[cell.row][cell.col] = cell.symbol
+        }
+        board[row][col] = symbol // ensure the just-played move is set!
+
+        val directions = listOf(
+            Pair(0, 1),  // horizontal
+            Pair(1, 0),  // vertical
+            Pair(1, 1),  // diagonal down-right
+            Pair(1, -1)  // diagonal up-right
+        )
+
+        for ((dr, dc) in directions) {
+            var count = 1
+
+            // Check one direction
+            var r = row + dr
+            var c = col + dc
+            while (r in 0 until size && c in 0 until size && board[r][c] == symbol) {
+                count++
+                r += dr
+                c += dc
+            }
+            // Check the other direction
+            r = row - dr
+            c = col - dc
+            while (r in 0 until size && c in 0 until size && board[r][c] == symbol) {
+                count++
+                r -= dr
+                c -= dc
+            }
+            if (count >= 4) return true
+        }
+        return false
+    }
+
+    // Called when a player taps Rematch
+    // In FirestoreTriviatoeSession:
+    suspend fun requestRematch(playerId: String) {
+        safeUpdate(
+            mapOf("gameState.triviatoe.rematchVotes.$playerId" to true),
+            "requestRematch"
+        )
+    }
+
+    suspend fun tryResetIfAllAgreed() {
+        val snap = room.get().await()
+        val triviatoe = (snap.get("gameState") as? Map<*, *>)?.get("triviatoe") as? Map<*, *>
+        val rematchVotes = (triviatoe?.get("rematchVotes") as? Map<String, Boolean>) ?: emptyMap()
+        val players = (triviatoe?.get("players") as? List<Map<String, Any>>) ?: emptyList()
+
+        // Add this check (read resetting flag)
+        val resetting = triviatoe?.get("resetting") as? Boolean ?: false
+        if (resetting) return // Another reset is already happening!
+
+        val allAgreed = players.all { p ->
+            val uid = p["uid"]
+            uid is String && rematchVotes[uid] == true
+        }
+
+        if (players.isNotEmpty() && allAgreed) {
+            // Set the resetting flag *before* resetting everything else
+            safeUpdate(
+                mapOf("gameState.triviatoe.resetting" to true),
+                "setResettingLock"
+            )
+            // Now do the reset as before
+            safeUpdate(
+                mapOf(
+                    "gameState.triviatoe.state" to "XO_ASSIGN",
+                    "gameState.triviatoe.board" to emptyList<Any>(),
+                    "gameState.triviatoe.moves" to emptyList<Any>(),
+                    "gameState.triviatoe.winner" to null,
+                    "gameState.triviatoe.rematchVotes" to mapOf<String, Boolean>(),
+                    "gameState.triviatoe.currentTurn" to null,
+                    "gameState.triviatoe.firstToMove" to null,
+                    "gameState.triviatoe.currentRound" to 0,
+                    "gameState.triviatoe.answers" to emptyMap<String, Any>(),
+                    "gameState.triviatoe.quizQuestion" to null,
+                    "gameState.triviatoe.lastQuestion" to null,
+                    "gameState.triviatoe.lastCorrectIndex" to null,
+                    "gameState.triviatoe.randomized" to null,
+                    // Clear the resetting flag so another rematch is possible later
+                    "gameState.triviatoe.resetting" to false
+                ),
+                "resetForRematch"
+            )
+        }
+    }
 }
+
+

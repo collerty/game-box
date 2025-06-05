@@ -1,5 +1,6 @@
 package com.example.gamehub.features.triviatoe.ui
 
+import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun TriviatoeXOAssignScreen(
@@ -35,6 +37,13 @@ fun TriviatoeXOAssignScreen(
     var showResult by remember { mutableStateOf(false) }
     var animationSymbol by remember { mutableStateOf("X") }
     var assigned by remember { mutableStateOf(false) } // ensure assignSymbolsRandomly is called once
+
+    val context = LocalContext.current
+
+    // Start music when this screen is shown
+    LaunchedEffect(Unit) {
+        context.startService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
 
     // Debug print: see what's in state
     Text(
@@ -56,9 +65,11 @@ fun TriviatoeXOAssignScreen(
 
     // Automatically assign after animation is done and both players are loaded, only by host
     LaunchedEffect(showResult, state.players) {
-        if (!assigned && showResult && state.players.size == 2 && state.players.firstOrNull()?.uid == playerId) {
+        // Try to assign as soon as both players are present, animation is done, and not assigned yet.
+        // Let ANY player try after timeout if stuck (idempotent, only first write wins).
+        if (!assigned && showResult && state.players.size == 2) {
             assigned = true
-            println("Auto-assigning symbols now!")
+            println("Assigning symbols (fallback mode, anyone can trigger)")
             scope.launch { session.assignSymbolsRandomly() }
         }
     }
@@ -76,14 +87,14 @@ fun TriviatoeXOAssignScreen(
         if (
             showResult && // animation done
             assignedSymbol != null &&
-            state.players.size == 2 &&
-            playerId == state.players.firstOrNull()?.uid
+            state.players.size == 2
         ) {
-            // Only host triggers!
+            // Let any device try to progress after assign.
             delay(2000)
             scope.launch { session.startNextRound() }
         }
     }
+
 
     // Auto-navigate to PlayScreen only when QUESTION is ready in Firestore!
     LaunchedEffect(state.state, state.quizQuestion) {
@@ -199,6 +210,12 @@ fun TriviatoeXOAssignScreen(
                 Button(onClick = { navController.popBackStack() }) {
                     Text("Leave Room")
                 }
+                Button(onClick = {
+                    assigned = false // allow retry
+                }) {
+                    Text("Retry Assign")
+                }
+
             }
         }
     }

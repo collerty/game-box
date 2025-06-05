@@ -35,6 +35,8 @@ object NavRoutes {
     //TriviaToe
     const val TRIVIATOE_GAME = "triviatoe/{code}/{userName}"
     const val TRIVIATOE_XO_ASSIGN = "triviatoe/{code}/{userName}/xo"
+    const val TRIVIATOE_INTRO_ANIM = "triviatoe/{code}/{userName}/intro"
+
 
 
 }

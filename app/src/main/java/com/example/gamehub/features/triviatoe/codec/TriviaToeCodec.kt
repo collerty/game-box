@@ -52,7 +52,10 @@ object TriviatoeCodec : GameCodec<TriviatoeMove, TriviatoeSession> {
             winner = snapshot["winner"] as? String,
             state = (snapshot["state"] as? String)?.let { TriviatoeRoundState.valueOf(it) }
                 ?: TriviatoeRoundState.QUESTION,
-            randomized = snapshot["randomized"] as? Boolean // <--- ADD THIS LINE HERE!
+            randomized = snapshot["randomized"] as? Boolean, // <--- ADD THIS LINE HERE!
+            lastQuestion = decodeQuestion(snapshot["lastQuestion"] as? Map<String, Any?>),
+            lastCorrectIndex = (snapshot["lastCorrectIndex"] as? Long)?.toInt(),
+            rematchVotes = (snapshot["rematchVotes"] as? Map<String, Boolean>) ?: emptyMap()
         )
     }
 

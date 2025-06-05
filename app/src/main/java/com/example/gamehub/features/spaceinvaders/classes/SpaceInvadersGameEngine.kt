@@ -43,6 +43,9 @@ class SpaceInvadersGameEngine {
             playerController.isMovingRight = value
         }
 
+    val bunkers: MutableList<Bunker> = mutableListOf()
+
+
     private fun checkBulletEnemyCollisions() {
         val bullets = playerController.playerBullets
         val enemies = enemyController.enemies
@@ -127,17 +130,61 @@ class SpaceInvadersGameEngine {
                 bullet.y + bulletHeight > player.y
     }
 
+    fun initializeBunkers() {
+        if (screenWidthPx == 0f || screenHeightPx == 0f) return // screen not ready
+
+        bunkers.clear() // Always clear and re-initialize
+
+        val bunkerCount = 3
+        val spacing = screenWidthPx / (bunkerCount + 1)
+        val y = screenHeightPx - 200f
+
+        for (i in 0 until bunkerCount) {
+            val x = spacing * (i + 1) - 40f // Centered spacing
+            bunkers.add(
+                Bunker(
+                    id = i, x = x, y = y,
+                    width = 200f,
+                    height = 100f,
+                    health = 25
+                )
+            )
+        }
+    }
+
+
+
+
+    fun checkBunkerHits() {
+        val allBullets = playerController.playerBullets + enemyController.enemyBullets
+
+        allBullets.forEach { bullet ->
+            if (!bullet.isActive) return@forEach
+
+            for (bunker in bunkers) {
+                if (bunker.isHit(bullet.x, bullet.y)) {
+                    bullet.isActive = false
+                    bunker.takeDamage()
+                    break
+                }
+            }
+        }
+
+        bunkers.removeAll { it.isDestroyed() }
+    }
+
 
     fun updateGame() {
         enemyController.setBounds(screenWidthPx)
         playerController.updatePlayerMovement()
         checkPlayerHit()
+        initializeBunkers()
         player = playerController.getPlayer()
         playerController.updateBullets(screenHeightPx)
         enemyController.updateEnemies()
         enemyController.updateUFO(screenWidthPx)
         checkBulletEnemyCollisions()
-
+        checkBunkerHits()
         if (enemyShootCooldown <= 0) {
             enemyController.enemyShoot()
             enemyShootCooldown = 60

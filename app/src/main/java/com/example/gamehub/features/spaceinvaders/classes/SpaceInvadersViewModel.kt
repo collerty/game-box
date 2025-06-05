@@ -79,11 +79,25 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
             }
     }
 
-
+    private var screenSizeSet = false
 
     init {
-        startGameLoop()
         fetchHighScores()
+        // Do not start game loop here
+    }
+
+    fun setScreenSize(width: Float, height: Float) {
+        if (!screenSizeSet) {
+            _gameEngine.screenWidthPx = width
+            _gameEngine.screenHeightPx = height
+            // Set player Y position to bottom of screen
+            _gameEngine.playerController.setPlayer(
+                _gameEngine.player.copy(y = height - 100f)
+            )
+            _gameEngine.initializeBunkers()
+            screenSizeSet = true
+            startGameLoop()
+        }
     }
 
     fun toggleTiltControl() {
@@ -116,7 +130,6 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
         // Set screen dimensions in engine
         _gameEngine.screenWidthPx = screenWidthPx
         _gameEngine.screenHeightPx = screenHeightPx
-        // Set player Y position to bottom of screen
         _gameEngine.playerController.setPlayer(
             _gameEngine.player.copy(y = screenHeightPx - 100f)
         )
@@ -125,6 +138,7 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME)
         }
         _gameEngine.gameState = GameState.PLAYING
+        _gameEngine.initializeBunkers()
         _tick.value++
     }
 

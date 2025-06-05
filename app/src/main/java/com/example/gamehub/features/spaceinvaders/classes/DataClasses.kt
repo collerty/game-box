@@ -22,6 +22,25 @@ data class PlayerScore(
     val score: Int = 0
 )
 
+data class Bunker(
+    val id: Int,
+    var x: Float,
+    var y: Float,
+    val width: Float,
+    val height: Float,
+    var health: Int
+) {
+    fun isHit(projectileX: Float, projectileY: Float): Boolean {
+        return projectileX in x..(x + width) && projectileY in y..(y + height)
+    }
+
+    fun takeDamage() {
+        health--
+    }
+
+    fun isDestroyed(): Boolean = health <= 0
+}
+
 
 data class Bullet(
     var x: Float,

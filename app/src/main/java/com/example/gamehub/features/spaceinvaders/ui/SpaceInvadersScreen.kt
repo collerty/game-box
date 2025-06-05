@@ -74,7 +74,7 @@ fun SpaceInvadersScreen(
     val tiltToggleImage = ImageBitmap.imageResource(id = R.drawable.tilt_icon)
     // Add player image
     val playerImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_player)
-
+    val bunkerImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_bunker)
 
     val retroFont = FontFamily(Font(R.font.space_invaders, FontWeight.Normal))
     val greenTextColor = Color(0xFF00FF00)
@@ -111,6 +111,11 @@ fun SpaceInvadersScreen(
         }
     }
 
+    // Ensure screen size is set in ViewModel before game starts
+    LaunchedEffect(screenWidthPx, screenHeightPx) {
+        viewModel.setScreenSize(screenWidthPx, screenHeightPx)
+    }
+
     if (engine.gameState == GameState.GAME_OVER) {
         SpaceInvadersGameOverScreen(
             score = engine.score,
@@ -125,7 +130,9 @@ fun SpaceInvadersScreen(
         )
     } else {
 
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)) {
 
             // Top right image button for tilt toggle
             Image(
@@ -216,6 +223,19 @@ fun SpaceInvadersScreen(
                     }
                 }
 
+                engine.bunkers.forEach { bunker ->
+                    val alpha = bunker.health / 3f
+
+                    drawImage(
+                        image = bunkerImage,
+                        srcOffset = IntOffset.Zero,
+                        srcSize = IntSize(bunkerImage.width, bunkerImage.height),
+                        dstOffset = IntOffset(bunker.x.toInt(), bunker.y.toInt()),
+                        dstSize = IntSize(bunker.width.toInt(), bunker.height.toInt()),
+                        alpha = alpha
+                    )
+                }
+
 
                 // Draw UFO
                 if (engine.enemyController.ufo.isActive) {
@@ -246,8 +266,8 @@ fun SpaceInvadersScreen(
                 // Left Button
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
-                        .background(greenTextColor, shape = CircleShape)
+                        .size(80.dp)
+                        .background(greenTextColor.copy(alpha = 0.7f), shape = CircleShape)
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
@@ -265,8 +285,8 @@ fun SpaceInvadersScreen(
                 // Right Button
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
-                        .background(greenTextColor, shape = CircleShape)
+                        .size(80.dp)
+                        .background(greenTextColor.copy(alpha = 0.7f), shape = CircleShape)
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {

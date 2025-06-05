@@ -74,7 +74,7 @@ class EnemyController {
     val enemyBullets = mutableListOf<Bullet>()
 
     var direction = 1 // 1 = right, -1 = left
-    val speed = 10f
+    val speed = 5f
     val enemyWidth = 60f
 
     var leftBound = 0f

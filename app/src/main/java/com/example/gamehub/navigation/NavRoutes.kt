@@ -26,6 +26,7 @@ object NavRoutes {
     const val SPY_GAME         = "spy"
     const val JORISJUMP_GAME   = "jorisjump"
     const val SCREAMOSAUR_GAME = "screamosaur"
+    const val MEMORY_MATCHING_GAME = "memoryMatching"
 
     //Battleships
     const val BATTLE_VOTE    = "battleships/{code}/{userName}/vote"

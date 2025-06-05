@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,7 +29,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors // Added import
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ButtonElevation // Added import
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -78,7 +81,8 @@ val arcadeFontFamily = FontFamily(
 )
 
 private const val MAX_TURN_ATTEMPTS = 5 // Max incorrect attempts in a row before losing
-private val STATS_FONT_SIZE = 28.sp // Increased font size for stats
+private val STATS_FONT_SIZE = 26.sp // Adjusted font size for stats panel
+private val BUTTON_TEXT_SIZE = 18.sp
 
 // Enum for managing screen states
 enum class GameScreen {
@@ -122,23 +126,26 @@ fun MemoryMatchingScreen() {
     var cards by remember { mutableStateOf(emptyList<MemoryCard>().toMutableStateList()) }
     var flippedCardIndices by remember { mutableStateOf<List<Int>>(emptyList()) }
     var processingMatch by remember { mutableStateOf(false) }
-    var attemptCount by remember { mutableIntStateOf(0) } // Renamed to "Flips" in UI
+    var attemptCount by remember { mutableIntStateOf(0) }
     var currentTurnIncorrectAttempts by remember { mutableIntStateOf(0) }
     var allPairsMatched by remember { mutableStateOf(false) }
-    var timeLeftInSeconds by remember { mutableIntStateOf(gameDifficulties.first().timeLimitSeconds) } // Default to first difficulty's time
+    var timeLeftInSeconds by remember { mutableIntStateOf(gameDifficulties.first().timeLimitSeconds) }
     var isTimerRunning by remember { mutableStateOf(false) }
     var showLoseScreen by remember { mutableStateOf(false) }
     var loseReason by remember { mutableStateOf<String?>(null) }
 
     val cardFrontColor = Color(0xFF9092D8)
     val textColor = Color(0xFFE0E0E0)
-    val accentColor = Color(0xFFF487B6)
+    val accentColor = Color(0xFFF487B6) // Pink, used for buttons and highlights
     val buttonTextColor = Color.Black
     val overlayColor = Color.Black.copy(alpha = 0.90f)
-    val difficultySelectionBackgroundColor = Color.Black.copy(alpha = 0.6f)
+    val difficultySelectionBackgroundColor = Color.Black.copy(alpha = 0.7f) // Slightly more opaque
     val congratsTitleColor = Color(0xFF76F7BF)
     val loseTitleColor = Color(0xFFF44336)
     val detailColor = Color.White
+    val panelBackgroundColor = Color.Black.copy(alpha = 0.4f)
+    val panelBorderColor = textColor.copy(alpha = 0.6f)
+    val buttonBorderColor = textColor.copy(alpha = 0.8f)
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -148,7 +155,6 @@ fun MemoryMatchingScreen() {
     val matchSoundPlayer = remember { MediaPlayer.create(context, R.raw.dats_right).apply { setVolume(0.5f, 0.5f) } }
     val noMatchSoundPlayer = remember { MediaPlayer.create(context, R.raw.dats_wrong).apply { setVolume(0.5f, 0.5f) } }
     val loseGameSoundPlayer = remember { MediaPlayer.create(context, R.raw.matching_gamelose_sound).apply { setVolume(0.6f, 0.6f) } }
-
 
     DisposableEffect(Unit) {
         onDispose {
@@ -166,10 +172,9 @@ fun MemoryMatchingScreen() {
     fun playNoMatchSound() { if (noMatchSoundPlayer.isPlaying) noMatchSoundPlayer.seekTo(0) else noMatchSoundPlayer.start() }
     fun playLoseSound() { if (loseGameSoundPlayer.isPlaying) loseGameSoundPlayer.seekTo(0) else loseGameSoundPlayer.start() }
 
-
     fun generateCardsForDifficulty(difficulty: GameDifficulty): SnapshotStateList<MemoryCard> {
         val numPairs = difficulty.pairs
-        val uniqueImagesToTake = minOf(numPairs, allImageResources.size)
+        val uniqueImagesToTake = kotlin.math.min(numPairs, allImageResources.size)
         val selectedImages = allImageResources.shuffled().take(uniqueImagesToTake)
         return (selectedImages + selectedImages)
             .mapIndexed { index, resId -> MemoryCard(id = index, imageRes = resId) }
@@ -192,11 +197,11 @@ fun MemoryMatchingScreen() {
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         if (winSoundPlayer.isPlaying) {
             winSoundPlayer.stop()
-            winSoundPlayer.prepareAsync()
+            winSoundPlayer.prepareAsync() // Prepare for next play
         }
         if (loseGameSoundPlayer.isPlaying) {
             loseGameSoundPlayer.stop()
-            loseGameSoundPlayer.prepareAsync()
+            loseGameSoundPlayer.prepareAsync() // Prepare for next play
         }
         currentScreen = GameScreen.PLAYING
     }
@@ -209,6 +214,19 @@ fun MemoryMatchingScreen() {
         }
     }
 
+    val changeDifficultyAction: () -> Unit = {
+        currentScreen = GameScreen.DIFFICULTY_SELECTION
+        // Reset sounds that might be playing from win/lose screens
+        if (winSoundPlayer.isPlaying) {
+            winSoundPlayer.stop()
+            winSoundPlayer.prepareAsync()
+        }
+        if (loseGameSoundPlayer.isPlaying) {
+            loseGameSoundPlayer.stop()
+            loseGameSoundPlayer.prepareAsync()
+        }
+    }
+
     LaunchedEffect(isTimerRunning, timeLeftInSeconds, allPairsMatched, showLoseScreen) {
         if (currentScreen == GameScreen.PLAYING && isTimerRunning && !allPairsMatched && !showLoseScreen) {
             if (timeLeftInSeconds > 0) {
@@ -216,7 +234,7 @@ fun MemoryMatchingScreen() {
                 timeLeftInSeconds--
             } else {
                 isTimerRunning = false
-                if (!allPairsMatched && !showLoseScreen) {
+                if (!allPairsMatched && !showLoseScreen) { // Ensure not already won or lost
                     loseReason = "Time's Up!"
                     showLoseScreen = true
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -226,9 +244,9 @@ fun MemoryMatchingScreen() {
     }
 
     LaunchedEffect(showLoseScreen) {
-        if (showLoseScreen && !allPairsMatched) {
+        if (showLoseScreen && !allPairsMatched) { // Play lose sound only if actually lost
             playLoseSound()
-            if (winSoundPlayer.isPlaying) {
+            if (winSoundPlayer.isPlaying) { // Stop win sound if it was somehow playing
                 winSoundPlayer.stop()
                 winSoundPlayer.prepareAsync()
             }
@@ -237,14 +255,15 @@ fun MemoryMatchingScreen() {
 
     LaunchedEffect(flippedCardIndices, currentScreen) {
         if (currentScreen != GameScreen.PLAYING || allPairsMatched || showLoseScreen) {
-            if(processingMatch) processingMatch = false
+            if(processingMatch) processingMatch = false // Reset processing flag if game state changes
             return@LaunchedEffect
         }
 
         if (flippedCardIndices.size == 2) {
-            if (processingMatch) return@LaunchedEffect
+            if (processingMatch) return@LaunchedEffect // Avoid double processing
 
             processingMatch = true
+            attemptCount++ // Increment total flips when two cards are chosen
             val firstIndex = flippedCardIndices[0]
             val secondIndex = flippedCardIndices[1]
             val card1 = cards[firstIndex]
@@ -257,7 +276,7 @@ fun MemoryMatchingScreen() {
                 newCards[firstIndex] = card1.copy(isMatched = true, isFlipped = true)
                 newCards[secondIndex] = card2.copy(isMatched = true, isFlipped = true)
                 cards = newCards
-                currentTurnIncorrectAttempts = 0
+                currentTurnIncorrectAttempts = 0 // Reset mistake counter on match
 
                 if (cards.all { it.isMatched }) {
                     allPairsMatched = true
@@ -272,8 +291,9 @@ fun MemoryMatchingScreen() {
                 currentTurnIncorrectAttempts++
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
-                delay(1000)
+                delay(1000) // Hold cards for a second
 
+                // Check again if game ended while waiting (e.g. time ran out)
                 if (!allPairsMatched && !showLoseScreen) {
                     val newCards = cards.toMutableStateList()
                     newCards[firstIndex] = card1.copy(isFlipped = false)
@@ -293,6 +313,19 @@ fun MemoryMatchingScreen() {
         }
     }
 
+    // Common Button Style
+    val gameButtonColors = ButtonDefaults.buttonColors(
+        containerColor = accentColor,
+        contentColor = buttonTextColor
+    )
+    val gameButtonElevation = ButtonDefaults.buttonElevation(
+        defaultElevation = 0.dp,
+        pressedElevation = 0.dp,
+        disabledElevation = 0.dp
+    )
+    val gameButtonBorder = BorderStroke(2.dp, buttonBorderColor)
+    val gameButtonPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
@@ -311,12 +344,14 @@ fun MemoryMatchingScreen() {
                     },
                     backgroundColor = difficultySelectionBackgroundColor,
                     textColor = textColor,
-                    accentColor = accentColor,
-                    buttonTextColor = buttonTextColor
+                    buttonColors = gameButtonColors,
+                    buttonBorder = gameButtonBorder,
+                    buttonPadding = gameButtonPadding,
+                    buttonElevation = gameButtonElevation
                 )
             }
             GameScreen.PLAYING -> {
-                val difficulty = currentDifficulty ?: gameDifficulties.first()
+                val difficulty = currentDifficulty ?: gameDifficulties.first() // Should always have a difficulty
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -324,71 +359,117 @@ fun MemoryMatchingScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
+                    // Stats Panel
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .background(panelBackgroundColor, RectangleShape)
+                            .border(BorderStroke(1.dp, panelBorderColor), RectangleShape)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "Time: $timeLeftInSeconds",
-                            fontSize = STATS_FONT_SIZE,
+                            text = "Time: ${timeLeftInSeconds}s",
                             fontFamily = arcadeFontFamily,
+                            fontSize = STATS_FONT_SIZE,
                             color = textColor,
                             textAlign = TextAlign.Center
                         )
                         Text(
                             text = "Flips: $attemptCount",
-                            fontSize = STATS_FONT_SIZE,
                             fontFamily = arcadeFontFamily,
+                            fontSize = STATS_FONT_SIZE,
                             color = textColor,
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "Mistakes: $currentTurnIncorrectAttempts / $MAX_TURN_ATTEMPTS",
-                            fontSize = STATS_FONT_SIZE,
+                            text = "Mistakes: $currentTurnIncorrectAttempts/$MAX_TURN_ATTEMPTS",
                             fontFamily = arcadeFontFamily,
+                            fontSize = STATS_FONT_SIZE,
                             color = if (currentTurnIncorrectAttempts >= MAX_TURN_ATTEMPTS -1) loseTitleColor else textColor,
                             textAlign = TextAlign.Center
                         )
                     }
 
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(difficulty.columns),
-                        contentPadding = PaddingValues(vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f)
+                    // Game Grid Box
+                    Box(
+                        modifier = Modifier
+                            .weight(1f) // Takes up available space
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp), // Add some padding around the grid
+                        contentAlignment = Alignment.Center
                     ) {
-                        itemsIndexed(cards) { index, card ->
-                            GameCardItem(
-                                card = card,
-                                onClick = {
-                                    if (!processingMatch && !card.isFlipped && !card.isMatched && flippedCardIndices.size < 2) {
-                                        playCardFlipSound()
-                                        val newCards = cards.toMutableStateList()
-                                        newCards[index] = card.copy(isFlipped = true)
-                                        cards = newCards
-                                        flippedCardIndices = flippedCardIndices + index
-                                        if (flippedCardIndices.size == 1) {
-                                            attemptCount++
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(difficulty.columns),
+                            contentPadding = PaddingValues(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .fillMaxHeight() // Fill height within the weighted Box
+                                .fillMaxWidth() // Fill width within the weighted Box
+                                .align(Alignment.Center) // Center the grid itself
+                        ) {
+                            itemsIndexed(cards, key = { _, card -> card.id }) { index, card ->
+                                GameCardItem(
+                                    card = card,
+                                    onClick = {
+                                        if (!card.isFlipped && !card.isMatched && flippedCardIndices.size < 2 && !processingMatch) {
+                                            playCardFlipSound()
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            val newCards = cards.toMutableStateList()
+                                            newCards[index] = card.copy(isFlipped = true)
+                                            cards = newCards
+                                            flippedCardIndices = flippedCardIndices + index
                                         }
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    }
-                                },
-                                cardFrontColor = cardFrontColor,
-                                cardBackImageRes = difficulty.cardBackResId,
-                                processingMatch = processingMatch,
-                                numFlippedCards = flippedCardIndices.size,
-                                accentColor = accentColor,
-                                isGameEnded = allPairsMatched || showLoseScreen
-                            )
+                                    },
+                                    cardFrontColor = cardFrontColor,
+                                    cardBackImageRes = difficulty.cardBackResId,
+                                    processingMatch = processingMatch,
+                                    numFlippedCards = flippedCardIndices.size,
+                                    accentColor = accentColor,
+                                    isGameEnded = allPairsMatched || showLoseScreen,
+                                    baseBorderColor = panelBorderColor.copy(alpha = 0.5f)
+                                )
+                            }
                         }
                     }
 
-                    // Buttons are now part of the overlays below, no longer here.
-                    // if (allPairsMatched || showLoseScreen) { ... } // REMOVED
+                    // In-game action buttons
+                    if (!allPairsMatched && !showLoseScreen) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp, top = 4.dp), // Added top padding
+                            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = restartCurrentGameAction,
+                                shape = RectangleShape,
+                                colors = gameButtonColors,
+                                border = gameButtonBorder,
+                                elevation = gameButtonElevation,
+                                contentPadding = gameButtonPadding,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Restart", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
+                            }
+                            Button(
+                                onClick = changeDifficultyAction,
+                                shape = RectangleShape,
+                                colors = gameButtonColors,
+                                border = gameButtonBorder,
+                                elevation = gameButtonElevation,
+                                contentPadding = gameButtonPadding,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Difficulty", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE, textAlign = TextAlign.Center)
+                            }
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(60.dp)) // Placeholder for button height + padding
+                    }
                 }
 
                 // Win Screen Overlay
@@ -401,29 +482,25 @@ fun MemoryMatchingScreen() {
                         modifier = Modifier
                             .fillMaxSize()
                             .background(overlayColor)
-                            .clickable(enabled = false, onClick = {}), // Consume clicks
+                            .clickable(enabled = false, onClick = {}), // Block clicks
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("YOU WIN!", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = congratsTitleColor, fontFamily = arcadeFontFamily)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Flips: $attemptCount", fontSize = 24.sp, color = detailColor, fontFamily = arcadeFontFamily)
-                            Text("Time Left: $timeLeftInSeconds s", fontSize = 24.sp, color = detailColor, fontFamily = arcadeFontFamily)
-                            Spacer(modifier = Modifier.height(24.dp)) // Space before buttons
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("YOU WIN!", fontSize = 60.sp, fontWeight = FontWeight.Bold, color = congratsTitleColor, fontFamily = arcadeFontFamily, textAlign = TextAlign.Center)
+                            Text("Flips: $attemptCount", fontSize = 28.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                            Text("Time Left: ${timeLeftInSeconds}s", fontSize = 24.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                            Spacer(modifier = Modifier.height(12.dp))
                             Button(
                                 onClick = restartCurrentGameAction,
-                                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                                modifier = Modifier.fillMaxWidth(0.7f)
+                                shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Play Again", color = buttonTextColor, fontFamily = arcadeFontFamily, fontSize = 20.sp)
+                                Text("Play Again", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
                             Button(
-                                onClick = { currentScreen = GameScreen.DIFFICULTY_SELECTION },
-                                colors = ButtonDefaults.buttonColors(containerColor = textColor.copy(alpha = 0.8f)),
-                                modifier = Modifier.fillMaxWidth(0.7f)
+                                onClick = changeDifficultyAction,
+                                shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Change Difficulty", color = buttonTextColor, fontFamily = arcadeFontFamily, fontSize = 20.sp)
+                                Text("Change Difficulty", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
                             }
                         }
                     }
@@ -431,7 +508,7 @@ fun MemoryMatchingScreen() {
 
                 // Lose Screen Overlay
                 AnimatedVisibility(
-                    visible = showLoseScreen && !allPairsMatched, // Don't show if already won
+                    visible = showLoseScreen && !allPairsMatched,
                     enter = fadeIn(animationSpec = tween(1000)) + scaleIn(animationSpec = tween(1000)),
                     exit = fadeOut(animationSpec = tween(500)) + scaleOut(animationSpec = tween(500))
                 ) {
@@ -439,33 +516,29 @@ fun MemoryMatchingScreen() {
                         modifier = Modifier
                             .fillMaxSize()
                             .background(overlayColor)
-                            .clickable(enabled = false, onClick = {}), // Consume clicks
+                            .clickable(enabled = false, onClick = {}),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(loseReason ?: "GAME OVER", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = loseTitleColor, fontFamily = arcadeFontFamily, textAlign = TextAlign.Center)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Flips: $attemptCount", fontSize = 24.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(loseReason ?: "GAME OVER", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = loseTitleColor, fontFamily = arcadeFontFamily, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 16.dp))
+                            Text("Flips: $attemptCount", fontSize = 26.sp, color = detailColor, fontFamily = arcadeFontFamily)
                             if (loseReason == "Time's Up!") {
-                                Text("You ran out of time!", fontSize = 20.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                                Text("You ran out of time!", fontSize = 22.sp, color = detailColor, fontFamily = arcadeFontFamily)
                             } else if (loseReason == "Too many mistakes!") {
-                                Text("You made $currentTurnIncorrectAttempts mistakes in a row.", fontSize = 20.sp, color = detailColor, fontFamily = arcadeFontFamily, textAlign = TextAlign.Center)
+                                Text("Exceeded max mistakes!", fontSize = 22.sp, color = detailColor, fontFamily = arcadeFontFamily)
                             }
-                            Spacer(modifier = Modifier.height(24.dp)) // Space before buttons
+                            Spacer(modifier = Modifier.height(12.dp))
                             Button(
                                 onClick = restartCurrentGameAction,
-                                colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                                modifier = Modifier.fillMaxWidth(0.7f)
+                                shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Play Again", color = buttonTextColor, fontFamily = arcadeFontFamily, fontSize = 20.sp)
+                                Text("Try Again", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
                             Button(
-                                onClick = { currentScreen = GameScreen.DIFFICULTY_SELECTION },
-                                colors = ButtonDefaults.buttonColors(containerColor = textColor.copy(alpha = 0.8f)),
-                                modifier = Modifier.fillMaxWidth(0.7f)
+                                onClick = changeDifficultyAction,
+                                shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Change Difficulty", color = buttonTextColor, fontFamily = arcadeFontFamily, fontSize = 20.sp)
+                                Text("Change Difficulty", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
                             }
                         }
                     }
@@ -481,8 +554,10 @@ fun DifficultySelectionContent(
     onDifficultySelected: (GameDifficulty) -> Unit,
     backgroundColor: Color,
     textColor: Color,
-    accentColor: Color,
-    buttonTextColor: Color
+    buttonColors: ButtonColors,
+    buttonBorder: BorderStroke?,
+    buttonPadding: PaddingValues,
+    buttonElevation: ButtonElevation?
 ) {
     Box(
         modifier = Modifier
@@ -493,29 +568,32 @@ fun DifficultySelectionContent(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp) // Increased spacing
         ) {
             Text(
-                "Select Difficulty",
-                fontSize = 36.sp,
+                text = "Select Difficulty",
+                fontSize = 42.sp, // Larger title
                 fontWeight = FontWeight.Bold,
                 color = textColor,
                 fontFamily = arcadeFontFamily,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier.padding(bottom = 28.dp) // More space below title
             )
             difficulties.forEach { difficulty ->
                 Button(
                     onClick = { onDifficultySelected(difficulty) },
-                    modifier = Modifier.fillMaxWidth(0.8f),
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                    contentPadding = PaddingValues(vertical = 16.dp)
+                    modifier = Modifier.fillMaxWidth(0.8f), // Make buttons wider
+                    shape = RectangleShape, // Sharp edges
+                    colors = buttonColors,
+                    border = buttonBorder,
+                    elevation = buttonElevation,
+                    contentPadding = buttonPadding // Use defined padding
                 ) {
                     Text(
-                        difficulty.displayName,
-                        color = buttonTextColor,
+                        text = difficulty.displayName,
                         fontFamily = arcadeFontFamily,
-                        fontSize = 18.sp
+                        fontSize = BUTTON_TEXT_SIZE, // Consistent button text size
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -533,7 +611,8 @@ fun GameCardItem(
     processingMatch: Boolean,
     numFlippedCards: Int,
     accentColor: Color,
-    isGameEnded: Boolean
+    isGameEnded: Boolean,
+    baseBorderColor: Color
 ) {
     val animatedRotationY by animateFloatAsState(
         targetValue = if (card.isFlipped || card.isMatched) 0f else 180f,
@@ -549,47 +628,55 @@ fun GameCardItem(
 
     val cardContainerColor = if (animatedRotationY < 90f) cardFrontColor else Color.Transparent
 
+    val borderColor = if (card.isMatched) {
+        accentColor // Highlight matched cards
+    } else if (card.isFlipped && animatedRotationY < 90f) {
+        accentColor.copy(alpha = 0.8f) // Slightly different border for flipped (but not yet matched)
+    } else {
+        baseBorderColor
+    }
+    val borderWidth = if (card.isMatched) 3.dp else if (card.isFlipped && animatedRotationY < 90f) 2.dp else 1.dp
+
+
     Card(
         modifier = Modifier
             .aspectRatio(1f)
             .graphicsLayer {
                 rotationY = animatedRotationY
-                cameraDistance = 12f * density
+                cameraDistance = 12f * density // Standard camera distance for card flip
             }
-            .clickable(onClick = onClick, enabled = clickableEnabled)
-            .border(
-                width = 2.dp,
-                color = if (card.isMatched) accentColor.copy(alpha = 0.7f)
-                else if (card.isFlipped && animatedRotationY < 90f) accentColor.copy(alpha = 0.5f)
-                else Color.Transparent,
-                shape = RectangleShape
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp, pressedElevation = 2.dp),
+            .clickable(onClick = onClick, enabled = clickableEnabled),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp), // Flat design
         colors = CardDefaults.cardColors(
             containerColor = cardContainerColor
         ),
-        shape = RectangleShape
+        shape = RectangleShape, // Sharp edges
+        border = BorderStroke(borderWidth, borderColor) // Consistent border
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (animatedRotationY < 90f) {
+            // Front of the card (image)
+            if (animatedRotationY < 90f) { // Show image when less than 90 degrees (front facing)
                 Image(
                     painter = painterResource(id = card.imageRes),
-                    contentDescription = "Card Image ${card.id}",
+                    contentDescription = "Card Image",
                     modifier = Modifier
-                        .fillMaxSize(0.8f)
-                        .graphicsLayer { rotationY = 180f },
+                        .fillMaxSize(0.8f) // Image smaller than card to show border/padding
+                        .graphicsLayer { rotationY = 0f }, // Ensure image itself is not rotated again
                     contentScale = ContentScale.Fit
                 )
-            } else {
+            }
+            // Back of the card (image)
+            else {
                 Image(
                     painter = painterResource(id = cardBackImageRes),
                     contentDescription = "Card Back",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    alpha = 1f
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { rotationY = 180f }, // Ensure back image is correctly oriented
+                    contentScale = ContentScale.Crop // Crop to fill the card space
                 )
             }
         }
@@ -608,6 +695,13 @@ fun MemoryMatchingScreenPreview() {
 @Composable
 fun DifficultySelectionPreview() {
     MaterialTheme {
+        val gameButtonColors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFF487B6), // accentColor
+            contentColor = Color.Black // buttonTextColor
+        )
+        val gameButtonElevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+        val gameButtonBorder = BorderStroke(2.dp, Color.White.copy(alpha = 0.8f)) // buttonBorderColor
+        val gameButtonPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
         Box {
             Image(
                 painter = painterResource(id = R.drawable.purple_background),
@@ -621,10 +715,12 @@ fun DifficultySelectionPreview() {
                     GameDifficulty(pairs = 8, columns = 4, displayName = "Medium (4x4 - 16 Cards)", cardBackResId = R.drawable.card_back_red, timeLimitSeconds = 60)
                 ),
                 onDifficultySelected = {},
-                backgroundColor = Color.Black.copy(alpha = 0.6f),
+                backgroundColor = Color.Black.copy(alpha = 0.7f),
                 textColor = Color(0xFFE0E0E0),
-                accentColor = Color(0xFFF487B6),
-                buttonTextColor = Color.Black
+                buttonColors = gameButtonColors,
+                buttonBorder = gameButtonBorder,
+                buttonPadding = gameButtonPadding,
+                buttonElevation = gameButtonElevation
             )
         }
     }

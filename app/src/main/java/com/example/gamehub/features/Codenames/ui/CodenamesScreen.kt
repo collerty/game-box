@@ -31,7 +31,6 @@ import com.google.firebase.firestore.ktx.toObject
 
 data class Clue(
     val word: String,
-    val number: Int,
     val team: String
 )
 
@@ -42,6 +41,8 @@ fun CodenamesScreen(
     isMaster: Boolean,
     masterTeam: String? = null
 ) {
+    Log.d("CodenamesDebug", "CodenamesScreen received masterTeam: $masterTeam")
+
     val db = Firebase.firestore
     var gameState by remember { mutableStateOf<Map<String, Any>?>(null) }
     var currentTurn by remember { mutableStateOf("RED") }
@@ -49,39 +50,57 @@ fun CodenamesScreen(
     var blueWordsRemaining by remember { mutableStateOf(8) }
     
     // Add new state variables
-    var masterClue by remember { mutableStateOf("") }
+    var redMasterClue by remember { mutableStateOf("") }
+    var blueMasterClue by remember { mutableStateOf("") }
     var timerSeconds by remember { mutableStateOf(0) }
     var isMasterPhase by remember { mutableStateOf(true) }
     var currentTeam by remember { mutableStateOf("RED") }
     var redClues by remember { mutableStateOf<List<Clue>>(emptyList()) }
     var blueClues by remember { mutableStateOf<List<Clue>>(emptyList()) }
+    var currentMasterTeam by remember { mutableStateOf(masterTeam?.uppercase()) }
 
     // Debug logging for visibility conditions
-    LaunchedEffect(isMaster, masterTeam, isMasterPhase, currentTeam) {
+    LaunchedEffect(isMaster, currentMasterTeam, isMasterPhase, currentTeam) {
         Log.d("CodenamesDebug", """
             Visibility Debug:
             isMaster: $isMaster
-            masterTeam: $masterTeam
+            masterTeam: $currentMasterTeam
             isMasterPhase: $isMasterPhase
             currentTeam: $currentTeam
             currentTurn: $currentTurn
-            Red team conditions: ${isMaster && masterTeam == "RED" && isMasterPhase && currentTeam == "RED"}
-            Blue team conditions: ${isMaster && masterTeam == "BLUE" && isMasterPhase && currentTeam == "BLUE"}
+            Red team conditions: ${isMaster && currentMasterTeam == "RED" && isMasterPhase && currentTeam == "RED"}
+            Blue team conditions: ${isMaster && currentMasterTeam == "BLUE" && isMasterPhase && currentTeam == "BLUE"}
+            Raw values:
+            masterTeam from intent: $masterTeam
+            currentMasterTeam: $currentMasterTeam
+            currentTeam: $currentTeam
         """.trimIndent())
     }
     
     // Timer effect
     LaunchedEffect(isMasterPhase) {
-        timerSeconds = if (isMasterPhase) 60 else 60 // Both phases get 60 seconds
+        timerSeconds = if (isMasterPhase) 60 else 10 // Both phases get 60 seconds
         while (timerSeconds > 0) {
             delay(1000)
             timerSeconds--
         }
-        // When timer ends, switch phases
-        isMasterPhase = !isMasterPhase
-        // Update game state in Firestore
-        db.collection("rooms").document(roomId)
-            .update("gameState.codenames.isMasterPhase", !isMasterPhase)
+        // When timer ends, switch phases and teams if needed
+        if (!isMasterPhase) {
+            // If team phase ends, switch to next team's master phase
+            val nextTeam = if (currentTeam == "RED") "BLUE" else "RED"
+            db.collection("rooms").document(roomId)
+                .update(
+                    mapOf(
+                        "gameState.codenames.isMasterPhase" to true,
+                        "gameState.codenames.currentTeam" to nextTeam,
+                        "gameState.codenames.currentTurn" to nextTeam
+                    )
+                )
+        } else {
+            // If master phase ends, switch to team phase
+            db.collection("rooms").document(roomId)
+                .update("gameState.codenames.isMasterPhase", false)
+        }
     }
 
     // Listen for game state updates
@@ -95,7 +114,7 @@ fun CodenamesScreen(
                     currentTurn = state?.get("currentTurn") as? String ?: "RED"
                     redWordsRemaining = (state?.get("redWordsRemaining") as? Number)?.toInt() ?: 9
                     blueWordsRemaining = (state?.get("blueWordsRemaining") as? Number)?.toInt() ?: 8
-                    currentTeam = state?.get("currentTeam") as? String ?: "RED"
+                    currentTeam = (state?.get("currentTeam") as? String)?.uppercase() ?: "RED"
                     isMasterPhase = state?.get("isMasterPhase") as? Boolean ?: true
                     
                     // Debug logging for state updates
@@ -104,15 +123,19 @@ fun CodenamesScreen(
                         currentTurn: $currentTurn
                         currentTeam: $currentTeam
                         isMasterPhase: $isMasterPhase
+                        masterTeam: $currentMasterTeam
+                        Raw values:
+                        currentTeam from state: ${state?.get("currentTeam")}
+                        currentTeam after uppercase: $currentTeam
                     """.trimIndent())
                     
                     // Update clues
                     @Suppress("UNCHECKED_CAST")
                     val clues = state?.get("clues") as? List<Map<String, Any>> ?: emptyList()
                     redClues = clues.filter { it["team"] == "RED" }
-                        .map { Clue(it["word"] as String, (it["number"] as Number).toInt(), "RED") }
+                        .map { Clue(it["word"] as String, "RED") }
                     blueClues = clues.filter { it["team"] == "BLUE" }
-                        .map { Clue(it["word"] as String, (it["number"] as Number).toInt(), "BLUE") }
+                        .map { Clue(it["word"] as String, "BLUE") }
                 }
             }
     }
@@ -158,37 +181,45 @@ fun CodenamesScreen(
             }
             
             // Master input field for Red team
-            if (isMaster && masterTeam?.uppercase() == "RED" && isMasterPhase && currentTeam == "RED") {
+            if (isMaster && isMasterPhase && currentTeam == "RED") {
                 OutlinedTextField(
-                    value = masterClue,
-                    onValueChange = { masterClue = it },
-                    label = { Text("Enter clue and number (e.g., 'word - 2')") },
+                    value = redMasterClue,
+                    onValueChange = { redMasterClue = it },
+                    label = { Text("Enter clue (e.g., 'word-2', 'word - 0', 'word0')") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                 )
                 Button(
                     onClick = {
-                        val parts = masterClue.split("-").map { it.trim() }
-                        if (parts.size == 2) {
-                            val word = parts[0]
-                            val number = parts[1].toIntOrNull()
-                            if (number != null) {
-                                db.collection("rooms").document(roomId)
-                                    .update(
-                                        mapOf(
-                                            "gameState.codenames.clues" to listOf(
-                                                mapOf(
-                                                    "word" to word,
-                                                    "number" to number,
-                                                    "team" to "RED"
-                                                )
-                                            ),
-                                            "gameState.codenames.isMasterPhase" to false
-                                        )
+                        if (redMasterClue.isNotEmpty()) {
+                            // Get current clues
+                            db.collection("rooms").document(roomId)
+                                .get()
+                                .addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val state = document.get("gameState.codenames") as? Map<String, Any>
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentClues = state?.get("clues") as? List<Map<String, Any>> ?: emptyList()
+                                    
+                                    // Add new clue
+                                    val newClue = mapOf(
+                                        "word" to redMasterClue,
+                                        "team" to currentTeam
                                     )
-                                masterClue = ""
-                            }
+                                    
+                                    // Update Firestore with new clue and switch to team phase
+                                    db.collection("rooms").document(roomId)
+                                        .update(
+                                            mapOf(
+                                                "gameState.codenames.clues" to (currentClues + newClue),
+                                                "gameState.codenames.isMasterPhase" to false
+                                            )
+                                        )
+                                        .addOnSuccessListener {
+                                            redMasterClue = "" // Clear input field
+                                        }
+                                }
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -218,11 +249,6 @@ fun CodenamesScreen(
                             Text(
                                 text = clue.word,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color.Red
-                            )
-                            Text(
-                                text = "Number: ${clue.number}",
-                                style = MaterialTheme.typography.bodyMedium,
                                 color = Color.Red
                             )
                         }
@@ -353,37 +379,45 @@ fun CodenamesScreen(
             }
             
             // Master input field for Blue team
-            if (isMaster && masterTeam?.uppercase() == "BLUE" && isMasterPhase && currentTeam == "BLUE") {
+            if (isMaster && isMasterPhase && currentTeam == "BLUE") {
                 OutlinedTextField(
-                    value = masterClue,
-                    onValueChange = { masterClue = it },
-                    label = { Text("Enter clue and number (e.g., 'word - 2')") },
+                    value = blueMasterClue,
+                    onValueChange = { blueMasterClue = it },
+                    label = { Text("Enter clue (e.g., 'word-2', 'word - 0', 'word0')") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                 )
                 Button(
                     onClick = {
-                        val parts = masterClue.split("-").map { it.trim() }
-                        if (parts.size == 2) {
-                            val word = parts[0]
-                            val number = parts[1].toIntOrNull()
-                            if (number != null) {
-                                db.collection("rooms").document(roomId)
-                                    .update(
-                                        mapOf(
-                                            "gameState.codenames.clues" to listOf(
-                                                mapOf(
-                                                    "word" to word,
-                                                    "number" to number,
-                                                    "team" to "BLUE"
-                                                )
-                                            ),
-                                            "gameState.codenames.isMasterPhase" to false
-                                        )
+                        if (blueMasterClue.isNotEmpty()) {
+                            // Get current clues
+                            db.collection("rooms").document(roomId)
+                                .get()
+                                .addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val state = document.get("gameState.codenames") as? Map<String, Any>
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentClues = state?.get("clues") as? List<Map<String, Any>> ?: emptyList()
+                                    
+                                    // Add new clue
+                                    val newClue = mapOf(
+                                        "word" to blueMasterClue,
+                                        "team" to currentTeam
                                     )
-                                masterClue = ""
-                            }
+                                    
+                                    // Update Firestore with new clue and switch to team phase
+                                    db.collection("rooms").document(roomId)
+                                        .update(
+                                            mapOf(
+                                                "gameState.codenames.clues" to (currentClues + newClue),
+                                                "gameState.codenames.isMasterPhase" to false
+                                            )
+                                        )
+                                        .addOnSuccessListener {
+                                            blueMasterClue = "" // Clear input field
+                                        }
+                                }
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -413,11 +447,6 @@ fun CodenamesScreen(
                             Text(
                                 text = clue.word,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color.Blue
-                            )
-                            Text(
-                                text = "Number: ${clue.number}",
-                                style = MaterialTheme.typography.bodyMedium,
                                 color = Color.Blue
                             )
                         }

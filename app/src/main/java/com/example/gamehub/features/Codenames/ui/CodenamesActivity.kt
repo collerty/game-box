@@ -34,6 +34,8 @@ class CodenamesActivity : ComponentActivity() {
         
         Log.d("CodenamesDebug", "Determined masterTeam: $masterTeam")
 
+        Log.d("CodenamesDebug", "CodenamesActivity passing masterTeam to CodenamesScreen: $masterTeam")
+
         setContent {
             GameHubTheme {
                 val navController = rememberNavController()

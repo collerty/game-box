@@ -1,9 +1,12 @@
 package com.example.gamehub.features.codenames.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -21,18 +24,65 @@ import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.delay
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.ktx.toObject
+
+data class Clue(
+    val word: String,
+    val number: Int,
+    val team: String
+)
 
 @Composable
 fun CodenamesScreen(
     navController: NavController,
     roomId: String,
-    userName: String
+    isMaster: Boolean,
+    masterTeam: String? = null
 ) {
     val db = Firebase.firestore
     var gameState by remember { mutableStateOf<Map<String, Any>?>(null) }
     var currentTurn by remember { mutableStateOf("RED") }
     var redWordsRemaining by remember { mutableStateOf(9) }
     var blueWordsRemaining by remember { mutableStateOf(8) }
+    
+    // Add new state variables
+    var masterClue by remember { mutableStateOf("") }
+    var timerSeconds by remember { mutableStateOf(0) }
+    var isMasterPhase by remember { mutableStateOf(true) }
+    var currentTeam by remember { mutableStateOf("RED") }
+    var redClues by remember { mutableStateOf<List<Clue>>(emptyList()) }
+    var blueClues by remember { mutableStateOf<List<Clue>>(emptyList()) }
+
+    // Debug logging for visibility conditions
+    LaunchedEffect(isMaster, masterTeam, isMasterPhase, currentTeam) {
+        Log.d("CodenamesDebug", """
+            Visibility Debug:
+            isMaster: $isMaster
+            masterTeam: $masterTeam
+            isMasterPhase: $isMasterPhase
+            currentTeam: $currentTeam
+            currentTurn: $currentTurn
+            Red team conditions: ${isMaster && masterTeam == "RED" && isMasterPhase && currentTeam == "RED"}
+            Blue team conditions: ${isMaster && masterTeam == "BLUE" && isMasterPhase && currentTeam == "BLUE"}
+        """.trimIndent())
+    }
+    
+    // Timer effect
+    LaunchedEffect(isMasterPhase) {
+        timerSeconds = if (isMasterPhase) 60 else 60 // Both phases get 60 seconds
+        while (timerSeconds > 0) {
+            delay(1000)
+            timerSeconds--
+        }
+        // When timer ends, switch phases
+        isMasterPhase = !isMasterPhase
+        // Update game state in Firestore
+        db.collection("rooms").document(roomId)
+            .update("gameState.codenames.isMasterPhase", !isMasterPhase)
+    }
 
     // Listen for game state updates
     LaunchedEffect(roomId) {
@@ -45,6 +95,24 @@ fun CodenamesScreen(
                     currentTurn = state?.get("currentTurn") as? String ?: "RED"
                     redWordsRemaining = (state?.get("redWordsRemaining") as? Number)?.toInt() ?: 9
                     blueWordsRemaining = (state?.get("blueWordsRemaining") as? Number)?.toInt() ?: 8
+                    currentTeam = state?.get("currentTeam") as? String ?: "RED"
+                    isMasterPhase = state?.get("isMasterPhase") as? Boolean ?: true
+                    
+                    // Debug logging for state updates
+                    Log.d("CodenamesDebug", """
+                        State Update:
+                        currentTurn: $currentTurn
+                        currentTeam: $currentTeam
+                        isMasterPhase: $isMasterPhase
+                    """.trimIndent())
+                    
+                    // Update clues
+                    @Suppress("UNCHECKED_CAST")
+                    val clues = state?.get("clues") as? List<Map<String, Any>> ?: emptyList()
+                    redClues = clues.filter { it["team"] == "RED" }
+                        .map { Clue(it["word"] as String, (it["number"] as Number).toInt(), "RED") }
+                    blueClues = clues.filter { it["team"] == "BLUE" }
+                        .map { Clue(it["word"] as String, (it["number"] as Number).toInt(), "BLUE") }
                 }
             }
     }
@@ -73,13 +141,93 @@ fun CodenamesScreen(
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.Red
             )
-            if (currentTurn == "RED") {
+            if (currentTurn == "RED" && isMasterPhase) {
                 Text(
-                    "Your Turn!",
+                    "Master's Turn!",
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.Red,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+            } else if (currentTurn == "RED" && !isMasterPhase) {
+                Text(
+                    "Team's Turn!",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.Red,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            // Master input field for Red team
+            if (isMaster && masterTeam?.uppercase() == "RED" && isMasterPhase && currentTeam == "RED") {
+                OutlinedTextField(
+                    value = masterClue,
+                    onValueChange = { masterClue = it },
+                    label = { Text("Enter clue and number (e.g., 'word - 2')") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+                Button(
+                    onClick = {
+                        val parts = masterClue.split("-").map { it.trim() }
+                        if (parts.size == 2) {
+                            val word = parts[0]
+                            val number = parts[1].toIntOrNull()
+                            if (number != null) {
+                                db.collection("rooms").document(roomId)
+                                    .update(
+                                        mapOf(
+                                            "gameState.codenames.clues" to listOf(
+                                                mapOf(
+                                                    "word" to word,
+                                                    "number" to number,
+                                                    "team" to "RED"
+                                                )
+                                            ),
+                                            "gameState.codenames.isMasterPhase" to false
+                                        )
+                                    )
+                                masterClue = ""
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Submit Clue")
+                }
+            }
+            
+            // Clue history for Red team
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                items(redClues) { clue ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Red.copy(alpha = 0.1f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(
+                                text = clue.word,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.Red
+                            )
+                            Text(
+                                text = "Number: ${clue.number}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.Red
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -90,6 +238,25 @@ fun CodenamesScreen(
                 .fillMaxHeight(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Timer display
+            Text(
+                text = "${timerSeconds}s",
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            // Phase indicator
+            Text(
+                text = when {
+                    isMasterPhase && currentTurn == "RED" -> "Red Master's Turn"
+                    !isMasterPhase && currentTurn == "RED" -> "Red Team's Turn"
+                    isMasterPhase && currentTurn == "BLUE" -> "Blue Master's Turn"
+                    else -> "Blue Team's Turn"
+                },
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
             @Suppress("UNCHECKED_CAST")
             val cards = (gameState?.get("cards") as? List<Map<String, Any>>) ?: emptyList()
             
@@ -97,7 +264,8 @@ fun CodenamesScreen(
                 columns = GridCells.Fixed(5),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 8.dp)
+                    .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -106,36 +274,45 @@ fun CodenamesScreen(
                     val color = card["color"] as? String ?: "NEUTRAL"
                     val isRevealed = card["isRevealed"] as? Boolean ?: false
 
-                    Card(
+                    Box(
                         modifier = Modifier
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(8.dp))
                             .border(1.dp, Color.Gray, RoundedCornerShape(8.dp))
                             .background(
                                 when {
-                                    !isRevealed -> Color.White
-                                    color == "RED" -> Color.Red
-                                    color == "BLUE" -> Color.Blue
-                                    color == "NEUTRAL" -> Color.Gray
-                                    color == "ASSASSIN" -> Color.Black
+                                    isMaster -> {
+                                        when (color) {
+                                            "RED" -> Color.Red
+                                            "BLUE" -> Color.Blue
+                                            "NEUTRAL" -> Color.Gray
+                                            "ASSASSIN" -> Color.Black
+                                            else -> Color.White
+                                        }
+                                    }
+                                    isRevealed -> {
+                                        when (color) {
+                                            "RED" -> Color.Red
+                                            "BLUE" -> Color.Blue
+                                            "NEUTRAL" -> Color.Gray
+                                            "ASSASSIN" -> Color.Black
+                                            else -> Color.White
+                                        }
+                                    }
                                     else -> Color.White
                                 }
                             )
-                            .clickable(enabled = !isRevealed) {
+                            .clickable(enabled = !isRevealed && !isMasterPhase && currentTurn == currentTeam) {
                                 // TODO: Handle card click
-                            }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = word,
-                                textAlign = TextAlign.Center,
-                                color = if (isRevealed && color == "ASSASSIN") Color.White else Color.Black,
-                                modifier = Modifier.padding(4.dp)
-                            )
-                        }
+                        Text(
+                            text = word,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            color = if (isMaster || isRevealed) Color.White else Color.Black
+                        )
                     }
                 }
             }
@@ -159,13 +336,93 @@ fun CodenamesScreen(
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.Blue
             )
-            if (currentTurn == "BLUE") {
+            if (currentTurn == "BLUE" && isMasterPhase) {
                 Text(
-                    "Your Turn!",
+                    "Master's Turn!",
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.Blue,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+            } else if (currentTurn == "BLUE" && !isMasterPhase) {
+                Text(
+                    "Team's Turn!",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.Blue,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            // Master input field for Blue team
+            if (isMaster && masterTeam?.uppercase() == "BLUE" && isMasterPhase && currentTeam == "BLUE") {
+                OutlinedTextField(
+                    value = masterClue,
+                    onValueChange = { masterClue = it },
+                    label = { Text("Enter clue and number (e.g., 'word - 2')") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+                Button(
+                    onClick = {
+                        val parts = masterClue.split("-").map { it.trim() }
+                        if (parts.size == 2) {
+                            val word = parts[0]
+                            val number = parts[1].toIntOrNull()
+                            if (number != null) {
+                                db.collection("rooms").document(roomId)
+                                    .update(
+                                        mapOf(
+                                            "gameState.codenames.clues" to listOf(
+                                                mapOf(
+                                                    "word" to word,
+                                                    "number" to number,
+                                                    "team" to "BLUE"
+                                                )
+                                            ),
+                                            "gameState.codenames.isMasterPhase" to false
+                                        )
+                                    )
+                                masterClue = ""
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Submit Clue")
+                }
+            }
+            
+            // Clue history for Blue team
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                items(blueClues) { clue ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Blue.copy(alpha = 0.1f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(
+                                text = clue.word,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.Blue
+                            )
+                            Text(
+                                text = "Number: ${clue.number}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.Blue
+                            )
+                        }
+                    }
+                }
             }
         }
     }

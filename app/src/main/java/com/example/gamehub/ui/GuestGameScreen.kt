@@ -4,6 +4,7 @@ package com.example.gamehub.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
@@ -53,9 +54,22 @@ fun GuestGameScreen(
                 "battleships" -> NavRoutes.BATTLE_VOTE
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
                 "codenames"   -> {
+                    val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
+                    val isMaster = currentPlayer?.get("role") == "master"
+                    val team = currentPlayer?.get("team") as? String ?: ""
+                    Log.d("CodenamesDebug", """
+                        GuestGameScreen Values:
+                        currentPlayer: $currentPlayer
+                        isMaster: $isMaster
+                        team: $team
+                        players: $players
+                    """.trimIndent())
+                    
                     val intent = Intent(context, CodenamesActivity::class.java).apply {
                         putExtra("roomId", code)
                         putExtra("userName", userName)
+                        putExtra("isMaster", isMaster)
+                        putExtra("team", team)
                     }
                     context.startActivity(intent)
                     null
@@ -106,10 +120,6 @@ fun GuestGameScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.clickable {
-                            val currentPlayer = mapOf(
-                                "uid" to auth.currentUser?.uid,
-                                "name" to userName
-                            )
                             val newPlayer = mapOf(
                                 "uid" to auth.currentUser?.uid,
                                 "name" to userName,
@@ -187,10 +197,6 @@ fun GuestGameScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable {
-                            val currentPlayer = mapOf(
-                                "uid" to auth.currentUser?.uid,
-                                "name" to userName
-                            )
                             val newPlayer = mapOf(
                                 "uid" to auth.currentUser?.uid,
                                 "name" to userName,

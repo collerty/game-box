@@ -389,9 +389,12 @@ fun HostLobbyScreen(
                         "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
                         "codenames"   -> {
+                            val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
+                            val isMaster = currentPlayer?.get("role") == "master"
                             val intent = Intent(context, CodenamesActivity::class.java).apply {
                                 putExtra("roomId", roomId)
                                 putExtra("userName", hostName)
+                                putExtra("isMaster", isMaster)
                             }
                             context.startActivity(intent)
                             null

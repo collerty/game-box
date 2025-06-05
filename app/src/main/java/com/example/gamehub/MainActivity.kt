@@ -170,7 +170,16 @@ fun GameHubApp() {
             ) { backStack ->
                 val code     = backStack.arguments?.getString("code")     ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
-                CodenamesScreen(navController, code, userName)
+                val isMaster = userName.contains("master", ignoreCase = true)
+                val masterTeam = if (isMaster) {
+                    if (userName.contains("red", ignoreCase = true)) "RED" else "BLUE"
+                } else null
+                CodenamesScreen(
+                    navController = navController,
+                    roomId = code,
+                    isMaster = isMaster,
+                    masterTeam = masterTeam
+                )
             }
 
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }

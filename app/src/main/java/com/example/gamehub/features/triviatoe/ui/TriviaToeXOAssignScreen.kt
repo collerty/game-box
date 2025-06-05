@@ -1,6 +1,7 @@
 package com.example.gamehub.features.triviatoe.ui
 
 import android.content.Intent
+import android.media.MediaPlayer
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -39,6 +40,7 @@ fun TriviatoeXOAssignScreen(
     var assigned by remember { mutableStateOf(false) } // ensure assignSymbolsRandomly is called once
 
     val context = LocalContext.current
+    var diceMediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     // Start music when this screen is shown
     LaunchedEffect(Unit) {
@@ -54,12 +56,20 @@ fun TriviatoeXOAssignScreen(
     // Animation: alternate X/O for 2 seconds, then reveal
     LaunchedEffect(animating) {
         if (animating) {
+            diceMediaPlayer = MediaPlayer.create(context, R.raw.triviatoe_dice_rolling)
+            diceMediaPlayer?.isLooping = true
+            diceMediaPlayer?.start()
+
             repeat(12) { i ->
                 animationSymbol = if (i % 2 == 0) "X" else "O"
                 delay(150)
             }
             animating = false
             showResult = true
+
+            diceMediaPlayer?.stop()
+            diceMediaPlayer?.release()
+            diceMediaPlayer = null
         }
     }
 
@@ -95,6 +105,13 @@ fun TriviatoeXOAssignScreen(
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            diceMediaPlayer?.stop()
+            diceMediaPlayer?.release()
+            diceMediaPlayer = null
+        }
+    }
 
     // Auto-navigate to PlayScreen only when QUESTION is ready in Firestore!
     LaunchedEffect(state.state, state.quizQuestion) {
@@ -218,6 +235,7 @@ fun TriviatoeXOAssignScreen(
 
             }
         }
+
     }
 
 }

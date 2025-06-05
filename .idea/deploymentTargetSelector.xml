@@ -1,50 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-    <component name="deploymentTargetSelector">
-        <selectionStates>
-            <SelectionState runConfigName="app">
-                <!-- Keep both selection modes if needed -->
-                <option name="selectionMode" value="DIALOG" />
-                <option name="selectionMode" value="DROPDOWN" />
-
-                <!-- Devices from both branches -->
-                <DropdownSelection timestamp="2025-06-04T15:58:05.309027400Z">
-                    <Target type="DEFAULT_BOOT">
-                        <handle>
-                            <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCW424HPXW" />
-                        </handle>
-                    </Target>
-                </DropdownSelection>
-                <DropdownSelection timestamp="2025-06-01T19:50:47.619139800Z">
-                    <option name="selectionMode" value="DROPDOWN" />
-                    <DropdownSelection timestamp="2025-05-23T09:04:36.149907900Z">
-                        <Target type="DEFAULT_BOOT">
-                            <handle>
-                                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Stefan\.android\avd\Pixel_7_Pro.avd" />
-                            </handle>
-                        </Target>
-                    </DropdownSelection>
-                </DropdownSelection>
-                <DialogSelection>
-                    <targets>
-                        <Target type="DEFAULT_BOOT">
-                            <handle>
-                                <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCW424HPXW" />
-                            </handle>
-                        </Target>
-                        <Target type="DEFAULT_BOOT">
-                            <handle>
-                                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Stefan\.android\avd\Pixel_7_Pro.avd" />
-                            </handle>
-                        </Target>
-                        <Target type="DEFAULT_BOOT">
-                            <handle>
-                                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Stefan\.android\avd\Pixel_7_Pro_2.avd" />
-                            </handle>
-                        </Target>
-                    </targets>
-                </DialogSelection>
-            </SelectionState>
-        </selectionStates>
-    </component>
+  <component name="deploymentTargetSelector">
+    <selectionStates>
+      <SelectionState runConfigName="app">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2025-06-01T19:50:47.619139800Z" />
+        <DialogSelection>
+          <targets>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=RFCW424HPXW" />
+              </handle>
+            </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Stefan\.android\avd\Pixel_7_Pro.avd" />
+              </handle>
+            </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Stefan\.android\avd\Pixel_7_Pro_2.avd" />
+              </handle>
+            </Target>
+          </targets>
+        </DialogSelection>
+      </SelectionState>
+    </selectionStates>
+  </component>
 </project>

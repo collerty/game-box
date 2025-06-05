@@ -27,6 +27,7 @@ import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
 import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
 import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
+import com.example.gamehub.features.codenames.ui.CodenamesScreen
 import com.example.gamehub.ui.GuestGameScreen
 import com.example.gamehub.ui.HostLobbyScreen
 import com.example.gamehub.ui.LobbyMenuScreen
@@ -145,6 +146,18 @@ fun GameHubApp() {
                 val code     = backStack.arguments?.getString("code")     ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
                 OhPardonScreen(navController, code, userName)
+            }
+
+            composable(
+                NavRoutes.CODENAMES_GAME,
+                arguments = listOf(
+                    navArgument("code")     { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code     = backStack.arguments?.getString("code")     ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                CodenamesScreen(navController, code, userName)
             }
 
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }

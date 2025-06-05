@@ -181,6 +181,7 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                        "codenames"   -> NavRoutes.CODENAMES_GAME
                         else -> null
                     }
                     route?.let {

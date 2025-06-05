@@ -1,11 +1,13 @@
 package com.example.gamehub.ui
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.gamehub.navigation.NavRoutes
@@ -31,6 +33,11 @@ fun HostLobbyScreen(
     var maxPlayers by remember { mutableStateOf(0) }
     var status by remember { mutableStateOf("waiting") }
     var showExitDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
 
     // Live-update lobby
     DisposableEffect(roomId) {
@@ -194,7 +201,7 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
-                        "triviatoe" -> NavRoutes.TRIVIATOE_XO_ASSIGN
+                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
                         else -> null
                     }
                     route?.let {

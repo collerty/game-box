@@ -27,6 +27,8 @@ import com.example.gamehub.features.triviatoe.model.TriviatoeQuestion
 import com.example.gamehub.features.triviatoe.model.TriviatoeSession
 import com.example.gamehub.features.triviatoe.model.TriviatoeRoundState
 import kotlinx.coroutines.delay
+import android.media.MediaPlayer
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun TriviatoeQuestionScreen(
@@ -36,6 +38,21 @@ fun TriviatoeQuestionScreen(
     onAnswer: (PlayerAnswer) -> Unit,
     onQuestionResolved: (winnerId: String, randomized: Boolean) -> Unit
 ) {
+
+    val context = LocalContext.current
+
+    DisposableEffect(key1 = true) {
+        val mediaPlayer = MediaPlayer.create(context, com.example.gamehub.R.raw.triviatoe_timer)
+        mediaPlayer?.isLooping = true
+        mediaPlayer?.start()
+        onDispose {
+            try {
+                mediaPlayer?.stop()
+                mediaPlayer?.release()
+            } catch (_: Exception) {}
+        }
+    }
+
     val question = session.quizQuestion as? TriviatoeQuestion.MultipleChoice
     val players = session.players
     val allAnswers = session.answers
@@ -133,6 +150,7 @@ fun TriviatoeQuestionScreen(
     val useColumn = screenWidthDp < 380
     val isSmallScreen = screenWidthDp < 400
 
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -222,6 +240,10 @@ fun TriviatoeQuestionScreen(
                                     text = answers.getOrNull(i) ?: "",
                                     onClick = {
                                         if (selectedAnswer == null && !resolved) {
+                                            val player = MediaPlayer.create(context, com.example.gamehub.R.raw.triviatoe_select)
+                                            player?.setOnCompletionListener { it.release() }
+                                            player?.start()
+
                                             selectedAnswer = i
                                             onAnswer(PlayerAnswer(i, null))
                                         }
@@ -251,6 +273,10 @@ fun TriviatoeQuestionScreen(
                                             text = answers.getOrNull(idx) ?: "",
                                             onClick = {
                                                 if (selectedAnswer == null && !resolved) {
+                                                    val player = MediaPlayer.create(context, com.example.gamehub.R.raw.triviatoe_select)
+                                                    player?.setOnCompletionListener { it.release() }
+                                                    player?.start()
+
                                                     selectedAnswer = idx
                                                     onAnswer(PlayerAnswer(idx, null))
                                                 }

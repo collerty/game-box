@@ -1,5 +1,6 @@
 package com.example.gamehub
 
+import TriviatoeIntroAnimScreen
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -190,9 +191,28 @@ fun GameHubApp() {
                 val playerId = Firebase.auth.currentUser?.uid ?: ""
                 TriviatoePlayScreen(
                     session = session,
-                    playerId = playerId
+                    playerId = playerId,
+                    navController = navController,
+                    originalRoomCode = code
                 )
             }
+
+            composable(
+                NavRoutes.TRIVIATOE_INTRO_ANIM,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                TriviatoeIntroAnimScreen(
+                    navController = navController,
+                    code = code,
+                    userName = userName
+                )
+            }
+
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.gamehub.ui
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +41,9 @@ fun LobbyMenuScreen(
     val availableColors = listOf("Red", "Blue", "Green", "Yellow")
     var selectedColor by remember { mutableStateOf("Red") }
 
+    LaunchedEffect(Unit) {
+        context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
 
     // live list of waiting rooms for this game
     val rooms by LobbyService

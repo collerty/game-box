@@ -6,14 +6,19 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import android.os.VibrationEffect
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 class SpaceInvadersViewModel(application: Application) : AndroidViewModel(application), SensorEventListener {
@@ -38,6 +43,24 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
         private set
 
     val highScores = MutableStateFlow<List<PlayerScore>>(emptyList())
+
+    sealed class UiEvent {
+        object PlayExplodeSound : UiEvent()
+        object PlayShootSound: UiEvent()
+        object PlayTakeDamageSound: UiEvent()
+        object PlayUFOSound: UiEvent()
+        object Vibrate : UiEvent()
+    }
+
+
+    object EventBus {
+        private val _uiEvent = MutableSharedFlow<UiEvent>()
+        val uiEvent = _uiEvent.asSharedFlow()
+
+        suspend fun emit(event: UiEvent) {
+            _uiEvent.emit(event)
+        }
+    }
 
     fun onPlayerNameChanged(newName: String) {
         playerName.value = newName

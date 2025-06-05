@@ -2,7 +2,9 @@ package com.example.gamehub.features.spaceinvaders.ui
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -43,13 +46,20 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.features.spaceinvaders.classes.EnemyType
 import com.example.gamehub.features.spaceinvaders.classes.GameState
+import com.example.gamehub.features.spaceinvaders.classes.SoundManager
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.EventBus
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
+import com.example.gamehub.features.spaceinvaders.classes.VibrationManager
 import com.example.gamehub.navigation.NavRoutes
+import kotlinx.coroutines.launch
 
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun SpaceInvadersScreen(
     viewModel: SpaceInvadersViewModel = viewModel(),
@@ -79,6 +89,23 @@ fun SpaceInvadersScreen(
     val retroFont = FontFamily(Font(R.font.space_invaders, FontWeight.Normal))
     val greenTextColor = Color(0xFF00FF00)
 
+
+    val soundManager = remember { SoundManager(context) }
+    val vibrationManager = remember { VibrationManager(context) }
+
+    LaunchedEffect(Unit) {
+        EventBus.uiEvent.collect { event ->
+            when (event) {
+                UiEvent.PlayShootSound -> soundManager.playSound("shoot")
+                UiEvent.PlayTakeDamageSound -> soundManager.playSound("take_damage")
+                UiEvent.PlayUFOSound -> soundManager.playSound("ufo")
+                UiEvent.PlayExplodeSound -> soundManager.playSound("explode")
+                UiEvent.Vibrate -> {
+                    vibrationManager.vibrate(80)
+                }
+            }
+        }
+    }
 
 
     // Set screen width in engine
@@ -312,6 +339,10 @@ fun SpaceInvadersScreen(
                         detectTapGestures(
                             onTap = {
                                 engine.playerController.shootBullet()
+                                viewModel.viewModelScope.launch {
+                                    soundManager.playSound("shoot")
+                                    vibrationManager.vibrate(50)
+                                }
                             }
                         )
                     },

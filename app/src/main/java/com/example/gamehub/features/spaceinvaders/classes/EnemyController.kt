@@ -1,5 +1,9 @@
 package com.example.gamehub.features.spaceinvaders.classes
 
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.EventBus
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 class EnemyController {
@@ -63,6 +67,10 @@ class EnemyController {
                 ufo.y = 50f
                 ufo.isActive = true
                 ufoSpawnCooldown = 600 // ~10 seconds if 60 FPS
+                GlobalScope.launch {
+                    EventBus.emit(UiEvent.PlayUFOSound)
+                    EventBus.emit(UiEvent.Vibrate)
+                }
             } else {
                 ufoSpawnCooldown--
             }
@@ -179,12 +187,8 @@ class EnemyController {
     }
 
 
-
-
     fun moveEnemiesDown() {
         val allEnemies = enemies.flatten().filter { it.isAlive }
         allEnemies.forEach { it.y += 20f } // drop down by 20 pixels
     }
-
 }
-

@@ -4,6 +4,11 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.EventBus
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 class SpaceInvadersGameEngine {
     var playerLives by mutableStateOf(3)
@@ -65,6 +70,11 @@ class SpaceInvadersGameEngine {
                         EnemyType.BOTTOM -> 10
                     }
                     score += points
+
+                    GlobalScope.launch {
+                        EventBus.emit(UiEvent.PlayExplodeSound)
+                        EventBus.emit(UiEvent.Vibrate)
+                    }
                 }
             }
         }
@@ -88,6 +98,10 @@ class SpaceInvadersGameEngine {
                     ufo.isActive = false
 
                     score += listOf(50, 100, 150, 300).random()
+                    GlobalScope.launch {
+                        EventBus.emit(UiEvent.PlayExplodeSound)
+                        EventBus.emit(UiEvent.Vibrate)
+                    }
                 }
             }
         }
@@ -113,6 +127,10 @@ class SpaceInvadersGameEngine {
                 playerLives = (playerLives - 1).coerceAtLeast(0)
                 if (playerLives == 0) {
                     gameState = GameState.GAME_OVER
+                }
+                GlobalScope.launch {
+                    EventBus.emit(UiEvent.PlayTakeDamageSound)
+                    EventBus.emit(UiEvent.Vibrate)
                 }
             }
         }

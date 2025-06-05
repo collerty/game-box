@@ -31,6 +31,12 @@ import kotlinx.coroutines.launch
 import androidx.navigation.NavOptionsBuilder
 import android.media.MediaPlayer
 import androidx.annotation.RawRes
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.request.ImageRequest
+import coil.ImageLoader
 
 
 @Suppress("UnusedBoxWithConstraintsScope")
@@ -82,6 +88,7 @@ fun TriviatoePlayScreen(
         "O" -> R.drawable.o_icon
         else -> R.drawable.o_icon
     }
+    var showWinGif by remember { mutableStateOf(false) }
 
     // Track if we've played the win/loss sound this game
     var hasPlayedResultSound by remember { mutableStateOf(false) }
@@ -95,10 +102,18 @@ fun TriviatoePlayScreen(
             hasPlayedResultSound = true
             val isWinner = playerId == gameState.winner
             if (isWinner) {
+                showWinGif = true
                 playSound(context, R.raw.triviatoe_win)
             } else {
                 playSound(context, R.raw.triviatoe_lost)
             }
+        }
+    }
+
+    LaunchedEffect(showWinGif) {
+        if (showWinGif) {
+            kotlinx.coroutines.delay(1800)
+            showWinGif = false
         }
     }
 
@@ -135,8 +150,9 @@ fun TriviatoePlayScreen(
     }
 
     Box(
-        Modifier.fillMaxSize()
+        Modifier.fillMaxSize(),
     ) {
+
         Image(
             painter = painterResource(id = R.drawable.triviatoe_bg1),
             contentDescription = null,
@@ -244,7 +260,7 @@ fun TriviatoePlayScreen(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(15.dp))
 
                 // --- INFO BOX (WINNER/DEFAULT LOGIC) ---
                 Box(
@@ -252,6 +268,8 @@ fun TriviatoePlayScreen(
                         .align(Alignment.CenterHorizontally)
                         .fillMaxWidth(0.96f)
                         .heightIn(min = 140.dp)
+                        .verticalScroll(rememberScrollState())
+                        .weight(1f)
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.triviatoe_box_info),
@@ -327,7 +345,7 @@ fun TriviatoePlayScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(5.dp))
 
                             // Show last question and answer if available (not on first round)
                             val lastQuestion = gameState.lastQuestion as? TriviatoeQuestion.MultipleChoice
@@ -396,6 +414,25 @@ fun TriviatoePlayScreen(
                     }
                 }
             }
+        }
+        if (showWinGif && playerId == gameState.winner) {
+            val imageLoader = ImageLoader.Builder(context)
+                .components {
+                    add(GifDecoder.Factory())
+                }
+                .build()
+
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(R.drawable.triviatoe_win_anim) // Put your gif in res/drawable (not raw), as triviatoe_win_anim.gif
+                    .build(),
+                imageLoader = imageLoader,
+                contentDescription = "Winner GIF",
+                modifier = Modifier
+                    .size(200.dp)
+                    .align(Alignment.Center)
+                    .offset(y = (-130).dp)
+            )
         }
     }
 }

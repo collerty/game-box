@@ -3,13 +3,16 @@ package com.example.gamehub.ui
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -89,11 +92,190 @@ fun HostLobbyScreen(
             Spacer(Modifier.height(8.dp))
             Text("Players: ${players.size} / $maxPlayers")
             Spacer(Modifier.height(12.dp))
-            players.forEach { player ->
-                val name = player["name"] as? String ?: ""
-                Text("• $name")
+
+            if (gameId == "codenames") {
+                // Team selection UI for Codenames
+                val authUid = auth.currentUser?.uid
+                val redTeam = players.filter { (it["team"] ?: "spectator") == "red" }
+                val blueTeam = players.filter { (it["team"] ?: "spectator") == "blue" }
+                val spectators = players.filter { (it["team"] ?: "spectator") == "spectator" }
+                
+                // Show spectators section
+                Text("Spectators", style = MaterialTheme.typography.headlineSmall)
+                spectators.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    Text("• $name")
+                }
+                Spacer(Modifier.height(24.dp))
+
+                // Red Team section
+                Text("Red Team", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.headlineSmall)
+                redTeam.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    val isMe = player["uid"] == authUid
+                    val isMaster = player["role"] == "master"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("• $name ${if (isMaster) "(Master)" else "(Player)"}")
+                    }
+                }
+                if (redTeam.size < 2) {
+                    val hasMaster = redTeam.any { it["role"] == "master" }
+                    val hasPlayer = redTeam.any { it["role"] == "player" }
+                    
+                    if (!hasMaster) {
+                        Text(
+                            "Join as master",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.clickable {
+                                val currentPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName
+                                )
+                                val newPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName,
+                                    "team" to "red",
+                                    "role" to "master"
+                                )
+                                
+                                // First remove the player from any team
+                                db.collection("rooms").document(roomId)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        @Suppress("UNCHECKED_CAST")
+                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                        
+                                        // Then add the player to the new role
+                                        db.collection("rooms").document(roomId)
+                                            .update("players", updatedPlayers + newPlayer)
+                                    }
+                            }
+                        )
+                    }
+                    if (!hasPlayer) {
+                        Text(
+                            "Join as player",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.clickable {
+                                val currentPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName
+                                )
+                                val newPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName,
+                                    "team" to "red",
+                                    "role" to "player"
+                                )
+                                
+                                // First remove the player from any team
+                                db.collection("rooms").document(roomId)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        @Suppress("UNCHECKED_CAST")
+                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                        
+                                        // Then add the player to the new role
+                                        db.collection("rooms").document(roomId)
+                                            .update("players", updatedPlayers + newPlayer)
+                                    }
+                            }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+
+                // Blue Team section
+                Text("Blue Team", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineSmall)
+                blueTeam.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    val isMe = player["uid"] == authUid
+                    val isMaster = player["role"] == "master"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("• $name ${if (isMaster) "(Master)" else "(Player)"}")
+                    }
+                }
+                if (blueTeam.size < 2) {
+                    val hasMaster = blueTeam.any { it["role"] == "master" }
+                    val hasPlayer = blueTeam.any { it["role"] == "player" }
+                    
+                    if (!hasMaster) {
+                        Text(
+                            "Join as master",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                val currentPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName
+                                )
+                                val newPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName,
+                                    "team" to "blue",
+                                    "role" to "master"
+                                )
+                                
+                                // First remove the player from any team
+                                db.collection("rooms").document(roomId)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        @Suppress("UNCHECKED_CAST")
+                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                        
+                                        // Then add the player to the new role
+                                        db.collection("rooms").document(roomId)
+                                            .update("players", updatedPlayers + newPlayer)
+                                    }
+                            }
+                        )
+                    }
+                    if (!hasPlayer) {
+                        Text(
+                            "Join as player",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                val currentPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName
+                                )
+                                val newPlayer = mapOf(
+                                    "uid" to auth.currentUser?.uid,
+                                    "name" to hostName,
+                                    "team" to "blue",
+                                    "role" to "player"
+                                )
+                                
+                                // First remove the player from any team
+                                db.collection("rooms").document(roomId)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        @Suppress("UNCHECKED_CAST")
+                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                        
+                                        // Then add the player to the new role
+                                        db.collection("rooms").document(roomId)
+                                            .update("players", updatedPlayers + newPlayer)
+                                    }
+                            }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            } else {
+                players.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    Text("• $name")
+                }
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(24.dp))
 
             Button(
                 onClick = {

@@ -40,6 +40,9 @@ import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.auth.auth
+import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
+import com.google.firebase.auth.ktx.auth
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -159,6 +162,61 @@ fun GameHubApp() {
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
+
+            composable(
+                NavRoutes.TRIVIATOE_XO_ASSIGN,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                val session = remember(code) { FirestoreTriviatoeSession(code) }
+                val playerId = Firebase.auth.currentUser?.uid ?: ""
+                TriviatoeXOAssignScreen(
+                    session = session,
+                    playerId = playerId,
+                    userName = userName,
+                    navController = navController
+                )
+            }
+
+            composable(
+                NavRoutes.TRIVIATOE_GAME,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                val session = remember(code) { FirestoreTriviatoeSession(code) }
+                val playerId = Firebase.auth.currentUser?.uid ?: ""
+                TriviatoePlayScreen(
+                    session = session,
+                    playerId = playerId,
+                    navController = navController,
+                    originalRoomCode = code
+                )
+            }
+
+            composable(
+                NavRoutes.TRIVIATOE_INTRO_ANIM,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                TriviatoeIntroAnimScreen(
+                    navController = navController,
+                    code = code,
+                    userName = userName
+                )
+            }
+
 
             composable(
                 NavRoutes.TRIVIATOE_XO_ASSIGN,

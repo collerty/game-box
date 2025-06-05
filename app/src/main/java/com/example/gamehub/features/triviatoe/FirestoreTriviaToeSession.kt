@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
 import com.example.gamehub.features.triviatoe.TriviatoeQuestionBank
-
+import kotlinx.coroutines.delay
 
 class FirestoreTriviatoeSession(
     val roomCode: String
@@ -65,12 +65,13 @@ class FirestoreTriviatoeSession(
     // Submit a quiz answer for this round
 
     suspend fun submitAnswer(playerId: String, answer: PlayerAnswer) {
-        room.update(
+        safeUpdate(
             mapOf("gameState.triviatoe.answers.$playerId" to mapOf(
                 "answerIndex" to answer.answerIndex,
-                "timestamp" to FieldValue.serverTimestamp() // This is the key change!
-            ))
-        ).await()
+                "timestamp" to FieldValue.serverTimestamp()
+            )),
+            "submitAnswer"
+        )
     }
 
     // Place an X or O on the grid
@@ -84,12 +85,13 @@ class FirestoreTriviatoeSession(
             "symbol" to symbol,
             "round" to getCurrentRound() // Implement this helper
         )
-        room.update(
+        safeUpdate(
             mapOf(
                 "gameState.triviatoe.moves" to FieldValue.arrayUnion(move),
                 "gameState.triviatoe.board" to FieldValue.arrayUnion(mapOf("row" to row, "col" to col, "symbol" to symbol))
-            )
-        ).await()
+            ),
+            "submitMove"
+        )
     }
 
     // Helpers (implement as needed)
@@ -116,10 +118,10 @@ class FirestoreTriviatoeSession(
         if (available.isEmpty()) {
             // No more questions left! End game or reset
             // Example: Set state to FINISHED
-            room.update(mapOf(
-                "gameState.triviatoe.state" to "FINISHED"
-            )).await()
-            return
+            safeUpdate(
+                mapOf("gameState.triviatoe.state" to "FINISHED"),
+                "startNextRound-FINISHED"
+            )
         }
         val randomIndex = available.random()
         val question = TriviatoeQuestionBank.all[randomIndex]
@@ -132,27 +134,32 @@ class FirestoreTriviatoeSession(
         )
 
         // Save new round question and advance state
-        room.update(
+        safeUpdate(
             mapOf(
                 "gameState.triviatoe.quizQuestion" to questionMap,
                 "gameState.triviatoe.state" to "QUESTION",
                 "gameState.triviatoe.answers" to emptyMap<String, Any>(),
                 "gameState.triviatoe.usedQuestions" to usedQuestions + randomIndex,
-                "gameState.triviatoe.currentRound" to ((triviatoe?.get("currentRound") as? Long)?.toInt()?.plus(1) ?: 0)
-            )
-        ).await()
+                "gameState.triviatoe.currentRound" to ((triviatoe?.get("currentRound") as? Long)?.toInt()?.plus(1) ?: 0),
+                "gameState.triviatoe.randomized" to FieldValue.delete(), // <-- ADD THIS LINE!
+                "gameState.triviatoe.firstToMove" to null,       // <---- add this
+                "gameState.triviatoe.randomized" to null         // <---- add this
+            ),
+            "startNextRound"
+        )
     }
 
     suspend fun advanceGameState() {
         val snap = room.get().await()
         val triviatoe = (snap.get("gameState") as? Map<*, *>)?.get("triviatoe") as? Map<*, *>
         val firstToMove = triviatoe?.get("firstToMove") as? String
-        room.update(
+        safeUpdate(
             mapOf(
                 "gameState.triviatoe.currentTurn" to firstToMove,
                 "gameState.triviatoe.state" to "MOVE_1"
-            )
-        ).await()
+            ),
+            "advanceGameState"
+        )
     }
 
     suspend fun assignSymbolsRandomly() {
@@ -174,42 +181,50 @@ class FirestoreTriviatoeSession(
         println("Players after assignment: $shuffled")
 
         // Write to Firestore
-        room.update(mapOf("gameState.triviatoe.players" to shuffled)).addOnSuccessListener {
-            println("Firestore update successful!")
-        }.addOnFailureListener { e ->
-            println("Firestore update FAILED: ${e.message}")
-        }.await()
+        safeUpdate(
+            mapOf("gameState.triviatoe.players" to shuffled),
+            "assignSymbolsRandomly"
+        )
 
     }
 
-    suspend fun setFirstToMoveAndAdvance(winnerId: String) {
-        // Clear answers, set firstToMove, advance to REVEAL (or directly to MOVE_1)
-        println("setFirstToMoveAndAdvance called, winnerId=$winnerId")
-        room.update(
+    // Example inside FirestoreTriviatoeSession:
+    suspend fun setFirstToMoveAndAdvance(winnerId: String, randomized: Boolean) {
+        safeUpdate(
             mapOf(
                 "gameState.triviatoe.firstToMove" to winnerId,
-                "gameState.triviatoe.answers" to emptyMap<String, Any>(),
-                "gameState.triviatoe.state" to "REVEAL" // or "MOVE_1" if you want to skip the REVEAL screen
-            )
-        ).await()
+                "gameState.triviatoe.randomized" to randomized,   // <--- add this!
+                "gameState.triviatoe.answers" to emptyMap<String, Any>()
+            ),
+            "setFirstToMoveAndAdvance-winner"
+        )
+        delay(1500)
+        safeUpdate(
+            mapOf(
+                "gameState.triviatoe.state" to "REVEAL"
+            ),
+            "setFirstToMoveAndAdvance-state"
+        )
     }
 
     // Move from MOVE_1 to MOVE_2 (host only)
     suspend fun afterMove1(firstToMove: String, players: List<TriviatoePlayer>) {
         val other = players.firstOrNull { it.uid != firstToMove }?.uid ?: return
-        room.update(
+        safeUpdate(
             mapOf(
                 "gameState.triviatoe.currentTurn" to other,
                 "gameState.triviatoe.state" to "MOVE_2"
-            )
-        ).await()
+            ),
+            "afterMove1"
+        )
     }
 
     // Move from MOVE_2 to CHECK_WIN (host only)
     suspend fun afterMove2() {
-        room.update(
-            mapOf("gameState.triviatoe.state" to "CHECK_WIN")
-        ).await()
+        safeUpdate(
+            mapOf("gameState.triviatoe.state" to "CHECK_WIN"),
+            "afterMove2"
+        )
     }
 
     // Check for win and either finish or go to next question (host only)
@@ -217,12 +232,13 @@ class FirestoreTriviatoeSession(
         println("finishMoveRound called for round ${session.currentRound}")
         val winnerUid = checkWinConditionGetWinnerUid(session)
         if (winnerUid != null) {
-            room.update(
+            safeUpdate(
                 mapOf(
                     "gameState.triviatoe.state" to "FINISHED",
                     "gameState.triviatoe.winner" to winnerUid
-                )
-            ).await()
+                ),
+                "finishMoveRound-FINISHED"
+            )
         } else {
             startNextRound()
         }

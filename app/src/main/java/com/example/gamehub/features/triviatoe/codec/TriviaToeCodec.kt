@@ -51,7 +51,8 @@ object TriviatoeCodec : GameCodec<TriviatoeMove, TriviatoeSession> {
             currentTurn = snapshot["currentTurn"] as? String,
             winner = snapshot["winner"] as? String,
             state = (snapshot["state"] as? String)?.let { TriviatoeRoundState.valueOf(it) }
-                ?: TriviatoeRoundState.QUESTION
+                ?: TriviatoeRoundState.QUESTION,
+            randomized = snapshot["randomized"] as? Boolean // <--- ADD THIS LINE HERE!
         )
     }
 

@@ -85,5 +85,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("io.coil-kt:coil-svg:2.4.0")
     implementation("com.google.android.material:material:1.11.0")
-
+    implementation("com.airbnb.android:lottie-compose:6.0.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-gif:2.4.0")
 }

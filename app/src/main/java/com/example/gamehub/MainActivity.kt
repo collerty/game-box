@@ -148,10 +148,21 @@ fun GameHubApp() {
                 OhPardonScreen(navController, code, userName)
             }
 
+            composable(
+                NavRoutes.WHERE_AND_WHEN_GAME,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                WhereAndWhenScreen(roomCode = code, currentUserName = userName)
+        }
+
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
-            composable(NavRoutes.WHERE_AND_WHEN_GAME) { WhereAndWhenScreen() }
         }
     }
 }

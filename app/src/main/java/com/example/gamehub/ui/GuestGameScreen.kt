@@ -41,6 +41,7 @@ fun GuestGameScreen(
             val route = when (gameId) {
                 "battleships" -> NavRoutes.BATTLE_VOTE
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME
                 else          -> null
             }
             route?.let {

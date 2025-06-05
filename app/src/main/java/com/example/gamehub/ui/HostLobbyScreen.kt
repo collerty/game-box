@@ -1,6 +1,7 @@
 package com.example.gamehub.ui
 
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
+import com.example.gamehub.features.whereandwhen.ui.gameChallenges
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ListenerRegistration
@@ -98,72 +101,66 @@ fun HostLobbyScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        val startingPlayerUid = players.firstOrNull()?.get("uid") as? String
-                        val hostUid = auth.currentUser?.uid
-                        if (startingPlayerUid.isNullOrEmpty() || hostUid.isNullOrEmpty()) return@launch
+                        // ... (existing uid checks)
 
-                        // Game-specific initial state
-                        val initialGameState = when (gameId) {
-                            "battleships" -> mapOf(
-                                "player1Id" to players.getOrNull(0)?.get("uid"),
-                                "player2Id" to players.getOrNull(1)?.get("uid"),
-                                "currentTurn" to startingPlayerUid,
-                                "moves" to emptyList<String>(),
-                                "powerUps" to players.associate { it["uid"] as String to listOf("RADAR", "BOMB") },
-                                "energy" to players.associate { it["uid"] as String to 3 },
-                                "gameResult" to null,
-                                "mapVotes" to emptyMap<String, Int>(),
-                                "chosenMap" to null,
-                                "powerUpMoves" to emptyList<String>()
-                            )
-                            "ohpardon" -> mapOf(
-                                "currentPlayer" to startingPlayerUid,
-                                "scores" to emptyMap<String, Int>(),
-                                "gameResult" to null,
-                                "diceRoll" to null
-                            )
-                            else -> emptyMap()
-                        }
+                        // Prepare the updates
+                        val updates = mutableMapOf<String, Any?>(
+                            "status" to "started"
+                            // Keep existing rematchVotes reset if applicable from your original code
+                            // "rematchVotes" to players.associate { (it["uid"] as? String ?: "") to false }
+                        )
 
-                        val rematchVotes = players.associate {
-                            val uid = it["uid"] as? String ?: ""
-                            uid to false
+                        // Game-specific initial state ON START
+                        when (gameId) {
+                            "battleships" -> {
+                                // Battleships already has player1Id, player2Id, etc. set during LobbyService.host/join
+                                // It might need to ensure 'currentTurn' is set correctly if not already.
+                                // And reset other relevant fields if starting fresh (e.g. moves, energy for a new game vs rematch)
+                                updates["gameState.$gameId.currentTurn"] = players.firstOrNull()?.get("uid") as? String ?: ""
+                                // Add other necessary initializations for battleships if they weren't done in LobbyService.host
+                                // For example, if LobbyService.host only sets up player IDs and initial energy,
+                                // here you might set chosenMap to null, clear mapVotes, clear ships, clear ready status.
+                                // The current structure in LobbyService for battleships is quite complete for initial hosting though.
+                            }
+                            "ohpardon" -> {
+                                updates["gameState.$gameId.currentPlayer"] = players.firstOrNull()?.get("uid") as? String ?: ""
+                                updates["gameState.$gameId.diceRoll"] = null // Ensure dice is not pre-rolled
+                                // Other OhPardon initializations
+                            }
+                            "whereandwhen" -> {
+                                // Key fix: Set roundStartTimeMillis when the game actually starts
+                                updates["gameState.$gameId.roundStartTimeMillis"] = System.currentTimeMillis()
+                                updates["gameState.$gameId.currentRoundIndex"] = 0 // Ensure it's round 0
+                                updates["gameState.$gameId.currentChallengeId"] = gameChallenges.firstOrNull()?.id ?: ""
+                                updates["gameState.$gameId.roundStatus"] = WhereAndWhenGameState.STATUS_GUESSING
+                                updates["gameState.$gameId.playerGuesses"] = emptyMap<String, Any>()
+                                updates["gameState.$gameId.roundResults"] = mapOf("challengeId" to "", "results" to emptyMap<String,Any>())
+                                updates["gameState.$gameId.playersReadyForNextRound"] = emptyMap<String, Boolean>()
+                            }
                         }
 
                         try {
-                            if(gameId == "battleships") {
-                                db.collection("rooms").document(roomId).update(
-                                    mapOf(
-                                        "status" to "started",
-                                        "gameState.$gameId" to initialGameState,
-                                        "rematchVotes" to rematchVotes
-                                    )
-                                ).addOnSuccessListener {
-                                    println("✅ Game started successfully")
-                                }.addOnFailureListener {
-                                    println("❌ Failed to start game: ${it.message}")
+                            db.collection("rooms").document(roomId).update(updates)
+                                .addOnSuccessListener {
+                                    Log.d("HostLobby", "Game $gameId started successfully. Room status set to 'started'.")
+                                    // Navigation will happen via the LaunchedEffect observing 'status'
                                 }
-                            }
-                            else{
-                                db.collection("rooms").document(roomId).update(
-                                    mapOf(
-                                        "status" to "started",
-                                        "gameState.$gameId" to initialGameState,
-                                    )
-                                ).addOnSuccessListener {
-                                    println("✅ Game started successfully")
-                                }.addOnFailureListener {
-                                    println("❌ Failed to start game: ${it.message}")
+                                .addOnFailureListener { e ->
+                                    Log.e("HostLobby", "Failed to start game $gameId: ${e.message}", e)
+                                    // Show a toast or error message to the host
                                 }
-                            }
                         } catch (e: Exception) {
-                            println("🔥 Exception during game start: ${e.message}")
+                            Log.e("HostLobby", "Exception during game start for $gameId: ${e.message}", e)
                         }
                     }
                 },
-                enabled = players.size >= maxPlayers // Only when lobby is full
+                enabled = players.size >= 2 && players.size <= maxPlayers && status == "waiting" // Updated condition
             ) {
-                Text(if (players.size >= maxPlayers) "Start Game" else "Waiting for players…")
+                Text(
+                    if (status != "waiting") "Game In Progress..."
+                    else if (players.size >= 2 && players.size <= maxPlayers) "Start Game (${players.size}/$maxPlayers)"
+                    else "Waiting for more players... (${players.size}/$maxPlayers)"
+                )
             }
 
             Spacer(Modifier.height(16.dp))
@@ -181,6 +178,7 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME
                         else -> null
                     }
                     route?.let {

@@ -21,12 +21,12 @@ object NavRoutes {
     // after “Start” pressed: per-game multiplayer join-in
     const val BATTLESHIPS_GAME = "battleships/{code}/{userName}"
     const val OHPARDON_GAME    = "ohpardon/{code}/{userName}"
+    const val WHERE_AND_WHEN_GAME = "whereandwhen_game/{code}/{userName}"
 
     // single-player / local
     const val SPY_GAME         = "spy"
     const val JORISJUMP_GAME   = "jorisjump"
     const val SCREAMOSAUR_GAME = "screamosaur"
-    const val WHERE_AND_WHEN_GAME = "whereandwhen_game" // New route for your game
 
     //Battleships
     const val BATTLE_VOTE    = "battleships/{code}/{userName}/vote"

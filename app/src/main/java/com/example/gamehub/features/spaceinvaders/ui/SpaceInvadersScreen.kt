@@ -80,7 +80,6 @@ fun SpaceInvadersScreen(
     val greenTextColor = Color(0xFF00FF00)
 
 
-    Log.d("playerName", name)
 
     // Set screen width in engine
     LaunchedEffect(screenWidthPx) {
@@ -307,8 +306,8 @@ fun SpaceInvadersScreen(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 32.dp, bottom = 32.dp)
-                    .size(100.dp)
-                    .background(Color.Red, shape = CircleShape)
+                    .size(80.dp)
+                    .background(Color.Red.copy(alpha = 0.7f), shape = CircleShape)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = {
@@ -318,7 +317,7 @@ fun SpaceInvadersScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("Shoot", color = Color.Black, fontFamily = retroFont, fontSize = 18.sp)
+                Text("Shoot", color = Color.Black, fontFamily = retroFont, fontSize = 14.sp)
             }
         }
     }

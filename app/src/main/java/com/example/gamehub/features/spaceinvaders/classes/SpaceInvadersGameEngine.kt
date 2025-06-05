@@ -133,11 +133,13 @@ class SpaceInvadersGameEngine {
     fun initializeBunkers() {
         if (screenWidthPx == 0f || screenHeightPx == 0f) return // screen not ready
 
+        //if(!bunkers.isEmpty()) return
+
         bunkers.clear() // Always clear and re-initialize
 
         val bunkerCount = 3
         val spacing = screenWidthPx / (bunkerCount + 1)
-        val y = screenHeightPx - 200f
+        val y = screenHeightPx - 400f
 
         for (i in 0 until bunkerCount) {
             val x = spacing * (i + 1) - 40f // Centered spacing
@@ -146,7 +148,7 @@ class SpaceInvadersGameEngine {
                     id = i, x = x, y = y,
                     width = 200f,
                     height = 100f,
-                    health = 25
+                    health = 15
                 )
             )
         }

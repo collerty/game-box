@@ -3,10 +3,8 @@ package com.example.gamehub.features.triviatoe.ui
 import TriviatoeQuestionScreen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,12 +13,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
+import androidx.compose.foundation.layout.BoxWithConstraints
 import com.example.gamehub.features.triviatoe.model.*
 import com.example.gamehub.features.triviatoe.FirestoreTriviatoeSession
 import com.example.gamehub.R
 import kotlinx.coroutines.launch
 
+@Suppress("UnusedBoxWithConstraintsScope")
 @Composable
 fun TriviatoePlayScreen(
     session: FirestoreTriviatoeSession,
@@ -71,7 +73,6 @@ fun TriviatoePlayScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
-        // Show ONLY the question screen in QUESTION phase (all else hidden)
         if (gameState.state == TriviatoeRoundState.QUESTION) {
             Box(
                 modifier = Modifier
@@ -80,95 +81,68 @@ fun TriviatoePlayScreen(
                     .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                val mcQuestion = gameState.quizQuestion as? TriviatoeQuestion.MultipleChoice
-                if (mcQuestion != null) {
-                    val allAnswers: Map<String, PlayerAnswer?> = gameState.players.associate { player ->
-                        player.uid to gameState.answers[player.uid]
-                    }
-                    TriviatoeQuestionScreen(
-                        question = mcQuestion,
-                        playerId = playerId,
-                        players = gameState.players,
-                        allAnswers = allAnswers,
-                        correctIndex = mcQuestion.correctIndex,
-                        onAnswer = { playerAnswer ->
+                TriviatoeQuestionScreen(
+                    session = gameState,
+                    playerId = playerId,
+                    randomized = gameState.randomized ?: false,
+                    onAnswer = { playerAnswer ->
+                        scope.launch {
+                            session.submitAnswer(
+                                playerId,
+                                playerAnswer
+                            )
+                        }
+                    },
+                    onQuestionResolved = { winnerId, randomized ->
+                        if (playerId == gameState.players.firstOrNull()?.uid) {
                             scope.launch {
-                                session.submitAnswer(
-                                    playerId,
-                                    playerAnswer
-                                )
-                            }
-                        },
-                        onQuestionResolved = { winnerId ->
-                            if (playerId == gameState.players.firstOrNull()?.uid) {
-                                scope.launch {
-                                    session.setFirstToMoveAndAdvance(winnerId)
-                                }
+                                session.setFirstToMoveAndAdvance(winnerId, randomized)
                             }
                         }
-                    )
-                }
+                    }
+                )
             }
         } else {
-            // All non-question phases use this layout:
             Column(
                 Modifier
                     .fillMaxSize()
                     .padding(horizontal = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(60.dp)) // Space from top
+                Spacer(Modifier.height(60.dp))
 
-                // Game board grid, outlined
-                Box(
-                    Modifier
-                        .border(3.dp, Color.Black, RoundedCornerShape(12.dp))
-                        .background(Color.Black.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                        .padding(8.dp)
-                        .align(Alignment.CenterHorizontally)
+                // ---- GAME BOARD GRID with DYNAMIC border ----
+                // PNG: 404x404, grid area: 45,45 to 358,358 (313x313)
+                // so: gridPercent = 313 / 404 = 0.7748f
+                // and marginPercent = 45 / 404 = 0.1114f
+                val gridPercent = 313f / 404f
+
+                BoxWithConstraints(
+                    Modifier.align(Alignment.CenterHorizontally)
                 ) {
-                    // WHICH PHASE? only allow click in MOVE_1 and MOVE_2 and only if allowed!
-                    when (gameState.state) {
-                        TriviatoeRoundState.MOVE_1 -> {
-                            val movePlaced = gameState.moves.any {
-                                it.playerId == playerId && it.round == gameState.currentRound
-                            }
+                    // use the smallest of width or height so box stays square
+                    val boxSize = minOf(maxWidth, maxHeight)
+                    val gridSizeDp = boxSize * gridPercent
+                    val cellSize = gridSizeDp / 10
+
+                    Box(
+                        modifier = Modifier
+                            .size(boxSize)
+                            .align(Alignment.Center)
+                    ) {
+                        // Centered grid with perfect fit in border's transparent area
+                        Box(
+                            Modifier
+                                .size(gridSizeDp)
+                                .align(Alignment.Center)
+                        ) {
                             BoardGrid(
                                 board = gameState.board,
                                 onCellClick = { row, col ->
                                     if (
+                                        (gameState.state == TriviatoeRoundState.MOVE_1 || gameState.state == TriviatoeRoundState.MOVE_2) &&
                                         gameState.currentTurn == playerId &&
-                                        !movePlaced &&
-                                        gameState.board.none { it.row == row && it.col == col && it.symbol != null }
-                                    ) {
-                                        scope.launch {
-                                            val symbol = playerSymbol ?: "X"
-                                            session.submitMove(playerId, row, col, symbol)
-                                            // DO NOT call afterMove1 here!
-                                        }
-                                    }
-                                }
-                            )
-                            // Host triggers afterMove1 only when exactly 1 move has been made this round
-                            if (playerId == gameState.players.firstOrNull()?.uid) {
-                                val movesThisRound = gameState.moves.count { it.round == gameState.currentRound }
-                                LaunchedEffect(movesThisRound, gameState.state, gameState.currentRound) {
-                                    if (gameState.state == TriviatoeRoundState.MOVE_1 && movesThisRound == 1) {
-                                        session.afterMove1(gameState.firstToMove!!, gameState.players)
-                                    }
-                                }
-                            }
-                        }
-                        TriviatoeRoundState.MOVE_2 -> {
-                            val movePlaced = gameState.moves.any {
-                                it.playerId == playerId && it.round == gameState.currentRound
-                            }
-                            BoardGrid(
-                                board = gameState.board,
-                                onCellClick = { row, col ->
-                                    if (
-                                        gameState.currentTurn == playerId &&
-                                        !movePlaced &&
+                                        !gameState.moves.any { it.playerId == playerId && it.round == gameState.currentRound } &&
                                         gameState.board.none { it.row == row && it.col == col && it.symbol != null }
                                     ) {
                                         scope.launch {
@@ -176,43 +150,53 @@ fun TriviatoePlayScreen(
                                             session.submitMove(playerId, row, col, symbol)
                                         }
                                     }
-                                }
+                                },
+                                cellSize = cellSize
                             )
-                            // Host triggers afterMove2 only when exactly 2 moves have been made this round
-                            if (playerId == gameState.players.firstOrNull()?.uid) {
-                                val movesThisRound = gameState.moves.count { it.round == gameState.currentRound }
-                                LaunchedEffect(movesThisRound, gameState.state, gameState.currentRound) {
-                                    if (gameState.state == TriviatoeRoundState.MOVE_2 && movesThisRound == 2) {
-                                        session.afterMove2()
-                                    }
-                                }
-                            }
                         }
-                        else -> {
-                            BoardGrid(
-                                board = gameState.board,
-                                onCellClick = { _, _ -> }
-                            )
+                        // Overlay the border PNG
+                        Image(
+                            painter = painterResource(id = R.drawable.triviatoe_box_grid2),
+                            contentDescription = null,
+                            contentScale = ContentScale.FillBounds,
+                            modifier = Modifier.matchParentSize()
+                        )
+                    }
+                }
+
+                if (playerId == gameState.players.firstOrNull()?.uid) {
+                    val movesThisRound = gameState.moves.count { it.round == gameState.currentRound }
+                    LaunchedEffect(movesThisRound, gameState.state, gameState.currentRound) {
+                        if (gameState.state == TriviatoeRoundState.MOVE_1 && movesThisRound == 1) {
+                            session.afterMove1(gameState.firstToMove!!, gameState.players)
+                        }
+                        if (gameState.state == TriviatoeRoundState.MOVE_2 && movesThisRound == 2) {
+                            session.afterMove2()
                         }
                     }
                 }
 
                 Spacer(Modifier.height(24.dp))
 
-                // All game info in a single background box, below grid
+                // Info box below grid (unchanged)
                 Box(
                     Modifier
                         .align(Alignment.CenterHorizontally)
-                        .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
-                        .border(2.dp, Color.Black, RoundedCornerShape(18.dp))
-                        .padding(vertical = 20.dp, horizontal = 20.dp)
                         .fillMaxWidth(0.96f)
+                        .heightIn(min = 140.dp)
                 ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.triviatoe_box_info),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier.matchParentSize()
+                    )
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .padding(horizontal = 32.dp, vertical = 24.dp)
+                            .fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // ROUND
                         Text(
                             "Round: ${gameState.currentRound + 1}",
                             color = Color.White,
@@ -220,7 +204,6 @@ fun TriviatoePlayScreen(
                             textAlign = TextAlign.Center
                         )
                         Spacer(Modifier.height(8.dp))
-                        // PLAYER INFO
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center,
@@ -245,7 +228,6 @@ fun TriviatoePlayScreen(
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        // CURRENT TURN
                         val currentPlayer = gameState.players.find { it.uid == gameState.currentTurn }
                         Text(
                             "Current turn: ${currentPlayer?.name ?: "?"}",
@@ -255,7 +237,6 @@ fun TriviatoePlayScreen(
                         )
                         Spacer(Modifier.height(10.dp))
 
-                        // State banners inside info box
                         when (gameState.state) {
                             TriviatoeRoundState.REVEAL -> {
                                 val firstPlayer = gameState.players.find { it.uid == gameState.firstToMove }
@@ -318,7 +299,8 @@ fun TriviatoePlayScreen(
 @Composable
 fun BoardGrid(
     board: List<TriviatoeCell>,
-    onCellClick: (row: Int, col: Int) -> Unit
+    onCellClick: (row: Int, col: Int) -> Unit,
+    cellSize: Dp
 ) {
     val gridSize = 10
     Column(
@@ -326,30 +308,27 @@ fun BoardGrid(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         for (row in 0 until gridSize) {
-            Row(Modifier.align(Alignment.CenterHorizontally)) {
+            Row {
                 for (col in 0 until gridSize) {
                     val cell = board.find { it.row == row && it.col == col }
                     Box(
                         Modifier
-                            .size(32.dp)
-                            .padding(1.dp)
+                            .size(cellSize)
                             .clickable { onCellClick(row, col) },
                         contentAlignment = Alignment.Center
                     ) {
-                        // BG tile for the cell
                         Image(
-                            painter = painterResource(id = R.drawable.triviatoe_grid_tile), // <---- YOUR TILE IMAGE
+                            painter = painterResource(id = R.drawable.triviatoe_grid_tile),
                             contentDescription = null,
                             modifier = Modifier.matchParentSize()
                         )
-                        // X/O overlay if present
                         if (cell?.symbol == "X" || cell?.symbol == "O") {
                             Image(
                                 painter = painterResource(
                                     if (cell.symbol == "X") R.drawable.x_icon else R.drawable.o_icon
                                 ),
                                 contentDescription = null,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(cellSize)
                             )
                         }
                     }

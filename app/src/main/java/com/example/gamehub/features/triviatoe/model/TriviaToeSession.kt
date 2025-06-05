@@ -11,7 +11,8 @@ data class TriviatoeSession(
     val firstToMove: String?,   // playerId who moves first this round
     val currentTurn: String?,   // playerId whose move it is now
     val winner: String?,        // playerId or null
-    val state: TriviatoeRoundState
+    val state: TriviatoeRoundState,
+    val randomized: Boolean? = null
 )
 
 data class TriviatoePlayer(

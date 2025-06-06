@@ -16,10 +16,12 @@ sealed class Game(
     object Spy          : Game("spy",        "Spy",          R.drawable.ic_spy,         online = false)
     object JorisJump    : Game("jorisjump",  "Joris Jump",   R.drawable.ic_jorisjump,   online = false)
     object ScreamoSaur  : Game("screamosaur","Scream-O-Saur",R.drawable.ic_screamosaur, online = false)
+    object SpaceInvaders  : Game("spaceinvaders","Space Invaders",R.drawable.ic_spaceinvaders, online = false)
+
     object MemoryMatch  : Game("memoryMatching", "Memory Match", R.drawable.ic_memory_match, online = false) // New Game
 
 
     companion object {
-        val all = listOf(BattleShips, OhPardon, Spy, JorisJump, ScreamoSaur, MemoryMatch, Triviatoe)
+        val all = listOf(BattleShips, OhPardon, Spy, JorisJump, ScreamoSaur, MemoryMatch, Triviatoe, SpaceInvaders)
     }
 }

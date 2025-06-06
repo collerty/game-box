@@ -196,10 +196,12 @@ fun CodenamesScreen(
 
                 Button(
                     onClick = {
-                        navController.navigate("game_lobby/$roomId") {
-                            popUpTo("game_lobby/$roomId") {
-                                inclusive = true
+                        navController.navigate(NavRoutes.LOBBY_MENU.replace("{gameId}", "codenames")) {
+                            // Pop up to the Codenames lobby menu route, removing the game screen
+                            popUpTo(NavRoutes.LOBBY_MENU.replace("{gameId}", "codenames")) {
+                                inclusive = true // Remove the Codenames game screen from the back stack
                             }
+                            // launchSingleTop = true // May not be necessary with popUpTo inclusive
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -356,6 +358,8 @@ fun CodenamesScreen(
                                                             if (newCount == 0) {
                                                                 // Red team wins
                                                                 updates["gameState.codenames.winner"] = "RED"
+                                                                // Update room status to ended
+                                                                updates["status"] = "ended"
                                                             }
                                                         } else {
                                                             // Current team is Blue and revealed a Red card - switch turn to Red
@@ -375,6 +379,8 @@ fun CodenamesScreen(
                                                             if (newCount == 0) {
                                                                 // Blue team wins
                                                                 updates["gameState.codenames.winner"] = "BLUE"
+                                                                // Update room status to ended
+                                                                updates["status"] = "ended"
                                                             }
                                                         } else {
                                                             // Current team is Red and revealed a Blue card - switch turn to Blue
@@ -389,6 +395,8 @@ fun CodenamesScreen(
                                                     "ASSASSIN" -> {
                                                         // Game over - other team wins
                                                         updates["gameState.codenames.winner"] = if (currentTeam == "RED") "BLUE" else "RED"
+                                                        // Update room status to ended
+                                                        updates["status"] = "ended"
                                                     }
                                                     "NEUTRAL" -> {
                                                         // Revealed a Neutral card - switch turns

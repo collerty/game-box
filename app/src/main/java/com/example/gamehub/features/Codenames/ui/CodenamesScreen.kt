@@ -247,13 +247,24 @@ fun CodenamesScreen(
                     color = Color.Red
                 )
                 // Log/Clue History Section
-                Text(
-                    "Log",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier
-                        .align(Alignment.Start)
-                        .padding(top = 8.dp)
-                )
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                     Text(
+                        "Log",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                     if (currentTurn == "RED") { // Show timer only for Red team's turn
+                         Text(
+                             text = "${timerSeconds}s",
+                             style = MaterialTheme.typography.titleMedium, // Adjusted style to match Log text
+                             color = Color.Red // Timer color matches team color
+                         )
+                     }
+                }
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -456,14 +467,25 @@ fun CodenamesScreen(
                     style = MaterialTheme.typography.headlineSmall,
                     color = Color.Blue
                 )
-                // Log/Clue History Section
-                Text(
-                    "Log",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier
-                        .align(Alignment.Start)
-                        .padding(top = 8.dp)
-                )
+                // Log/Clue History Section for Blue Team
+                Row(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                     Text(
+                        "Log",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                     if (currentTurn == "BLUE") {
+                         Text(
+                             text = "${timerSeconds}s",
+                             style = MaterialTheme.typography.titleMedium, // Adjusted style to match Log text
+                             color = Color.Blue // Timer color matches team color
+                         )
+                     }
+                }
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -480,19 +502,13 @@ fun CodenamesScreen(
             }
         }
 
-        // Bottom section for global controls/status (Timer, Master Input, General Status)
+        // Bottom section for global controls/status (Master Input, General Status)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "${timerSeconds}s",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
             // Conditional display for Master Input or General Player Status
             if (isMaster && isMasterPhase && currentTeam == currentMasterTeam) {
                 // Master input field for the current master's team
@@ -533,7 +549,7 @@ fun CodenamesScreen(
 
                                             // Add new clue
                                             val newClue = mapOf(
-                                                "word" to "$word $count", // Store clue as "WORD X"
+                                                "word" to clueText, // Store clue as "WORD X"
                                                 "team" to currentTeam
                                             )
 
@@ -581,31 +597,6 @@ fun CodenamesScreen(
                     style = MaterialTheme.typography.titleMedium,
                     color = if (currentTurn == "RED") Color.Red else Color.Blue
                 )
-
-                // Only show recent clues here if the current user is NOT the master,
-                // or if they are the master but it's not their turn to give a clue.
-                // The master's own clue history is less critical to see here, as they're focused on input.
-                if (!(isMaster && isMasterPhase && currentTeam == currentMasterTeam)) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Recent Clues for ${currentTeam} Team",
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                    // Use a fixed small height for the clue list to prevent it from growing too large
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 80.dp) // Adjusted height to be more compact
-                    ) {
-                        items(if (currentTeam == "RED") redClues else blueClues) { clue ->
-                            Text(
-                                text = clue.word, // Clue will now be "WORD X"
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (clue.team == "RED") Color.Red else Color.Blue,
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
             }
         }
     }

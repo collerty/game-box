@@ -80,7 +80,7 @@ fun CodenamesScreen(
     
     // Timer effect
     LaunchedEffect(isMasterPhase) {
-        timerSeconds = if (isMasterPhase) 60 else 10 // Both phases get 60 seconds
+        timerSeconds = if (isMasterPhase) 60 else 60 // Both phases get 60 seconds
         while (timerSeconds > 0) {
             delay(1000)
             timerSeconds--

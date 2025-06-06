@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
+import android.util.Log
 
 object LobbyService {
     private val firestore = FirebaseFirestore.getInstance()
@@ -31,6 +32,9 @@ object LobbyService {
             .replace("-", "")
             .take(6)
             .uppercase()
+            
+        Log.d("LobbyService", "Creating lobby with code: $code")
+        Log.d("LobbyService", "Game ID: $gameId, Room Name: $roomName, Host: $hostName")
 
         val maxPlayers = when (gameId) {
             "battleships" -> 2
@@ -94,6 +98,7 @@ object LobbyService {
         )
 
         rooms.document(code).set(roomData).await()
+        Log.d("LobbyService", "Lobby created successfully with code: $code")
         return code
     }
 

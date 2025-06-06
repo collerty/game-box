@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "onCreate called")
         FirebaseAuth.getInstance().signInAnonymously()
             .addOnSuccessListener { Log.d("Auth", "Signed in anonymously") }
             .addOnFailureListener { Log.e("Auth", "Anonymous sign-in failed", it) }
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity() {
 fun GameHubApp() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    Log.d("MainActivity", "GameHubApp composable created")
 
     Scaffold { innerPadding ->
         NavHost(
@@ -68,6 +70,7 @@ fun GameHubApp() {
                 arguments = listOf(navArgument("gameId") { type = NavType.StringType })
             ) { backStack ->
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
+                Log.d("MainActivity", "Navigating to LobbyMenuScreen with gameId: $gameId")
                 LobbyMenuScreen(navController, gameId)
             }
 
@@ -80,6 +83,7 @@ fun GameHubApp() {
             ) { backStack ->
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
                 val code   = backStack.arguments?.getString("code")   ?: return@composable
+                Log.d("MainActivity", "Navigating to HostLobbyScreen with gameId: $gameId, code: $code")
                 HostLobbyScreen(
                     navController = navController,
                     gameId = gameId,

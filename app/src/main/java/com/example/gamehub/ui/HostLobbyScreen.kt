@@ -21,6 +21,7 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
+import android.util.Log
 
 @Composable
 fun HostLobbyScreen(
@@ -391,10 +392,19 @@ fun HostLobbyScreen(
                         "codenames"   -> {
                             val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
                             val isMaster = currentPlayer?.get("role") == "master"
+
+                            Log.d("CodenamesHostDebug", """
+                                HostLobbyScreen - Starting CodenamesActivity:
+                                currentPlayer: $currentPlayer
+                                isMaster: $isMaster
+                                team: ${currentPlayer?.get("team")}
+                            """.trimIndent())
+
                             val intent = Intent(context, CodenamesActivity::class.java).apply {
                                 putExtra("roomId", roomId)
                                 putExtra("userName", hostName)
                                 putExtra("isMaster", isMaster)
+                                putExtra("team", currentPlayer?.get("team") as? String ?: "")
                             }
                             context.startActivity(intent)
                             null

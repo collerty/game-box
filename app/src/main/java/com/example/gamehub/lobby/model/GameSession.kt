@@ -16,7 +16,8 @@ data class GameSession(
     val chosenMap: Int? = null,
     val gameResult: String? = null,
     val placedMines: Map<String, List<Cell>> = emptyMap(),
-    val triggeredMines: Map<String, List<Cell>> = emptyMap()
+    val triggeredMines: Map<String, List<Cell>> = emptyMap(),
+    val currentAttack: AttackAnimation? = null
 ) {
     companion object {
         fun empty(id: String) = GameSession(
@@ -51,3 +52,4 @@ data class GameSession(
             moves.filter { it.playerId == playerId }
         )
 }
+

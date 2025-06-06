@@ -41,6 +41,7 @@ fun GuestGameScreen(
             val route = when (gameId) {
                 "battleships" -> NavRoutes.BATTLE_VOTE
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
                 else          -> null
             }
             route?.let {

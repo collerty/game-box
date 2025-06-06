@@ -28,9 +28,17 @@ object NavRoutes {
     const val SCREAMOSAUR_GAME = "screamosaur"
     const val SPACE_INVADERS_PREGAME = "spaceinvaderspregame"
     const val SPACE_INVADERS_GAME = "spaceinvaders"
+    const val MEMORY_MATCHING_GAME = "memoryMatching"
 
     //Battleships
     const val BATTLE_VOTE    = "battleships/{code}/{userName}/vote"
     const val BATTLE_PLACE = "battleships/{code}/{userName}/place/{mapId}"
+
+    //TriviaToe
+    const val TRIVIATOE_GAME = "triviatoe/{code}/{userName}"
+    const val TRIVIATOE_XO_ASSIGN = "triviatoe/{code}/{userName}/xo"
+    const val TRIVIATOE_INTRO_ANIM = "triviatoe/{code}/{userName}/intro"
+
+
 
 }

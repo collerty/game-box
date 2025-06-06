@@ -35,7 +35,8 @@ object LobbyService {
         val maxPlayers = when (gameId) {
             "battleships" -> 2
             "ohpardon" -> 4
-            else -> 4
+            "triviatoe"   -> 2
+            else -> 2
         }
 
         // Battleships initial state
@@ -57,9 +58,23 @@ object LobbyService {
             "gameResult" to null
         )
 
+        val triviatoeState = mapOf(
+            "players"      to emptyList<Map<String, Any>>(),
+            "board"        to emptyList<Map<String, Any>>(),
+            "moves"        to emptyList<Map<String, Any>>(),
+            "currentRound" to 0,
+            "quizQuestion" to null, // Will be set when round starts
+            "answers"      to emptyMap<String, Any>(),
+            "firstToMove"  to null,
+            "currentTurn"  to null,
+            "winner"       to null,
+            "state"        to "QUESTION"
+        )
+
         val initialGameState = when (gameId) {
             "battleships" -> mapOf("battleships" to battleshipsState)
             "ohpardon"    -> mapOf("ohpardon" to ohpardonState)
+            "triviatoe"   -> mapOf("triviatoe" to triviatoeState)
             else          -> mapOf(gameId to mapOf("gameResult" to null))
         }
 
@@ -92,6 +107,7 @@ object LobbyService {
             "rematchVotes" to emptyMap<String, Boolean>(),
             "createdAt" to FieldValue.serverTimestamp()
         )
+
 
         rooms.document(code).set(roomData).await()
         return code
@@ -252,6 +268,18 @@ object LobbyService {
             "ohpardon" -> mapOf(
                 "gameResult" to null
                 // Add other ohpardon state fields if needed
+            )
+            "triviatoe"   -> mapOf(
+                "players"      to players,
+                "board"        to emptyList<Map<String, Any>>(),
+                "moves"        to emptyList<Map<String, Any>>(),
+                "currentRound" to 0,
+                "quizQuestion" to null,
+                "answers"      to emptyMap<String, Any>(),
+                "firstToMove"  to null,
+                "currentTurn"  to startingPlayerUid,
+                "winner"       to null,
+                "state"        to "QUESTION"
             )
             else -> mapOf("gameResult" to null)
         }

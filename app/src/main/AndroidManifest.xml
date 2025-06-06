@@ -40,6 +40,10 @@
             android:name=".features.spy.ui.SpyGameActivity"
             android:exported="false"
             android:theme="@style/Theme.GameHub" />
+
+        <service
+            android:name=".MusicService"
+            android:exported="false"/>
     </application>
 
 </manifest>

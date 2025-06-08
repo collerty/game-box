@@ -1,46 +1,44 @@
 package com.example.gamehub.ui
 
-import android.content.Intent // Kept for MusicService & Codenames
-import android.content.Context // Kept as it's in the develop signature
+import android.content.Intent 
+import android.content.Context 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.clickable // Kept for Codenames
+import androidx.compose.foundation.clickable 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment // Kept for Codenames
+import androidx.compose.ui.Alignment 
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext // Will use this if context param is removed
+import androidx.compose.ui.platform.LocalContext 
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.gamehub.features.codenames.service.CodenamesService // Kept for Codenames
-import com.example.gamehub.features.codenames.ui.CodenamesActivity // Kept for Codenames
+import com.example.gamehub.features.codenames.service.CodenamesService 
+import com.example.gamehub.features.codenames.ui.CodenamesActivity 
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.FieldValue // Kept for Codenames player removal
+import com.google.firebase.firestore.FieldValue 
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import android.util.Log
 
-// --- WHERE & WHEN Specific Imports ---
 import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
-// import com.example.gamehub.features.whereandwhen.ui.gameChallenges // Not directly needed here, LobbyService handles initial challenge
+import com.example.gamehub.features.whereandwhen.ui.gameChallenges 
 
-// It seems the `context: Context` parameter was added in the develop branch.
-// I'll keep it in the signature to match, but W&W specific logic will prefer LocalContext if possible.
+
 @Composable
 fun HostLobbyScreen(
     navController: NavController,
     gameId: String,
     roomId: String,
-    context: Context // Kept from develop signature
+    context: Context 
 ) {
     val db = Firebase.firestore
     val auth = Firebase.auth
     val scope = rememberCoroutineScope()
-    val localCtx = LocalContext.current // Use this for W&W Toast or other context needs if the param isn't ideal
+    val localCtx = LocalContext.current 
 
     var roomName by remember { mutableStateOf<String?>(null) }
     var hostName by remember { mutableStateOf<String?>(null) }
@@ -49,8 +47,6 @@ fun HostLobbyScreen(
     var status by remember { mutableStateOf("waiting") }
     var showExitDialog by remember { mutableStateOf(false) }
 
-    // This context is from the parameter, as in the develop branch.
-    // For W&W, if LocalContext.current is needed for something specific (like Toast), use localCtx.
     LaunchedEffect(Unit) {
         context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
     }
@@ -240,9 +236,8 @@ fun HostLobbyScreen(
                     }
                 }
                 Spacer(Modifier.height(24.dp))
-                // --- End of Codenames UI from develop branch ---
             } else {
-                // Default player list for other games
+           
                 players.forEach { player ->
                     val name = player["name"] as? String ?: ""
                     Text("• $name")
@@ -257,18 +252,13 @@ fun HostLobbyScreen(
                         // val hostUid = auth.currentUser?.uid // hostUid from auth is already available
                         if (startingPlayerUid.isNullOrEmpty() || auth.currentUser?.uid.isNullOrEmpty()) return@launch
 
-                        // This 'updates' map will contain the final data to send to Firestore.
-                        // It starts with just changing the status.
+                     
                         val gameUpdates = mutableMapOf<String, Any?>("status" to "started")
 
-                        // Game-specific initial state for gameState node
-                        // LobbyService.host already sets up the initial gameState structure.
-                        // Here, we might only need to set fields that are determined *at the moment the host presses start*.
+                        
                         val specificGameStateUpdates = when (gameId) {
                             "battleships" -> {
-                                // From develop:
-                                // Note: LobbyService now initializes player1Id, player2Id, currentTurn, powerUps, energy.
-                                // This might be redundant or could be for ensuring `currentTurn` if it changes.
+                               
                                 mapOf(
                                     "player1Id" to players.getOrNull(0)?.get("uid"),
                                     "player2Id" to players.getOrNull(1)?.get("uid"),
@@ -283,16 +273,16 @@ fun HostLobbyScreen(
                                 )
                             }
                             "ohpardon" -> {
-                                // From develop:
+                                
                                 mapOf(
                                     "currentPlayer" to startingPlayerUid,
-                                    "scores" to emptyMap<String, Int>(), // Note: LobbyService has diceRoll, not scores here.
+                                    "scores" to emptyMap<String, Int>(), 
                                     "gameResult" to null,
                                     "diceRoll" to null
                                 )
                             }
                             "triviatoe" -> {
-                                // From develop:
+                                
                                 mapOf(
                                     "players"      to players,
                                     "board"        to emptyList<Map<String, Any>>(),
@@ -312,26 +302,24 @@ fun HostLobbyScreen(
                                 CodenamesService.generateGameState()
                             }
                             "whereandwhen" -> {
-                                // --- WHERE & WHEN Specific: Set round start time ---
-                                // LobbyService.host has already set up currentRoundIndex, currentChallengeId, challengeOrder.
+                                
                                 mapOf(
                                     "roundStartTimeMillis" to System.currentTimeMillis(),
                                     "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING
-                                    // No need to reset other fields here, LobbyService did it.
+                                    
                                 )
                             }
                             else -> emptyMap()
                         }
 
-                        // Add the specific game state updates to the main updates map
+                       
                         if (specificGameStateUpdates.isNotEmpty()) {
                             gameUpdates["gameState.$gameId"] = specificGameStateUpdates
                         }
 
-                        // Rematch votes reset from develop, applies if battleships
-                        // For other games, this might be benign or could be conditional
+                       
                         if(gameId == "battleships") {
-                            val rematchVotes = players.associate {
+                             val rematchVotes = players.associate {
                                 val uid = it["uid"] as? String ?: ""
                                 uid to false
                             }
@@ -342,16 +330,16 @@ fun HostLobbyScreen(
                         try {
                             db.collection("rooms").document(roomId).update(gameUpdates)
                                 .addOnSuccessListener {
-                                    println("✅ Game started successfully") // From develop
+                                    println("✅ Game started successfully") 
                                 }.addOnFailureListener {
-                                    println("❌ Failed to start game: ${it.message}") // From develop
+                                    println("❌ Failed to start game: ${it.message}") 
                                 }
                         } catch (e: Exception) {
-                            println("🔥 Exception during game start: ${e.message}") // From develop
+                            println("🔥 Exception during game start: ${e.message}") 
                         }
                     }
                 },
-                enabled = players.size >= maxPlayers && status == "waiting" // Condition from develop
+                enabled = players.size >= maxPlayers && status == "waiting" 
             ) {
                 Text(if (players.size >= maxPlayers && status == "waiting") "Start Game" else if (status != "waiting") "Game In Progress..." else "Waiting for players… (${players.size}/$maxPlayers)")
             }
@@ -371,9 +359,9 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
-                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM // Route from develop
-                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME // <-- Your W&W Navigation
-                        "codenames"   -> { // Codenames logic from develop
+                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM 
+                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME 
+                        "codenames"   -> { 
                             val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
                             val isMaster = currentPlayer?.get("role") == "master"
                             Log.d("CodenamesHostDebug", """

@@ -1,7 +1,7 @@
 package com.example.gamehub.lobby
 
-import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState // Where & When import
-import com.example.gamehub.features.whereandwhen.ui.gameChallenges // Where & When import
+import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState 
+import com.example.gamehub.features.whereandwhen.ui.gameChallenges
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -19,7 +19,7 @@ object LobbyService {
     private val rooms = firestore.collection("rooms")
     private val auth = Firebase.auth
 
-    /** Host a new game room */
+
     suspend fun host(
         gameId: String,
         roomName: String,
@@ -43,7 +43,7 @@ object LobbyService {
             "ohpardon" -> 4
             "triviatoe"   -> 2
             "codenames" -> 1
-            "whereandwhen" -> 4 // Where & When max players
+            "whereandwhen" -> 4 
             else -> 2
         }
 
@@ -99,7 +99,7 @@ object LobbyService {
                 "challengeOrder" to shuffledChallengeIds
             )
         } else {
-            emptyMap() // Placeholder if not W&W, though initialGameState handles this
+            emptyMap() 
         }
 
 
@@ -123,7 +123,7 @@ object LobbyService {
                     "pawn3" to -1
                 )
             )
-            "whereandwhen" -> mapOf( // Where & When player object
+            "whereandwhen" -> mapOf( 
                 "uid" to hostUid,
                 "name" to hostName,
                 "totalScore" to 0
@@ -168,7 +168,7 @@ object LobbyService {
         val maxPlayers = snap.getLong("maxPlayers")?.toInt() ?: return null
         val currentPlayers = (snap.get("players") as? List<Map<String, Any>>)?.toMutableList() ?: return null
         if (currentPlayers.any { it["uid"] == user.uid }) {
-            return gameId
+             return gameId
         }
         if (currentPlayers.size >= maxPlayers) return null
 
@@ -340,7 +340,7 @@ object LobbyService {
             uid to false
         }
 
-        val updatedPlayersArray = if (gameId == "whereandwhen") { // Where & When player score reset
+        val updatedPlayersArray = if (gameId == "whereandwhen") { 
             players.map { playerMap ->
                 playerMap.toMutableMap().apply { this["totalScore"] = 0 }
             }

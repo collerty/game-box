@@ -100,5 +100,7 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("com.google.maps.android:maps-compose:2.11.4") // Check for the latest version
     implementation("com.google.android.gms:play-services-maps:18.2.0") // Core Maps SDK
-
+    implementation("com.airbnb.android:lottie-compose:6.0.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-gif:2.4.0")
 }

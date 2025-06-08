@@ -1,6 +1,7 @@
 package com.example.gamehub.ui
 
 import android.app.Activity
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
@@ -22,6 +23,11 @@ import kotlinx.coroutines.launch
 fun MainMenu(navController: NavController) {
     // Grab the Activity so we can call finish()
     val activity = (LocalContext.current as? Activity)
+
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
 
     LaunchedEffect(Unit) {
         if (FirebaseAuth.getInstance().currentUser == null) {

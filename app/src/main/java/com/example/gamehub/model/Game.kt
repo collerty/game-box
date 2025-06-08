@@ -10,6 +10,7 @@ sealed class Game(
 ) {
     object BattleShips  : Game("battleships", "BattleShips",  R.drawable.ic_battleships, online = true)
     object OhPardon     : Game("ohpardon",   "Oh Pardon",    R.drawable.ic_ohpardon,    online = true)
+    object Codenames    : Game("codenames",  "Codenames",    R.drawable.ic_codenames,   online = true)
     object Triviatoe : Game("triviatoe", "Triviatoe", R.drawable.ic_triviatoe, online = true)
 
     /* single-player or local-only examples */
@@ -20,6 +21,6 @@ sealed class Game(
 
 
     companion object {
-        val all = listOf(BattleShips, OhPardon, Spy, JorisJump, ScreamoSaur, MemoryMatch, Triviatoe)
+        val all = listOf(BattleShips, OhPardon, Spy, JorisJump, ScreamoSaur, MemoryMatch, Triviatoe, Codenames)
     }
 }

@@ -1,39 +1,44 @@
 package com.example.gamehub.ui
 
-import android.content.Intent
-import android.content.Context
+import android.content.Intent 
+import android.content.Context 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clickable 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment 
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalContext 
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.gamehub.features.codenames.service.CodenamesService
-import com.example.gamehub.features.codenames.ui.CodenamesActivity
+import com.example.gamehub.features.codenames.service.CodenamesService 
+import com.example.gamehub.features.codenames.ui.CodenamesActivity 
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FieldValue 
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import android.util.Log
 
+import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
+import com.example.gamehub.features.whereandwhen.ui.gameChallenges 
+
+
 @Composable
 fun HostLobbyScreen(
     navController: NavController,
     gameId: String,
     roomId: String,
-    context: Context
+    context: Context 
 ) {
     val db = Firebase.firestore
     val auth = Firebase.auth
     val scope = rememberCoroutineScope()
+    val localCtx = LocalContext.current 
 
     var roomName by remember { mutableStateOf<String?>(null) }
     var hostName by remember { mutableStateOf<String?>(null) }
@@ -42,7 +47,6 @@ fun HostLobbyScreen(
     var status by remember { mutableStateOf("waiting") }
     var showExitDialog by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
     LaunchedEffect(Unit) {
         context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
     }
@@ -77,22 +81,18 @@ fun HostLobbyScreen(
             text = { Text("Closing the lobby will disconnect all players.") },
             confirmButton = {
                 TextButton(onClick = {
-                    // First get all players' information
+                    // Player removal logic from develop branch
                     db.collection("rooms").document(roomId)
                         .get()
                         .addOnSuccessListener { document ->
                             @Suppress("UNCHECKED_CAST")
                             val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-
-                            // Remove all players with their full information
                             val updates = mutableMapOf<String, Any>()
                             currentPlayers.forEach { player ->
                                 updates["players"] = FieldValue.arrayRemove(player)
                             }
-
-                            // Then delete the room
                             db.collection("rooms").document(roomId)
-                                .update(updates)
+                                .update(updates) // This seems to intend to remove all players first.
                                 .addOnSuccessListener {
                                     db.collection("rooms").document(roomId)
                                         .delete()
@@ -125,13 +125,12 @@ fun HostLobbyScreen(
             Spacer(Modifier.height(12.dp))
 
             if (gameId == "codenames") {
-                // Team selection UI for Codenames
+                // --- Codenames UI from develop branch ---
                 val authUid = auth.currentUser?.uid
                 val redTeam = players.filter { (it["team"] ?: "spectator") == "red" }
                 val blueTeam = players.filter { (it["team"] ?: "spectator") == "blue" }
                 val spectators = players.filter { (it["team"] ?: "spectator") == "spectator" }
 
-                // Show spectators section
                 Text("Spectators", style = MaterialTheme.typography.headlineSmall)
                 spectators.forEach { player ->
                     val name = player["name"] as? String ?: ""
@@ -139,11 +138,10 @@ fun HostLobbyScreen(
                 }
                 Spacer(Modifier.height(24.dp))
 
-                // Red Team section
                 Text("Red Team", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.headlineSmall)
                 redTeam.forEach { player ->
                     val name = player["name"] as? String ?: ""
-                    val isMe = player["uid"] == authUid
+                    // val isMe = player["uid"] == authUid // isMe not used in display text
                     val isMaster = player["role"] == "master"
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("• $name ${if (isMaster) "(Master)" else "(Player)"}")
@@ -159,29 +157,14 @@ fun HostLobbyScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.clickable {
-                                val currentPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName
-                                )
-                                val newPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName,
-                                    "team" to "red",
-                                    "role" to "master"
-                                )
-
-                                // First remove the player from any team
-                                db.collection("rooms").document(roomId)
-                                    .get()
-                                    .addOnSuccessListener { document ->
-                                        @Suppress("UNCHECKED_CAST")
-                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-
-                                        // Then add the player to the new role
-                                        db.collection("rooms").document(roomId)
-                                            .update("players", updatedPlayers + newPlayer)
-                                    }
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "red", "role" to "master")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
                             }
                         )
                     }
@@ -191,40 +174,24 @@ fun HostLobbyScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.clickable {
-                                val currentPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName
-                                )
-                                val newPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName,
-                                    "team" to "red",
-                                    "role" to "player"
-                                )
-
-                                // First remove the player from any team
-                                db.collection("rooms").document(roomId)
-                                    .get()
-                                    .addOnSuccessListener { document ->
-                                        @Suppress("UNCHECKED_CAST")
-                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-
-                                        // Then add the player to the new role
-                                        db.collection("rooms").document(roomId)
-                                            .update("players", updatedPlayers + newPlayer)
-                                    }
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "red", "role" to "player")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
                             }
                         )
                     }
                 }
                 Spacer(Modifier.height(24.dp))
 
-                // Blue Team section
                 Text("Blue Team", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineSmall)
                 blueTeam.forEach { player ->
                     val name = player["name"] as? String ?: ""
-                    val isMe = player["uid"] == authUid
+                    // val isMe = player["uid"] == authUid // isMe not used
                     val isMaster = player["role"] == "master"
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("• $name ${if (isMaster) "(Master)" else "(Player)"}")
@@ -233,36 +200,20 @@ fun HostLobbyScreen(
                 if (blueTeam.size < 2) {
                     val hasMaster = blueTeam.any { it["role"] == "master" }
                     val hasPlayer = blueTeam.any { it["role"] == "player" }
-
                     if (!hasMaster) {
                         Text(
                             "Join as master",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable {
-                                val currentPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName
-                                )
-                                val newPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName,
-                                    "team" to "blue",
-                                    "role" to "master"
-                                )
-
-                                // First remove the player from any team
-                                db.collection("rooms").document(roomId)
-                                    .get()
-                                    .addOnSuccessListener { document ->
-                                        @Suppress("UNCHECKED_CAST")
-                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-
-                                        // Then add the player to the new role
-                                        db.collection("rooms").document(roomId)
-                                            .update("players", updatedPlayers + newPlayer)
-                                    }
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "blue", "role" to "master")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
                             }
                         )
                     }
@@ -272,35 +223,21 @@ fun HostLobbyScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable {
-                                val currentPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName
-                                )
-                                val newPlayer = mapOf(
-                                    "uid" to auth.currentUser?.uid,
-                                    "name" to hostName,
-                                    "team" to "blue",
-                                    "role" to "player"
-                                )
-
-                                // First remove the player from any team
-                                db.collection("rooms").document(roomId)
-                                    .get()
-                                    .addOnSuccessListener { document ->
-                                        @Suppress("UNCHECKED_CAST")
-                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-
-                                        // Then add the player to the new role
-                                        db.collection("rooms").document(roomId)
-                                            .update("players", updatedPlayers + newPlayer)
-                                    }
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "blue", "role" to "player")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
                             }
                         )
                     }
                 }
                 Spacer(Modifier.height(24.dp))
             } else {
+           
                 players.forEach { player ->
                     val name = player["name"] as? String ?: ""
                     Text("• $name")
@@ -312,85 +249,99 @@ fun HostLobbyScreen(
                 onClick = {
                     scope.launch {
                         val startingPlayerUid = players.firstOrNull()?.get("uid") as? String
-                        val hostUid = auth.currentUser?.uid
-                        if (startingPlayerUid.isNullOrEmpty() || hostUid.isNullOrEmpty()) return@launch
+                        // val hostUid = auth.currentUser?.uid // hostUid from auth is already available
+                        if (startingPlayerUid.isNullOrEmpty() || auth.currentUser?.uid.isNullOrEmpty()) return@launch
 
-                        // Game-specific initial state
-                        val initialGameState = when (gameId) {
-                            "battleships" -> mapOf(
-                                "player1Id" to players.getOrNull(0)?.get("uid"),
-                                "player2Id" to players.getOrNull(1)?.get("uid"),
-                                "currentTurn" to startingPlayerUid,
-                                "moves" to emptyList<String>(),
-                                "powerUps" to players.associate { it["uid"] as String to listOf("RADAR", "BOMB") },
-                                "energy" to players.associate { it["uid"] as String to 3 },
-                                "gameResult" to null,
-                                "mapVotes" to emptyMap<String, Int>(),
-                                "chosenMap" to null,
-                                "powerUpMoves" to emptyList<String>()
-                            )
-                            "ohpardon" -> mapOf(
-                                "currentPlayer" to startingPlayerUid,
-                                "scores" to emptyMap<String, Int>(),
-                                "gameResult" to null,
-                                "diceRoll" to null
-                            )
-                            "triviatoe" -> mapOf(
-                                "players"      to players,
-                                "board"        to emptyList<Map<String, Any>>(),
-                                "moves"        to emptyList<Map<String, Any>>(),
-                                "currentRound" to 0,
-                                "quizQuestion" to null,
-                                "answers"      to emptyMap<String, Any>(),
-                                "firstToMove"  to null,
-                                "currentTurn"  to startingPlayerUid,
-                                "winner"       to null,
-                                "state"        to "QUESTION",
-                                "usedQuestions" to emptyList<Int>()
-                            )
-                            "codenames" -> CodenamesService.generateGameState()
+                     
+                        val gameUpdates = mutableMapOf<String, Any?>("status" to "started")
+
+                        
+                        val specificGameStateUpdates = when (gameId) {
+                            "battleships" -> {
+                               
+                                mapOf(
+                                    "player1Id" to players.getOrNull(0)?.get("uid"),
+                                    "player2Id" to players.getOrNull(1)?.get("uid"),
+                                    "currentTurn" to startingPlayerUid,
+                                    "moves" to emptyList<String>(), // Should match LobbyService type
+                                    "powerUps" to players.associate { (it["uid"] as? String ?: "") to listOf("RADAR", "BOMB") },
+                                    "energy" to players.associate { (it["uid"] as? String ?: "") to 3 },
+                                    "gameResult" to null,
+                                    "mapVotes" to emptyMap<String, Int>(),
+                                    "chosenMap" to null,
+                                    "powerUpMoves" to emptyList<String>()
+                                )
+                            }
+                            "ohpardon" -> {
+                                
+                                mapOf(
+                                    "currentPlayer" to startingPlayerUid,
+                                    "scores" to emptyMap<String, Int>(), 
+                                    "gameResult" to null,
+                                    "diceRoll" to null
+                                )
+                            }
+                            "triviatoe" -> {
+                                
+                                mapOf(
+                                    "players"      to players,
+                                    "board"        to emptyList<Map<String, Any>>(),
+                                    "moves"        to emptyList<Map<String, Any>>(),
+                                    "currentRound" to 0,
+                                    "quizQuestion" to null,
+                                    "answers"      to emptyMap<String, Any>(),
+                                    "firstToMove"  to null,
+                                    "currentTurn"  to startingPlayerUid,
+                                    "winner"       to null,
+                                    "state"        to "QUESTION",
+                                    "usedQuestions" to emptyList<Int>()
+                                )
+                            }
+                            "codenames" -> {
+                                // From develop:
+                                CodenamesService.generateGameState()
+                            }
+                            "whereandwhen" -> {
+                                
+                                mapOf(
+                                    "roundStartTimeMillis" to System.currentTimeMillis(),
+                                    "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING
+                                    
+                                )
+                            }
                             else -> emptyMap()
                         }
 
-                        val rematchVotes = players.associate {
-                            val uid = it["uid"] as? String ?: ""
-                            uid to false
+                       
+                        if (specificGameStateUpdates.isNotEmpty()) {
+                            gameUpdates["gameState.$gameId"] = specificGameStateUpdates
                         }
 
+                       
+                        if(gameId == "battleships") {
+                             val rematchVotes = players.associate {
+                                val uid = it["uid"] as? String ?: ""
+                                uid to false
+                            }
+                            gameUpdates["rematchVotes"] = rematchVotes
+                        }
+
+
                         try {
-                            if(gameId == "battleships") {
-                                db.collection("rooms").document(roomId).update(
-                                    mapOf(
-                                        "status" to "started",
-                                        "gameState.$gameId" to initialGameState,
-                                        "rematchVotes" to rematchVotes
-                                    )
-                                ).addOnSuccessListener {
-                                    println("✅ Game started successfully")
+                            db.collection("rooms").document(roomId).update(gameUpdates)
+                                .addOnSuccessListener {
+                                    println("✅ Game started successfully") 
                                 }.addOnFailureListener {
-                                    println("❌ Failed to start game: ${it.message}")
+                                    println("❌ Failed to start game: ${it.message}") 
                                 }
-                            }
-                            else{
-                                db.collection("rooms").document(roomId).update(
-                                    mapOf(
-                                        "status" to "started",
-                                        "gameState.$gameId" to initialGameState,
-                                    )
-                                ).addOnSuccessListener {
-                                    println("✅ Game started successfully")
-                                }.addOnFailureListener {
-                                    println("❌ Failed to start game: ${it.message}")
-                                }
-                            }
                         } catch (e: Exception) {
-                            println("🔥 Exception during game start: ${e.message}")
+                            println("🔥 Exception during game start: ${e.message}") 
                         }
                     }
                 },
-                enabled = players.size >= maxPlayers // Only when lobby is full
+                enabled = players.size >= maxPlayers && status == "waiting" 
             ) {
-                Text(if (players.size >= maxPlayers) "Start Game" else "Waiting for players…")
+                Text(if (players.size >= maxPlayers && status == "waiting") "Start Game" else if (status != "waiting") "Game In Progress..." else "Waiting for players… (${players.size}/$maxPlayers)")
             }
 
             Spacer(Modifier.height(16.dp))
@@ -406,20 +357,19 @@ fun HostLobbyScreen(
             LaunchedEffect(status, hostName) {
                 if (status == "started" && hostName != null) {
                     val route = when (gameId) {
-                        "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
+                        "battleships" -> NavRoutes.BATTLE_VOTE
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
-                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
-                        "codenames"   -> {
+                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM 
+                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME 
+                        "codenames"   -> { 
                             val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
                             val isMaster = currentPlayer?.get("role") == "master"
-
                             Log.d("CodenamesHostDebug", """
                                 HostLobbyScreen - Starting CodenamesActivity:
                                 currentPlayer: $currentPlayer
                                 isMaster: $isMaster
                                 team: ${currentPlayer?.get("team")}
                             """.trimIndent())
-
                             val intent = Intent(context, CodenamesActivity::class.java).apply {
                                 putExtra("roomId", roomId)
                                 putExtra("userName", hostName)
@@ -427,7 +377,7 @@ fun HostLobbyScreen(
                                 putExtra("team", currentPlayer?.get("team") as? String ?: "")
                             }
                             context.startActivity(intent)
-                            null
+                            null // Prevent further navigation in this LaunchedEffect
                         }
                         else -> null
                     }

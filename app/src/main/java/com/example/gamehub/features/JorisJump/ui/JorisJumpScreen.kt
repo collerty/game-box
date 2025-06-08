@@ -37,6 +37,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import android.os.Vibrator // For basic vibration
+import android.os.VibrationEffect // For more control on newer APIs
+import android.os.Build // To check API level for VibrationEffect
 
 // Constants for the game
 private const val PLAYER_WIDTH_DP = 50f
@@ -127,6 +130,40 @@ private fun generateInitialPlatformsList(screenWidth: Float, screenHeight: Float
 fun JorisJumpScreen() {
     val context = LocalContext.current
     val view = LocalView.current
+
+    // --- Haptic Feedback (Vibration) Setup ---
+    val vibrator = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // For Android 12 (API 31) and above, VibratorManager is preferred
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            // For older APIs, get Vibrator directly
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+    }
+
+    fun triggerVibration(milliseconds: Long, amplitude: Int = VibrationEffect.DEFAULT_AMPLITUDE) {
+        if (vibrator.hasVibrator()) { // Check if the device has a vibrator
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // For Android Oreo (API 26) and above, use VibrationEffect
+                // Amplitude is from 1 to 255. DEFAULT_AMPLITUDE is -1, which uses system default.
+                val effectAmplitude = if (amplitude == VibrationEffect.DEFAULT_AMPLITUDE || (amplitude in 1..255)) {
+                    amplitude
+                } else {
+                    VibrationEffect.DEFAULT_AMPLITUDE // Fallback if invalid amplitude provided
+                }
+                vibrator.vibrate(VibrationEffect.createOneShot(milliseconds, effectAmplitude))
+            } else {
+                // For older APIs
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(milliseconds)
+            }
+        } else {
+            Log.w("JorisJump_Vibration", "Device does not have a vibrator.")
+        }
+    }
 
     var enemies by remember { mutableStateOf<List<EnemyState>>(emptyList()) }
     var nextEnemyId by remember { mutableStateOf(0) }
@@ -329,6 +366,7 @@ fun JorisJumpScreen() {
                         gameRunning = false
                         playerIsFallingOffScreen = true // Initiate fall-off sequence
                         hitEnemyThisFrame = true
+                        triggerVibration(200L, VibrationEffect.EFFECT_HEAVY_CLICK)
                         Log.d("JorisJump_Enemy", "OUCH! Hit Enemy ${enemy.id}! Game Over.")
                     }
                 }
@@ -446,6 +484,7 @@ fun JorisJumpScreen() {
                 playerYPositionWorldDp += playerVelocityY
                 if (playerYPositionWorldDp > totalScrollOffsetDp + screenHeightDp + PLAYER_HEIGHT_DP * 2.5f) {
                     gameRunning = false
+                    triggerVibration(350L, VibrationEffect.EFFECT_HEAVY_CLICK)
                     Log.d("JorisJump_Fall", "Player fully off screen. GAME OVER.")
                 }
             }

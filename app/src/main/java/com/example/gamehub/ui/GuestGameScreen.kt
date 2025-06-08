@@ -53,6 +53,7 @@ fun GuestGameScreen(
             val route = when (gameId) {
                 "battleships" -> NavRoutes.BATTLE_VOTE
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME
                 "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
                 "codenames"   -> {
                     val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }

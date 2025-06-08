@@ -38,6 +38,7 @@ import com.example.gamehub.ui.HostLobbyScreen
 import com.example.gamehub.ui.LobbyMenuScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.example.gamehub.features.whereandwhen.ui.WhereAndWhenScreen
 import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
@@ -178,7 +179,20 @@ fun GameHubApp() {
             }
 
             composable(
-                NavRoutes.CODENAMES_GAME,
+
+                NavRoutes.WHERE_AND_WHEN_GAME,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                WhereAndWhenScreen(navController = navController, roomCode = code, currentUserName = userName)
+        }
+
+                composable(
+                  NavRoutes.CODENAMES_GAME,
                 arguments = listOf(
                     navArgument("code")     { type = NavType.StringType },
                     navArgument("userName") { type = NavType.StringType }
@@ -197,6 +211,7 @@ fun GameHubApp() {
                     masterTeam = masterTeam
                 )
             }
+
 
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }

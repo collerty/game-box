@@ -40,6 +40,7 @@ object LobbyService {
             "battleships" -> 2
             "ohpardon" -> 4
             "triviatoe"   -> 2
+            "codenames" -> 1
             else -> 2
         }
 

@@ -1,7 +1,9 @@
 package com.example.gamehub.features.codenames.ui
 
 import android.util.Log
-import android.widget.Toast // Import Toast
+import android.widget.Toast
+import android.view.WindowManager
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,10 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext // Import LocalContext
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.features.codenames.model.CardColor
@@ -33,6 +40,7 @@ import kotlinx.coroutines.delay
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.ktx.toObject
+import com.example.gamehub.ui.theme.ArcadeClassic
 
 data class Clue(
     val word: String,
@@ -46,6 +54,21 @@ fun CodenamesScreen(
     isMaster: Boolean,
     masterTeam: String? = null
 ) {
+    // Get the current window
+    val view = LocalView.current
+    val window = (view.context as? android.app.Activity)?.window
+
+    // Hide system bars when the screen is first composed
+    LaunchedEffect(Unit) {
+        window?.let {
+            WindowCompat.setDecorFitsSystemWindows(it, false)
+            WindowInsetsControllerCompat(it, view).let { controller ->
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+    }
+
     Log.d("CodenamesDebug", "CodenamesScreen received masterTeam: $masterTeam")
 
     val db = Firebase.firestore
@@ -180,7 +203,8 @@ fun CodenamesScreen(
                         "RED" -> Color.Red
                         "BLUE" -> Color.Blue
                         else -> Color.White
-                    }
+                    },
+                    fontFamily = ArcadeClassic
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -192,7 +216,8 @@ fun CodenamesScreen(
                         else -> "Game ended"
                     },
                     style = MaterialTheme.typography.titleLarge,
-                    color = Color.White
+                    color = Color.White,
+                    fontFamily = ArcadeClassic
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -215,7 +240,7 @@ fun CodenamesScreen(
                         }
                     )
                 ) {
-                    Text("Return to Lobby", color = Color.White)
+                    Text("Return to Lobby", color = Color.White, fontFamily = ArcadeClassic)
                 }
             }
         }
@@ -253,19 +278,29 @@ fun CodenamesScreen(
                     modifier = Modifier
                         .weight(0.7f)
                         .fillMaxHeight()
-                        .padding(end = 4.dp),
+                        .padding(end = 4.dp)
+                        .background(
+                            color = Color.Red.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .border(1.dp, Color.Red.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Red Team Info and Score
                     Text(
                         text = redWordsRemaining.toString(),
                         style = MaterialTheme.typography.displayLarge,
-                        color = Color.Red
+                        color = Color.White,
+                        fontFamily = ArcadeClassic
                     )
                     Text(
                         "Red Team",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = Color.Red
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                        fontFamily = ArcadeClassic
                     )
                     // Log/Clue History Section
                     Row(modifier = Modifier
@@ -277,25 +312,29 @@ fun CodenamesScreen(
                          Text(
                             "Log",
                             style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontFamily = ArcadeClassic
                         )
-                         if (currentTurn == "RED") { // Show timer only for Red team's turn
+                         if (currentTurn == "RED") {
                              Text(
                                  text = "${timerSeconds}s",
-                                 style = MaterialTheme.typography.titleMedium, // Adjusted style to match Log text
-                                 color = Color.Red // Timer color matches team color
+                                 style = MaterialTheme.typography.titleMedium,
+                                 color = Color.White,
+                                 fontFamily = ArcadeClassic
                              )
                          }
                     }
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f) // Allow log to take available space in this column
+                            .weight(1f)
                     ) {
                         items(redClues) { clue ->
                             Text(
                                 text = clue.word,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Red
+                                color = Color.White,
+                                fontFamily = ArcadeClassic
                             )
                         }
                     }
@@ -466,7 +505,8 @@ fun CodenamesScreen(
                                             style = MaterialTheme.typography.bodySmall,
                                             textAlign = TextAlign.Center,
                                             color = if (isMaster || isRevealed) Color.White else Color.Black,
-                                            modifier = Modifier.padding(2.dp)
+                                            modifier = Modifier.padding(2.dp),
+                                            fontFamily = ArcadeClassic
                                         )
                                     }
                                 }
@@ -480,19 +520,29 @@ fun CodenamesScreen(
                     modifier = Modifier
                         .weight(0.7f)
                         .fillMaxHeight()
-                        .padding(start = 4.dp),
+                        .padding(start = 4.dp)
+                        .background(
+                            color = Color.Blue.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .border(1.dp, Color.Blue.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        .padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     // Blue Team Info and Score
                     Text(
                         text = blueWordsRemaining.toString(),
                         style = MaterialTheme.typography.displayLarge,
-                        color = Color.Blue
+                        color = Color.White,
+                        fontFamily = ArcadeClassic
                     )
                     Text(
                         "Blue Team",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = Color.Blue
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                        fontFamily = ArcadeClassic
                     )
                     // Log/Clue History Section for Blue Team
                     Row(modifier = Modifier
@@ -504,25 +554,29 @@ fun CodenamesScreen(
                          Text(
                             "Log",
                             style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontFamily = ArcadeClassic
                         )
                          if (currentTurn == "BLUE") {
                              Text(
                                  text = "${timerSeconds}s",
-                                 style = MaterialTheme.typography.titleMedium, // Adjusted style to match Log text
-                                 color = Color.Blue // Timer color matches team color
+                                 style = MaterialTheme.typography.titleMedium,
+                                 color = Color.White,
+                                 fontFamily = ArcadeClassic
                              )
                          }
                     }
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f) // Allow log to take available space in this column
+                            .weight(1f)
                     ) {
                         items(blueClues) { clue ->
                             Text(
                                 text = clue.word,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Blue
+                                color = Color.White,
+                                fontFamily = ArcadeClassic
                             )
                         }
                     }
@@ -545,7 +599,7 @@ fun CodenamesScreen(
                             onValueChange = {
                                 if (currentTeam == "RED") redMasterClue = it else blueMasterClue = it
                             },
-                            label = { Text("Enter clue and number (e.g., 'APPLE 3')") }, // More descriptive label
+                            label = { Text("Enter clue and number (e.g., 'APPLE 3')", fontFamily = ArcadeClassic) },
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -613,7 +667,7 @@ fun CodenamesScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Submit Clue")
+                            Text("Submit Clue", fontFamily = ArcadeClassic)
                         }
                     }
                 } else {
@@ -622,7 +676,8 @@ fun CodenamesScreen(
                     Text(
                         text = "Current Turn: $currentTurn ($phaseText)",
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (currentTurn == "RED") Color.Red else Color.Blue
+                        color = if (currentTurn == "RED") Color.Red else Color.Blue,
+                        fontFamily = ArcadeClassic
                     )
                 }
             }

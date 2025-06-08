@@ -1,13 +1,21 @@
 package com.example.gamehub.ui
 
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun LocalGameScreen(gameId: String) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
+
     Scaffold { padding ->
         Column(
             Modifier

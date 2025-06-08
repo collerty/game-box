@@ -53,6 +53,7 @@ fun GuestGameScreen(
             val route = when (gameId) {
                 "battleships" -> NavRoutes.BATTLE_VOTE
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
                 "codenames"   -> {
                     val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
                     val isMaster = currentPlayer?.get("role") == "master"
@@ -64,7 +65,7 @@ fun GuestGameScreen(
                         team: $team
                         players: $players
                     """.trimIndent())
-                    
+
                     val intent = Intent(context, CodenamesActivity::class.java).apply {
                         putExtra("roomId", code)
                         putExtra("userName", userName)
@@ -91,7 +92,7 @@ fun GuestGameScreen(
             val redTeam = players.filter { (it["team"] ?: "spectator") == "red" }
             val blueTeam = players.filter { (it["team"] ?: "spectator") == "blue" }
             val spectators = players.filter { (it["team"] ?: "spectator") == "spectator" }
-            
+
             // Show spectators section
             Text("Spectators", style = MaterialTheme.typography.headlineSmall)
             spectators.forEach { player ->
@@ -113,7 +114,7 @@ fun GuestGameScreen(
             if (redTeam.size < 2) {
                 val hasMaster = redTeam.any { it["role"] == "master" }
                 val hasPlayer = redTeam.any { it["role"] == "player" }
-                
+
                 if (!hasMaster) {
                     Text(
                         "Join as master",
@@ -126,7 +127,7 @@ fun GuestGameScreen(
                                 "team" to "red",
                                 "role" to "master"
                             )
-                            
+
                             // First remove the player from any team
                             db.collection("rooms").document(code)
                                 .get()
@@ -134,7 +135,7 @@ fun GuestGameScreen(
                                     @Suppress("UNCHECKED_CAST")
                                     val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                     val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                    
+
                                     // Then add the player to the new role
                                     db.collection("rooms").document(code)
                                         .update("players", updatedPlayers + newPlayer)
@@ -158,7 +159,7 @@ fun GuestGameScreen(
                                 "team" to "red",
                                 "role" to "player"
                             )
-                            
+
                             // First remove the player from any team
                             db.collection("rooms").document(code)
                                 .get()
@@ -166,7 +167,7 @@ fun GuestGameScreen(
                                     @Suppress("UNCHECKED_CAST")
                                     val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                     val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                    
+
                                     // Then add the player to the new role
                                     db.collection("rooms").document(code)
                                         .update("players", updatedPlayers + newPlayer)
@@ -190,7 +191,7 @@ fun GuestGameScreen(
             if (blueTeam.size < 2) {
                 val hasMaster = blueTeam.any { it["role"] == "master" }
                 val hasPlayer = blueTeam.any { it["role"] == "player" }
-                
+
                 if (!hasMaster) {
                     Text(
                         "Join as master",
@@ -203,7 +204,7 @@ fun GuestGameScreen(
                                 "team" to "blue",
                                 "role" to "master"
                             )
-                            
+
                             // First remove the player from any team
                             db.collection("rooms").document(code)
                                 .get()
@@ -211,7 +212,7 @@ fun GuestGameScreen(
                                     @Suppress("UNCHECKED_CAST")
                                     val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                     val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                    
+
                                     // Then add the player to the new role
                                     db.collection("rooms").document(code)
                                         .update("players", updatedPlayers + newPlayer)
@@ -235,7 +236,7 @@ fun GuestGameScreen(
                                 "team" to "blue",
                                 "role" to "player"
                             )
-                            
+
                             // First remove the player from any team
                             db.collection("rooms").document(code)
                                 .get()
@@ -243,7 +244,7 @@ fun GuestGameScreen(
                                     @Suppress("UNCHECKED_CAST")
                                     val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                     val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                    
+
                                     // Then add the player to the new role
                                     db.collection("rooms").document(code)
                                         .update("players", updatedPlayers + newPlayer)
@@ -265,7 +266,7 @@ fun GuestGameScreen(
                     @Suppress("UNCHECKED_CAST")
                     val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                     val currentPlayer = currentPlayers.find { it["uid"] == Firebase.auth.uid }
-                    
+
                     // Remove the player with their full information
                     db.collection("rooms").document(code)
                         .update(

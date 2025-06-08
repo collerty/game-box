@@ -1,7 +1,7 @@
 package com.example.gamehub.ui
 
-import android.content.Context
 import android.content.Intent
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.gamehub.features.codenames.service.CodenamesService
@@ -40,6 +41,11 @@ fun HostLobbyScreen(
     var maxPlayers by remember { mutableStateOf(0) }
     var status by remember { mutableStateOf("waiting") }
     var showExitDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
 
     // Live-update lobby
     DisposableEffect(roomId) {
@@ -77,13 +83,13 @@ fun HostLobbyScreen(
                         .addOnSuccessListener { document ->
                             @Suppress("UNCHECKED_CAST")
                             val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-                            
+
                             // Remove all players with their full information
                             val updates = mutableMapOf<String, Any>()
                             currentPlayers.forEach { player ->
                                 updates["players"] = FieldValue.arrayRemove(player)
                             }
-                            
+
                             // Then delete the room
                             db.collection("rooms").document(roomId)
                                 .update(updates)
@@ -124,7 +130,7 @@ fun HostLobbyScreen(
                 val redTeam = players.filter { (it["team"] ?: "spectator") == "red" }
                 val blueTeam = players.filter { (it["team"] ?: "spectator") == "blue" }
                 val spectators = players.filter { (it["team"] ?: "spectator") == "spectator" }
-                
+
                 // Show spectators section
                 Text("Spectators", style = MaterialTheme.typography.headlineSmall)
                 spectators.forEach { player ->
@@ -146,7 +152,7 @@ fun HostLobbyScreen(
                 if (redTeam.size < 2) {
                     val hasMaster = redTeam.any { it["role"] == "master" }
                     val hasPlayer = redTeam.any { it["role"] == "player" }
-                    
+
                     if (!hasMaster) {
                         Text(
                             "Join as master",
@@ -163,7 +169,7 @@ fun HostLobbyScreen(
                                     "team" to "red",
                                     "role" to "master"
                                 )
-                                
+
                                 // First remove the player from any team
                                 db.collection("rooms").document(roomId)
                                     .get()
@@ -171,7 +177,7 @@ fun HostLobbyScreen(
                                         @Suppress("UNCHECKED_CAST")
                                         val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                         val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                        
+
                                         // Then add the player to the new role
                                         db.collection("rooms").document(roomId)
                                             .update("players", updatedPlayers + newPlayer)
@@ -195,7 +201,7 @@ fun HostLobbyScreen(
                                     "team" to "red",
                                     "role" to "player"
                                 )
-                                
+
                                 // First remove the player from any team
                                 db.collection("rooms").document(roomId)
                                     .get()
@@ -203,7 +209,7 @@ fun HostLobbyScreen(
                                         @Suppress("UNCHECKED_CAST")
                                         val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                         val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                        
+
                                         // Then add the player to the new role
                                         db.collection("rooms").document(roomId)
                                             .update("players", updatedPlayers + newPlayer)
@@ -227,7 +233,7 @@ fun HostLobbyScreen(
                 if (blueTeam.size < 2) {
                     val hasMaster = blueTeam.any { it["role"] == "master" }
                     val hasPlayer = blueTeam.any { it["role"] == "player" }
-                    
+
                     if (!hasMaster) {
                         Text(
                             "Join as master",
@@ -244,7 +250,7 @@ fun HostLobbyScreen(
                                     "team" to "blue",
                                     "role" to "master"
                                 )
-                                
+
                                 // First remove the player from any team
                                 db.collection("rooms").document(roomId)
                                     .get()
@@ -252,7 +258,7 @@ fun HostLobbyScreen(
                                         @Suppress("UNCHECKED_CAST")
                                         val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                         val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                        
+
                                         // Then add the player to the new role
                                         db.collection("rooms").document(roomId)
                                             .update("players", updatedPlayers + newPlayer)
@@ -276,7 +282,7 @@ fun HostLobbyScreen(
                                     "team" to "blue",
                                     "role" to "player"
                                 )
-                                
+
                                 // First remove the player from any team
                                 db.collection("rooms").document(roomId)
                                     .get()
@@ -284,7 +290,7 @@ fun HostLobbyScreen(
                                         @Suppress("UNCHECKED_CAST")
                                         val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
                                         val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                        
+
                                         // Then add the player to the new role
                                         db.collection("rooms").document(roomId)
                                             .update("players", updatedPlayers + newPlayer)
@@ -328,6 +334,19 @@ fun HostLobbyScreen(
                                 "scores" to emptyMap<String, Int>(),
                                 "gameResult" to null,
                                 "diceRoll" to null
+                            )
+                            "triviatoe" -> mapOf(
+                                "players"      to players,
+                                "board"        to emptyList<Map<String, Any>>(),
+                                "moves"        to emptyList<Map<String, Any>>(),
+                                "currentRound" to 0,
+                                "quizQuestion" to null,
+                                "answers"      to emptyMap<String, Any>(),
+                                "firstToMove"  to null,
+                                "currentTurn"  to startingPlayerUid,
+                                "winner"       to null,
+                                "state"        to "QUESTION",
+                                "usedQuestions" to emptyList<Int>()
                             )
                             "codenames" -> CodenamesService.generateGameState()
                             else -> emptyMap()
@@ -389,6 +408,7 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
+                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
                         "codenames"   -> {
                             val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
                             val isMaster = currentPlayer?.get("role") == "master"

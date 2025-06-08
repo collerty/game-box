@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.MediaPlayer // Added import
 import android.media.MediaRecorder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,12 +23,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType // Added import
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback // Added import
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.gamehub.R // Added import for resources
 import kotlinx.coroutines.*
 import kotlin.math.absoluteValue
 import kotlin.random.Random
@@ -155,6 +159,28 @@ private fun GameContent() {
 
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current // Added for haptic feedback
+
+    // MediaPlayer for jump sound
+    val jumpSoundPlayer = remember {
+        MediaPlayer.create(context, R.raw.dino_jump_sound).apply {
+            setVolume(0.5f, 0.5f) // Adjust volume as needed
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            jumpSoundPlayer.release()
+        }
+    }
+
+    fun playJumpSound() {
+        if (jumpSoundPlayer.isPlaying) {
+            jumpSoundPlayer.seekTo(0)
+        } else {
+            jumpSoundPlayer.start()
+        }
+    }
 
     var currentAmplitude by remember { mutableStateOf(0) }
 
@@ -260,6 +286,7 @@ private fun GameContent() {
                             withContext(Dispatchers.Main) {
                                 isRunningAnimating.value = false
                                 gameState = GameState.GAME_OVER
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress) // Strong vibration on game over
                             }
                             break // Exit game loop
                         }
@@ -318,6 +345,7 @@ private fun GameContent() {
 
                             if (maxAmplitudeRaw > JUMP_AMPLITUDE_THRESHOLD && !isJumping) {
                                 isJumping = true
+                                playJumpSound() // Play jump sound
                                 coroutineScope.launch {
                                     jumpAnim.snapTo(0f)
                                     jumpAnim.animateTo(
@@ -385,12 +413,12 @@ private fun GameContent() {
                     drawLine(
                         color = Color(0xFFFFB74D).copy(alpha = 0.7f), // Lighter Orange, semi-transparent
                         start = Offset(
-                            sunCenter.x + rayStartOffset * kotlin.math.cos(angle).toFloat(),
-                            sunCenter.y + rayStartOffset * kotlin.math.sin(angle).toFloat()
+                            sunCenter.x + kotlin.math.cos(angle).toFloat() * rayStartOffset,
+                            sunCenter.y + kotlin.math.sin(angle).toFloat() * rayStartOffset
                         ),
                         end = Offset(
-                            sunCenter.x + rayEndOffset * kotlin.math.cos(angle).toFloat(),
-                            sunCenter.y + rayEndOffset * kotlin.math.sin(angle).toFloat()
+                            sunCenter.x + kotlin.math.cos(angle).toFloat() * rayEndOffset,
+                            sunCenter.y + kotlin.math.sin(angle).toFloat() * rayEndOffset
                         ),
                         strokeWidth = 2.dp.toPx()
                     )

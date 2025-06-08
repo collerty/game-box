@@ -47,6 +47,10 @@
             android:name=".features.codenames.ui.CodenamesActivity"
             android:exported="false"
             android:screenOrientation="landscape" />
+
+        <service
+            android:name=".MusicService"
+            android:exported="false"/>
     </application>
 
 </manifest>

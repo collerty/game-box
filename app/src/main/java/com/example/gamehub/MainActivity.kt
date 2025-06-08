@@ -157,7 +157,7 @@ fun GameHubApp() {
             ) { backStack ->
                 val code = backStack.arguments?.getString("code") ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
-                WhereAndWhenScreen(roomCode = code, currentUserName = userName)
+                WhereAndWhenScreen(navController = navController, roomCode = code, currentUserName = userName)
         }
 
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }

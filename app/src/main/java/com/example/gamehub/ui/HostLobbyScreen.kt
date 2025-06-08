@@ -130,12 +130,7 @@ fun HostLobbyScreen(
                             "whereandwhen" -> {
                                 // Key fix: Set roundStartTimeMillis when the game actually starts
                                 updates["gameState.$gameId.roundStartTimeMillis"] = System.currentTimeMillis()
-                                updates["gameState.$gameId.currentRoundIndex"] = 0 // Ensure it's round 0
-                                updates["gameState.$gameId.currentChallengeId"] = gameChallenges.firstOrNull()?.id ?: ""
                                 updates["gameState.$gameId.roundStatus"] = WhereAndWhenGameState.STATUS_GUESSING
-                                updates["gameState.$gameId.playerGuesses"] = emptyMap<String, Any>()
-                                updates["gameState.$gameId.roundResults"] = mapOf("challengeId" to "", "results" to emptyMap<String,Any>())
-                                updates["gameState.$gameId.playersReadyForNextRound"] = emptyMap<String, Boolean>()
                             }
                         }
 

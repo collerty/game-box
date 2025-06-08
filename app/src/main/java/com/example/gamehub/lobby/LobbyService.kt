@@ -67,24 +67,29 @@ object LobbyService {
         )
 
         // Where & When initial state
-        val firstWawChallengeId = gameChallenges.firstOrNull()?.id ?: "jfk" // Fallback ID
+        val shuffledChallengeIds = gameChallenges.map { it.id }.shuffled() // Shuffle all challenge IDs
+        val firstWawChallengeId = shuffledChallengeIds.firstOrNull() // Get the first from shuffled list
+            ?: gameChallenges.firstOrNull()?.id // Fallback if shuffle is empty (e.g. gameChallenges is empty)
+            ?: "jfk" // Absolute fallback
+
         val whereAndWhenState = mapOf(
             "currentRoundIndex" to 0,
-            "currentChallengeId" to firstWawChallengeId,
-            "roundStartTimeMillis" to 0L,
+            "currentChallengeId" to firstWawChallengeId, // Use the first from shuffled list
+            "roundStartTimeMillis" to 0L, // Will be set by host when game actually starts
             "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING,
             "playerGuesses" to emptyMap<String, Any>(),
             "roundResults" to mapOf(
                 "challengeId" to "",
                 "results" to emptyMap<String, Any>()
             ),
-            "playersReadyForNextRound" to emptyMap<String, Boolean>()
+            "playersReadyForNextRound" to emptyMap<String, Boolean>(),
+            "challengeOrder" to shuffledChallengeIds // Store the full shuffled order
         )
 
         val initialGameState = when (gameId) {
             "battleships" -> mapOf("battleships" to battleshipsState)
             "ohpardon"    -> mapOf("ohpardon" to ohpardonState)
-            "whereandwhen" -> mapOf("whereandwhen" to whereAndWhenState) // MODIFIED: Added
+            "whereandwhen" -> mapOf("whereandwhen" to whereAndWhenState)
             else          -> mapOf(gameId to mapOf("gameResult" to null)) // Generic fallback
         }
 

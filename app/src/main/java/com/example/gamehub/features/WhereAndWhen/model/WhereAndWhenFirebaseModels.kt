@@ -44,10 +44,11 @@ data class WhereAndWhenGameState(
     val roundStatus: String = "guessing", // "guessing", "results"
     val playerGuesses: Map<String, WWPlayerGuess> = emptyMap(), // Key: Player UID
     val roundResults: WWRoundResultsContainer = WWRoundResultsContainer(), // Results of the *last* completed round
-    val playersReadyForNextRound: Map<String, Boolean> = emptyMap() // Key: Player UID
+    val playersReadyForNextRound: Map<String, Boolean> = emptyMap(), // Key: Player UID
+    val challengeOrder: List<String> = emptyList()
 ) {
     // No-argument constructor for Firebase
-    constructor() : this(0, "", 0L, "guessing", emptyMap(), WWRoundResultsContainer(), emptyMap())
+    constructor() : this(0, "", 0L, "guessing", emptyMap(), WWRoundResultsContainer(), emptyMap(), emptyList())
 
     companion object {
         const val STATUS_GUESSING = "guessing"

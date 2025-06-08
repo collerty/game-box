@@ -4,8 +4,11 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.media.MediaPlayer
 import android.util.Log
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -32,11 +35,13 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.navigation.NavController
 import com.example.gamehub.R // YOUR PROJECT'S R
 import com.example.gamehub.features.whereandwhen.model.WWPlayerGuess
 import com.example.gamehub.features.whereandwhen.model.WWPlayerRoundResult
 import com.example.gamehub.features.whereandwhen.model.WWRoundResultsContainer
 import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
+import com.example.gamehub.navigation.NavRoutes
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -54,6 +59,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.util.UUID
 import kotlin.math.abs
+import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.launch
 
 // --- Font ---
 val arcadeFontFamily_WhereAndWhen = FontFamily(
@@ -74,16 +81,16 @@ data class Challenge(
 // --- Constants ---
 private const val MAX_YEAR_SCORE = 1000
 private const val MAX_LOCATION_SCORE = 1000
-private const val MAX_YEAR_DIFFERENCE_FOR_POINTS = 50
+private const val MAX_YEAR_DIFFERENCE_FOR_POINTS = 35
 private const val MAX_DISTANCE_KM_FOR_POINTS = 5000.0
-private const val ROUND_TIME_SECONDS = 45
-private const val MIN_SLIDER_YEAR = 1800f
+private const val ROUND_TIME_SECONDS = 35
+private const val MIN_SLIDER_YEAR = 1850f
 private const val MAX_SLIDER_YEAR = 2024f
 
 // Hardcoded list of challenges
 val gameChallenges = listOf(
     Challenge("jfk", R.drawable.kennedy_assassination, 1963, 32.7790, -96.8089, "Dealey Plaza, Dallas, TX, USA", "Assassination of JFK"),
-    Challenge("moon", R.drawable.moon_landing_1969, 1969, 0.67408, 23.47297, "Tranquility Base, Moon", "Apollo 11 Moon Landing"),
+    Challenge("moon", R.drawable.moon_landing_1969, 1969, 28.5721, -80.6480, "Tranquility Base, Moon", "Apollo 11 Moon Landing"),
     Challenge("berlinwall", R.drawable.berlin_wall_fall_1989, 1989, 52.5160, 13.3777, "Brandenburg Gate, Berlin, Germany", "Fall of the Berlin Wall"),
     Challenge("titanic", R.drawable.titanic_sinking_1912, 1912, 41.726931, -49.948253, "North Atlantic Ocean (Titanic Wreck)", "Sinking of the Titanic"),
     Challenge("wright", R.drawable.wright_brothers_flight_1903, 1903, 36.0156, -75.6674, "Kitty Hawk, North Carolina, USA", "Wright Brothers' First Flight"),
@@ -98,7 +105,7 @@ val gameChallenges = listOf(
     Challenge("great_depression", R.drawable.wall_street_crash_1929, 1929, 40.7069, -74.0113, "Wall Street, New York, USA", "Wall Street Crash of 1929")
 )
 
-private val TOTAL_ROUNDS = 3
+private val TOTAL_ROUNDS = 5
 
 
 // --- Helper Functions ---
@@ -131,10 +138,11 @@ private fun calculatePlayerScoreForRound(playerGuess: WWPlayerGuess?, challenge:
 @SuppressLint("UnusedBoxWithConstraintsScope", "CoroutineCreationDuringComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
+fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUserName: String) {
     val context = LocalContext.current
     val view = LocalView.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
 
     val db = FirebaseFirestore.getInstance()
     val myPlayerId = Firebase.auth.currentUser?.uid ?: UUID.randomUUID().toString()
@@ -189,8 +197,15 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 roomListenerReg = roomDocRef.addSnapshotListener { snapshot, error ->
-                    if (error != null) { Log.e("WW_Firestore", "Room listen error", error); return@addSnapshotListener }
+                    if (error != null) {
+                        Log.e("WW_Firestore", "Room listen error", error)
+                        // Optionally, navigate away on persistent error
+                        // navController.popBackStack() // Or to a general error screen
+                        return@addSnapshotListener
+                    }
+
                     if (snapshot != null && snapshot.exists()) {
+                        // --- Existing logic for when snapshot exists ---
                         roomDocSnapshot = snapshot.data // Store the whole room document data
                         val rawGameState = snapshot.get("gameState.whereandwhen") as? Map<String, Any>
                         if (rawGameState != null) {
@@ -202,7 +217,8 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
                                     roundStatus = rawGameState["roundStatus"] as? String ?: WhereAndWhenGameState.STATUS_GUESSING,
                                     playerGuesses = (rawGameState["playerGuesses"] as? Map<String, Map<String, Any>>)?.mapValues { entry -> WWPlayerGuess( year = (entry.value["year"] as? Long)?.toInt(), lat = entry.value["lat"] as? Double, lng = entry.value["lng"] as? Double, submitted = entry.value["submitted"] as? Boolean ?: false, timeTakenMs = entry.value["timeTakenMs"] as? Long ) } ?: emptyMap(),
                                     roundResults = (rawGameState["roundResults"] as? Map<String, Any>)?.let { rrMap -> WWRoundResultsContainer( challengeId = rrMap["challengeId"] as? String ?: "", results = (rrMap["results"] as? Map<String, Map<String, Any>>)?.mapValues { entry -> WWPlayerRoundResult( guessedYear = (entry.value["guessedYear"] as? Long)?.toInt() ?: 0, yearScore = (entry.value["yearScore"] as? Long)?.toInt() ?: 0, guessedLat = entry.value["guessedLat"] as? Double, guessedLng = entry.value["guessedLng"] as? Double, distanceKm = entry.value["distanceKm"] as? Double, locationScore = (entry.value["locationScore"] as? Long)?.toInt() ?: 0, roundScore = (entry.value["roundScore"] as? Long)?.toInt() ?: 0, timeRanOut = entry.value["timeRanOut"] as? Boolean ?: false ) } ?: emptyMap() ) } ?: WWRoundResultsContainer(),
-                                    playersReadyForNextRound = rawGameState["playersReadyForNextRound"] as? Map<String, Boolean> ?: emptyMap()
+                                    playersReadyForNextRound = rawGameState["playersReadyForNextRound"] as? Map<String, Boolean> ?: emptyMap(),
+                                    challengeOrder = rawGameState["challengeOrder"] as? List<String> ?: emptyList()
                                 )
 
                                 val previousChallengeId = wwGameState?.currentChallengeId
@@ -223,11 +239,37 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
                             } catch (e: Exception) { Log.e("WW_Firestore", "Error parsing game state", e) }
                         } else { Log.w("WW_Firestore", "gameState.whereandwhen is null or not a map") }
 
-                        if (snapshot.getString("status") == "ended") {
+                        if (snapshot.getString("status") == "ended" && !amIHost) { // Check for amIHost here
+                            // If game ended and I am not the host, it means the host might have triggered the end.
+                            // Show final results for guests too if the host has ended the game.
+                            // The host's exit button would have already deleted the room if they were the one ending.
+                            // This ensures guests see final scores if host ends game normally *before* deleting.
+                            // If host *deletes* room abruptly, the `else` block below handles it.
                             showFinalResultsDialog = true
                         }
 
-                    } else { Log.w("WW_Firestore", "Room document does not exist or deleted."); (context as? Activity)?.finish() }
+                    } else {
+                        // --- THIS IS THE NEW/MODIFIED PART ---
+                        // Room document does not exist (e.g., host deleted it or network issue confirmed deletion)
+                        Log.w("WW_Firestore", "Room document $roomCode does not exist or was deleted.")
+                        if (!amIHost) { // Only guests should be auto-navigated
+                            Toast.makeText(context, "Host closed the room.", Toast.LENGTH_LONG).show()
+                            // Navigate back to the lobby menu
+                            navController.navigate(NavRoutes.LOBBY_MENU.replace("{gameId}", "whereandwhen")) {
+                                popUpTo(NavRoutes.MAIN_MENU) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        } else {
+                            // If I am the host and the room doesn't exist, it means I already deleted it.
+                            // This can happen if navigation from final results dialog is slower than listener.
+                            // No action needed here for the host as they initiated the deletion/navigation.
+                            Log.d("WW_Firestore", "Host: Room already deleted by me. Listener confirming.")
+                        }
+                        // For safety, clear local state that might depend on the room
+                        wwGameState = null
+                        roomDocSnapshot = null
+                        // (context as? Activity)?.finish() // DO NOT finish the activity directly for guests
+                    }
                 }
             }
             override fun onStop(owner: LifecycleOwner) { roomListenerReg?.remove() }
@@ -305,12 +347,23 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
             if (currentRoundIdx + 1 < TOTAL_ROUNDS) {
                 val nextRoundIdx = currentRoundIdx + 1
                 Log.d("WW_Host", "All players ready. Host starting next round: ${nextRoundIdx + 1}")
+
+                val currentChallengeOrder = wwGameState?.challengeOrder ?: emptyList()
+                val nextChallengeId = currentChallengeOrder.getOrNull(nextRoundIdx)
+                    ?: run {
+                        Log.e("WW_Host", "Error: Could not get next challenge ID from challengeOrder. Order size: ${currentChallengeOrder.size}, nextRoundIdx: $nextRoundIdx. Fallback needed.")
+                        // Fallback: Pick a random challenge not recently used, or a default. This shouldn't happen if TOTAL_ROUNDS <= challengeOrder.size
+                        gameChallenges.map { it.id }.filterNot { it == wwGameState?.currentChallengeId }.shuffled().firstOrNull() ?: gameChallenges.first().id
+                    }
+
                 db.collection("rooms").document(roomCode).update(mapOf(
                     "gameState.whereandwhen.currentRoundIndex" to nextRoundIdx,
-                    "gameState.whereandwhen.currentChallengeId" to gameChallenges[nextRoundIdx].id,
+                    "gameState.whereandwhen.currentChallengeId" to nextChallengeId, // Use ID from challengeOrder
                     "gameState.whereandwhen.roundStartTimeMillis" to System.currentTimeMillis(),
                     "gameState.whereandwhen.roundStatus" to WhereAndWhenGameState.STATUS_GUESSING,
-                    "gameState.whereandwhen.playerGuesses" to emptyMap<String, Any>(), "gameState.whereandwhen.roundResults" to WWRoundResultsContainer(), "gameState.whereandwhen.playersReadyForNextRound" to emptyMap<String, Boolean>()
+                    "gameState.whereandwhen.playerGuesses" to emptyMap<String, Any>(),
+                    "gameState.whereandwhen.roundResults" to WWRoundResultsContainer(),
+                    "gameState.whereandwhen.playersReadyForNextRound" to emptyMap<String, Boolean>()
                 )).addOnFailureListener { e -> Log.e("WW_Host", "Error starting next round by host", e) }
             } else {
                 Log.d("WW_Host", "All rounds complete. Host setting game status to ended.")
@@ -322,7 +375,7 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("W&W | Rd ${ (wwGameState?.currentRoundIndex ?: 0) + 1}/${TOTAL_ROUNDS} | ${currentChallenge?.eventName ?: "Loading..."}", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 16.sp, maxLines = 1, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                title = { Text("Where & When | Round ${ (wwGameState?.currentRoundIndex ?: 0) + 1}/${TOTAL_ROUNDS}", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 16.sp, maxLines = 1, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
                 actions = { if (wwGameState?.roundStatus == WhereAndWhenGameState.STATUS_GUESSING && !hasSubmittedGuess) { Text("$timeLeftInSeconds", style = TextStyle(fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 24.sp, color = if (timeLeftInSeconds <= 5 && timeLeftInSeconds % 2 == 0) Color.Red else Color.White, fontWeight = FontWeight.Bold), modifier = Modifier.padding(end = 16.dp)) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black.copy(alpha = 0.7f), titleContentColor = Color.White, actionIconContentColor = Color.White)
             )
@@ -373,21 +426,71 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
 
         if (showRoundResultsDialog && wwGameState?.roundStatus == WhereAndWhenGameState.STATUS_RESULTS && wwGameState?.roundResults?.results?.isNotEmpty() == true && currentChallenge != null) {
             val actualChallengeInfo = currentChallenge; val allPlayerResultsInfo = wwGameState!!.roundResults.results
+            val myRoundResult = allPlayerResultsInfo[myPlayerId]
+            var iWonThisRound = false
+            if (myRoundResult != null && allPlayerResultsInfo.isNotEmpty()) {
+                val maxScoreThisRound = allPlayerResultsInfo.values.maxOfOrNull { it.roundScore } ?: 0
+                iWonThisRound = myRoundResult.roundScore >= maxScoreThisRound && myRoundResult.roundScore > 0 // Check if my score is >= max and > 0
+            }
+
+            val dialogBorderColor = if (iWonThisRound) {
+                Color(0xFF27AE60) // Green for win
+            } else {
+                Color(0xFFE74C3C) // Red for loss/not win
+            }
             AlertDialog(
                 onDismissRequest = { /* Non-dismissable */ },
-                title = { Text("Round ${(wwGameState?.currentRoundIndex ?: 0) + 1} Results", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 26.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())},
+                shape = RoundedCornerShape(0.dp), // SHARP CORNERS
+                containerColor = Color(0xFFC0C0C0), // Another flat, retro-ish gray
+                titleContentColor = Color.Black,
+                textContentColor = Color.Black,
+                modifier = Modifier.border(BorderStroke(4.dp, dialogBorderColor)),
+                title = {
+                    Text(
+                        "Round ${(wwGameState?.currentRoundIndex ?: 0) + 1} Results",
+                        fontFamily = arcadeFontFamily_WhereAndWhen, // APPLY FONT
+                        fontSize = 26.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
                 text = {
                     Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                        Text("Event: ${actualChallengeInfo.eventName}", fontWeight = FontWeight.Bold, fontSize = 17.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom=12.dp))
+                        Text(
+                            "Event: ${actualChallengeInfo.eventName}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp, // You might want to adjust font size for arcade font
+                            fontFamily = arcadeFontFamily_WhereAndWhen, // APPLY FONT
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(bottom=12.dp)
+                        )
                         allPlayerResultsInfo.forEach { (pId, result) ->
                             val playerName = roomPlayers.find { it["uid"] == pId }?.get("name") as? String ?: "Player"
                             val prefix = if (pId == myPlayerId) "Your" else "$playerName's"
-                            Text("$prefix Score: ${result.roundScore}", fontWeight = if (pId == myPlayerId) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 15.sp)
-                            if (pId == myPlayerId || allPlayerResultsInfo.size <= 2) {
-                                Text("  Year: ${result.guessedYear} (Actual: ${actualChallengeInfo.correctYear}) -> ${result.yearScore} pts", fontSize = 13.sp)
+                            Text(
+                                "$prefix Score: ${result.roundScore}",
+                                fontWeight = if (pId == myPlayerId) FontWeight.ExtraBold else FontWeight.Bold,
+                                fontSize = 16.sp, // Adjust
+                                fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                            )
+                            if (pId == myPlayerId || allPlayerResultsInfo.size <= 2) { // Show details for self or if few players
+                                Text(
+                                    "  Year: ${result.guessedYear} (Actual: ${actualChallengeInfo.correctYear}) -> ${result.yearScore} pts",
+                                    fontSize = 14.sp, // Adjust
+                                    fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                                )
                                 val distKmStr = result.distanceKm?.let { "%.0f km".format(it) } ?: "N/A"
-                                Text("  Location: $distKmStr -> ${result.locationScore} pts", fontSize = 13.sp)
-                                if(result.timeRanOut) Text("  (Time ran out for $playerName)", color = Color.Red.copy(alpha = 0.8f), fontSize = 12.sp)
+                                Text(
+                                    "  Location: $distKmStr -> ${result.locationScore} pts",
+                                    fontSize = 14.sp, // Adjust
+                                    fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                                )
+                                if(result.timeRanOut) Text(
+                                    "  (Time ran out for $playerName)",
+                                    color = Color.Red.copy(alpha = 0.8f),
+                                    fontSize = 13.sp, // Adjust
+                                    fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                                )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                         }
@@ -395,28 +498,80 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
                 },
                 confirmButton = {
                     Button(
-                        onClick = { db.collection("rooms").document(roomCode).update("gameState.whereandwhen.playersReadyForNextRound.$myPlayerId", true)
-                            .addOnSuccessListener { Log.d("WW_Ready", "$myPlayerId is ready for next round.")} },
+                        onClick = {
+                            db.collection("rooms").document(roomCode).update("gameState.whereandwhen.playersReadyForNextRound.$myPlayerId", true)
+                                .addOnSuccessListener { Log.d("WW_Ready", "$myPlayerId is ready for next round.")}
+                        },
                         enabled = wwGameState?.playersReadyForNextRound?.get(myPlayerId) != true
-                    ) { Text( if (wwGameState?.playersReadyForNextRound?.get(myPlayerId) == true) "Waiting..." else if ((wwGameState?.currentRoundIndex ?: 0) + 1 < TOTAL_ROUNDS) "Next Round" else "Final Scores", fontFamily = arcadeFontFamily_WhereAndWhen ) }
+                    ) {
+                        Text(
+                            if (wwGameState?.playersReadyForNextRound?.get(myPlayerId) == true) "Waiting..."
+                            else if ((wwGameState?.currentRoundIndex ?: 0) + 1 < TOTAL_ROUNDS) "Next Round"
+                            else "Final Scores",
+                            fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                        )
+                    }
                 },
-                containerColor = Color(0xFFECF0F1)
             )
         }
 
         if (showFinalResultsDialog) {
             val finalScoresText = roomPlayers.sortedByDescending { (it["totalScore"] as? Long)?.toInt() ?: 0 }.joinToString("\n") { playerMap ->
                 val name = playerMap["name"] as? String ?: "Player"; val score = (playerMap["totalScore"] as? Long)?.toInt() ?: 0
+                // Format each line for the arcade font if needed, though applying to the parent Text might be enough
                 "$name: $score points"
             }
             AlertDialog(
-                onDismissRequest = {},
-                title = { Text("GAME OVER!", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 30.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), color = Color(0xFFE74C3C)) },
-                text = { Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text("Final Standings:", style = TextStyle(fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 24.sp, fontWeight = FontWeight.Bold)); Text(finalScoresText, textAlign = TextAlign.Center, fontSize = 16.sp, lineHeight = 20.sp)
-                }
+                onDismissRequest = { /* ... */ },
+                title = {
+                    Text(
+                        "GAME OVER!",
+                        fontFamily = arcadeFontFamily_WhereAndWhen, // APPLY FONT
+                        fontSize = 30.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFFE74C3C)
+                    )
                 },
-                confirmButton = { Button(onClick = { (context as? Activity)?.finish() }) { Text("Exit", fontFamily = arcadeFontFamily_WhereAndWhen) } },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "Final Standings:",
+                            style = TextStyle(
+                                fontFamily = arcadeFontFamily_WhereAndWhen, // APPLY FONT
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Text(
+                            finalScoresText,
+                            textAlign = TextAlign.Center,
+                            fontSize = 18.sp, // Adjust
+                            lineHeight = 22.sp, // Adjust for arcade font
+                            fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        scope.launch {
+                            if (amIHost) {
+                                db.collection("rooms").document(roomCode).delete()
+                                    .addOnSuccessListener { Log.d("WW_FinalExit", "Host deleted room $roomCode.") }
+                                    .addOnFailureListener { e -> Log.e("WW_FinalExit", "Error host deleting room $roomCode.", e) }
+                            }
+                            navController.navigate(NavRoutes.LOBBY_MENU.replace("{gameId}", "whereandwhen")) {
+                                popUpTo(NavRoutes.MAIN_MENU) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }) {
+                        Text(
+                            "Exit to Lobby",
+                            fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                        )
+                    }
+                },
                 containerColor = Color(0xFFECF0F1)
             )
         }
@@ -426,7 +581,14 @@ fun WhereAndWhenScreen(roomCode: String, currentUserName: String) {
 @Preview(showBackground = true, device = "id:pixel_5", showSystemUi = true)
 @Composable
 fun WhereAndWhenScreenPreview() {
-    MaterialTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        WhereAndWhenScreen(roomCode = "previewRoom", currentUserName = "PreviewUser")
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            // Create a dummy NavController for the preview
+            val navController = rememberNavController()
+            WhereAndWhenScreen(
+                navController = navController, // Pass the dummy NavController
+                roomCode = "previewRoom",
+                currentUserName = "PreviewUser"
+            )
     }}
 }

@@ -1,32 +1,46 @@
 package com.example.gamehub.ui
 
+import android.content.Intent // Kept for MusicService & Codenames
+import android.content.Context // Kept as it's in the develop signature
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable // Kept for Codenames
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment // Kept for Codenames
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext // Will use this if context param is removed
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
-import com.example.gamehub.features.whereandwhen.ui.gameChallenges
+import com.example.gamehub.features.codenames.service.CodenamesService // Kept for Codenames
+import com.example.gamehub.features.codenames.ui.CodenamesActivity // Kept for Codenames
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldValue // Kept for Codenames player removal
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
+import android.util.Log
 
+// --- WHERE & WHEN Specific Imports ---
+import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
+// import com.example.gamehub.features.whereandwhen.ui.gameChallenges // Not directly needed here, LobbyService handles initial challenge
+
+// It seems the `context: Context` parameter was added in the develop branch.
+// I'll keep it in the signature to match, but W&W specific logic will prefer LocalContext if possible.
 @Composable
 fun HostLobbyScreen(
     navController: NavController,
     gameId: String,
-    roomId: String
+    roomId: String,
+    context: Context // Kept from develop signature
 ) {
     val db = Firebase.firestore
     val auth = Firebase.auth
     val scope = rememberCoroutineScope()
+    val localCtx = LocalContext.current // Use this for W&W Toast or other context needs if the param isn't ideal
 
     var roomName by remember { mutableStateOf<String?>(null) }
     var hostName by remember { mutableStateOf<String?>(null) }
@@ -34,6 +48,12 @@ fun HostLobbyScreen(
     var maxPlayers by remember { mutableStateOf(0) }
     var status by remember { mutableStateOf("waiting") }
     var showExitDialog by remember { mutableStateOf(false) }
+
+    // This context is from the parameter, as in the develop branch.
+    // For W&W, if LocalContext.current is needed for something specific (like Toast), use localCtx.
+    LaunchedEffect(Unit) {
+        context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
+    }
 
     // Live-update lobby
     DisposableEffect(roomId) {
@@ -65,10 +85,25 @@ fun HostLobbyScreen(
             text = { Text("Closing the lobby will disconnect all players.") },
             confirmButton = {
                 TextButton(onClick = {
+                    // Player removal logic from develop branch
                     db.collection("rooms").document(roomId)
-                        .delete()
-                        .addOnSuccessListener {
-                            navController.popBackStack()
+                        .get()
+                        .addOnSuccessListener { document ->
+                            @Suppress("UNCHECKED_CAST")
+                            val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                            val updates = mutableMapOf<String, Any>()
+                            currentPlayers.forEach { player ->
+                                updates["players"] = FieldValue.arrayRemove(player)
+                            }
+                            db.collection("rooms").document(roomId)
+                                .update(updates) // This seems to intend to remove all players first.
+                                .addOnSuccessListener {
+                                    db.collection("rooms").document(roomId)
+                                        .delete()
+                                        .addOnSuccessListener {
+                                            navController.popBackStack()
+                                        }
+                                }
                         }
                 }) { Text("Close Room") }
             },
@@ -92,70 +127,233 @@ fun HostLobbyScreen(
             Spacer(Modifier.height(8.dp))
             Text("Players: ${players.size} / $maxPlayers")
             Spacer(Modifier.height(12.dp))
-            players.forEach { player ->
-                val name = player["name"] as? String ?: ""
-                Text("• $name")
+
+            if (gameId == "codenames") {
+                // --- Codenames UI from develop branch ---
+                val authUid = auth.currentUser?.uid
+                val redTeam = players.filter { (it["team"] ?: "spectator") == "red" }
+                val blueTeam = players.filter { (it["team"] ?: "spectator") == "blue" }
+                val spectators = players.filter { (it["team"] ?: "spectator") == "spectator" }
+
+                Text("Spectators", style = MaterialTheme.typography.headlineSmall)
+                spectators.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    Text("• $name")
+                }
+                Spacer(Modifier.height(24.dp))
+
+                Text("Red Team", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.headlineSmall)
+                redTeam.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    // val isMe = player["uid"] == authUid // isMe not used in display text
+                    val isMaster = player["role"] == "master"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("• $name ${if (isMaster) "(Master)" else "(Player)"}")
+                    }
+                }
+                if (redTeam.size < 2) {
+                    val hasMaster = redTeam.any { it["role"] == "master" }
+                    val hasPlayer = redTeam.any { it["role"] == "player" }
+
+                    if (!hasMaster) {
+                        Text(
+                            "Join as master",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.clickable {
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "red", "role" to "master")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
+                            }
+                        )
+                    }
+                    if (!hasPlayer) {
+                        Text(
+                            "Join as player",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.clickable {
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "red", "role" to "player")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
+                            }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+
+                Text("Blue Team", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineSmall)
+                blueTeam.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    // val isMe = player["uid"] == authUid // isMe not used
+                    val isMaster = player["role"] == "master"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("• $name ${if (isMaster) "(Master)" else "(Player)"}")
+                    }
+                }
+                if (blueTeam.size < 2) {
+                    val hasMaster = blueTeam.any { it["role"] == "master" }
+                    val hasPlayer = blueTeam.any { it["role"] == "player" }
+                    if (!hasMaster) {
+                        Text(
+                            "Join as master",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "blue", "role" to "master")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
+                            }
+                        )
+                    }
+                    if (!hasPlayer) {
+                        Text(
+                            "Join as player",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                // val currentPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName) // Unused
+                                val newPlayer = mapOf("uid" to auth.currentUser?.uid, "name" to hostName, "team" to "blue", "role" to "player")
+                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                    @Suppress("UNCHECKED_CAST")
+                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                }
+                            }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+                // --- End of Codenames UI from develop branch ---
+            } else {
+                // Default player list for other games
+                players.forEach { player ->
+                    val name = player["name"] as? String ?: ""
+                    Text("• $name")
+                }
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(24.dp))
 
             Button(
                 onClick = {
                     scope.launch {
-                        // ... (existing uid checks)
+                        val startingPlayerUid = players.firstOrNull()?.get("uid") as? String
+                        // val hostUid = auth.currentUser?.uid // hostUid from auth is already available
+                        if (startingPlayerUid.isNullOrEmpty() || auth.currentUser?.uid.isNullOrEmpty()) return@launch
 
-                        // Prepare the updates
-                        val updates = mutableMapOf<String, Any?>(
-                            "status" to "started"
-                            // Keep existing rematchVotes reset if applicable from your original code
-                            // "rematchVotes" to players.associate { (it["uid"] as? String ?: "") to false }
-                        )
+                        // This 'updates' map will contain the final data to send to Firestore.
+                        // It starts with just changing the status.
+                        val gameUpdates = mutableMapOf<String, Any?>("status" to "started")
 
-                        // Game-specific initial state ON START
-                        when (gameId) {
+                        // Game-specific initial state for gameState node
+                        // LobbyService.host already sets up the initial gameState structure.
+                        // Here, we might only need to set fields that are determined *at the moment the host presses start*.
+                        val specificGameStateUpdates = when (gameId) {
                             "battleships" -> {
-                                // Battleships already has player1Id, player2Id, etc. set during LobbyService.host/join
-                                // It might need to ensure 'currentTurn' is set correctly if not already.
-                                // And reset other relevant fields if starting fresh (e.g. moves, energy for a new game vs rematch)
-                                updates["gameState.$gameId.currentTurn"] = players.firstOrNull()?.get("uid") as? String ?: ""
-                                // Add other necessary initializations for battleships if they weren't done in LobbyService.host
-                                // For example, if LobbyService.host only sets up player IDs and initial energy,
-                                // here you might set chosenMap to null, clear mapVotes, clear ships, clear ready status.
-                                // The current structure in LobbyService for battleships is quite complete for initial hosting though.
+                                // From develop:
+                                // Note: LobbyService now initializes player1Id, player2Id, currentTurn, powerUps, energy.
+                                // This might be redundant or could be for ensuring `currentTurn` if it changes.
+                                mapOf(
+                                    "player1Id" to players.getOrNull(0)?.get("uid"),
+                                    "player2Id" to players.getOrNull(1)?.get("uid"),
+                                    "currentTurn" to startingPlayerUid,
+                                    "moves" to emptyList<String>(), // Should match LobbyService type
+                                    "powerUps" to players.associate { (it["uid"] as? String ?: "") to listOf("RADAR", "BOMB") },
+                                    "energy" to players.associate { (it["uid"] as? String ?: "") to 3 },
+                                    "gameResult" to null,
+                                    "mapVotes" to emptyMap<String, Int>(),
+                                    "chosenMap" to null,
+                                    "powerUpMoves" to emptyList<String>()
+                                )
                             }
                             "ohpardon" -> {
-                                updates["gameState.$gameId.currentPlayer"] = players.firstOrNull()?.get("uid") as? String ?: ""
-                                updates["gameState.$gameId.diceRoll"] = null // Ensure dice is not pre-rolled
-                                // Other OhPardon initializations
+                                // From develop:
+                                mapOf(
+                                    "currentPlayer" to startingPlayerUid,
+                                    "scores" to emptyMap<String, Int>(), // Note: LobbyService has diceRoll, not scores here.
+                                    "gameResult" to null,
+                                    "diceRoll" to null
+                                )
+                            }
+                            "triviatoe" -> {
+                                // From develop:
+                                mapOf(
+                                    "players"      to players,
+                                    "board"        to emptyList<Map<String, Any>>(),
+                                    "moves"        to emptyList<Map<String, Any>>(),
+                                    "currentRound" to 0,
+                                    "quizQuestion" to null,
+                                    "answers"      to emptyMap<String, Any>(),
+                                    "firstToMove"  to null,
+                                    "currentTurn"  to startingPlayerUid,
+                                    "winner"       to null,
+                                    "state"        to "QUESTION",
+                                    "usedQuestions" to emptyList<Int>()
+                                )
+                            }
+                            "codenames" -> {
+                                // From develop:
+                                CodenamesService.generateGameState()
                             }
                             "whereandwhen" -> {
-                                // Key fix: Set roundStartTimeMillis when the game actually starts
-                                updates["gameState.$gameId.roundStartTimeMillis"] = System.currentTimeMillis()
-                                updates["gameState.$gameId.roundStatus"] = WhereAndWhenGameState.STATUS_GUESSING
+                                // --- WHERE & WHEN Specific: Set round start time ---
+                                // LobbyService.host has already set up currentRoundIndex, currentChallengeId, challengeOrder.
+                                mapOf(
+                                    "roundStartTimeMillis" to System.currentTimeMillis(),
+                                    "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING
+                                    // No need to reset other fields here, LobbyService did it.
+                                )
                             }
+                            else -> emptyMap()
                         }
 
+                        // Add the specific game state updates to the main updates map
+                        if (specificGameStateUpdates.isNotEmpty()) {
+                            gameUpdates["gameState.$gameId"] = specificGameStateUpdates
+                        }
+
+                        // Rematch votes reset from develop, applies if battleships
+                        // For other games, this might be benign or could be conditional
+                        if(gameId == "battleships") {
+                            val rematchVotes = players.associate {
+                                val uid = it["uid"] as? String ?: ""
+                                uid to false
+                            }
+                            gameUpdates["rematchVotes"] = rematchVotes
+                        }
+
+
                         try {
-                            db.collection("rooms").document(roomId).update(updates)
+                            db.collection("rooms").document(roomId).update(gameUpdates)
                                 .addOnSuccessListener {
-                                    Log.d("HostLobby", "Game $gameId started successfully. Room status set to 'started'.")
-                                    // Navigation will happen via the LaunchedEffect observing 'status'
-                                }
-                                .addOnFailureListener { e ->
-                                    Log.e("HostLobby", "Failed to start game $gameId: ${e.message}", e)
-                                    // Show a toast or error message to the host
+                                    println("✅ Game started successfully") // From develop
+                                }.addOnFailureListener {
+                                    println("❌ Failed to start game: ${it.message}") // From develop
                                 }
                         } catch (e: Exception) {
-                            Log.e("HostLobby", "Exception during game start for $gameId: ${e.message}", e)
+                            println("🔥 Exception during game start: ${e.message}") // From develop
                         }
                     }
                 },
-                enabled = players.size >= 2 && players.size <= maxPlayers && status == "waiting" // Updated condition
+                enabled = players.size >= maxPlayers && status == "waiting" // Condition from develop
             ) {
-                Text(
-                    if (status != "waiting") "Game In Progress..."
-                    else if (players.size >= 2 && players.size <= maxPlayers) "Start Game (${players.size}/$maxPlayers)"
-                    else "Waiting for more players... (${players.size}/$maxPlayers)"
-                )
+                Text(if (players.size >= maxPlayers && status == "waiting") "Start Game" else if (status != "waiting") "Game In Progress..." else "Waiting for players… (${players.size}/$maxPlayers)")
             }
 
             Spacer(Modifier.height(16.dp))
@@ -171,9 +369,28 @@ fun HostLobbyScreen(
             LaunchedEffect(status, hostName) {
                 if (status == "started" && hostName != null) {
                     val route = when (gameId) {
-                        "battleships" -> NavRoutes.BATTLE_VOTE // Go to vote first, not directly to game!
+                        "battleships" -> NavRoutes.BATTLE_VOTE
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
-                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME
+                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM // Route from develop
+                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME // <-- Your W&W Navigation
+                        "codenames"   -> { // Codenames logic from develop
+                            val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
+                            val isMaster = currentPlayer?.get("role") == "master"
+                            Log.d("CodenamesHostDebug", """
+                                HostLobbyScreen - Starting CodenamesActivity:
+                                currentPlayer: $currentPlayer
+                                isMaster: $isMaster
+                                team: ${currentPlayer?.get("team")}
+                            """.trimIndent())
+                            val intent = Intent(context, CodenamesActivity::class.java).apply {
+                                putExtra("roomId", roomId)
+                                putExtra("userName", hostName)
+                                putExtra("isMaster", isMaster)
+                                putExtra("team", currentPlayer?.get("team") as? String ?: "")
+                            }
+                            context.startActivity(intent)
+                            null // Prevent further navigation in this LaunchedEffect
+                        }
                         else -> null
                     }
                     route?.let {

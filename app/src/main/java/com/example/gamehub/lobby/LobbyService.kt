@@ -1,7 +1,7 @@
 package com.example.gamehub.lobby
 
-import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState // Added
-import com.example.gamehub.features.whereandwhen.ui.gameChallenges // Added
+import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState // Where & When import
+import com.example.gamehub.features.whereandwhen.ui.gameChallenges // Where & When import
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
+import android.util.Log
 
 object LobbyService {
     private val firestore = FirebaseFirestore.getInstance()
@@ -34,11 +35,16 @@ object LobbyService {
             .take(6)
             .uppercase()
 
+        Log.d("LobbyService", "Creating lobby with code: $code")
+        Log.d("LobbyService", "Game ID: $gameId, Room Name: $roomName, Host: $hostName")
+
         val maxPlayers = when (gameId) {
             "battleships" -> 2
             "ohpardon" -> 4
-            "whereandwhen" -> 4 // MODIFIED: Added whereandwhen
-            else -> 4
+            "triviatoe"   -> 2
+            "codenames" -> 1
+            "whereandwhen" -> 4 // Where & When max players
+            else -> 2
         }
 
         // Battleships initial state
@@ -47,50 +53,62 @@ object LobbyService {
             "player2Id"    to null,
             "gameResult"   to null,
             "currentTurn"  to hostUid,
-            "moves"        to emptyList<Any>(), // Changed to Any for flexibility if types differ
-            "ships"        to emptyMap<String, Any>(), // Added for completeness
+            "moves"        to emptyList<String>(),
             "powerUps"     to mapOf(hostUid to listOf("RADAR", "BOMB")),
             "energy"       to mapOf(hostUid to 3),
             "mapVotes"     to emptyMap<String, Int>(),
             "chosenMap"    to null,
-            "powerUpMoves" to emptyList<String>(),
-            "placedMines"  to emptyMap<String, Any>(), // Added
-            "triggeredMines" to emptyMap<String, Any>() // Added
+            "powerUpMoves" to emptyList<String>()
         )
 
-        // OhPardon initial state
+        // ohpardon initial state
         val ohpardonState = mapOf(
-            "currentPlayer" to hostUid, // OhPardon might need current player
-            "gameResult" to null,
-            "diceRoll" to null // Example, adjust as per OhPardon's actual needs
-            // Add other OhPardon specific initial fields here
+            "gameResult" to null
+        )
+
+        val triviatoeState = mapOf(
+            "players"      to emptyList<Map<String, Any>>(),
+            "board"        to emptyList<Map<String, Any>>(),
+            "moves"        to emptyList<Map<String, Any>>(),
+            "currentRound" to 0,
+            "quizQuestion" to null,
+            "answers"      to emptyMap<String, Any>(),
+            "firstToMove"  to null,
+            "currentTurn"  to null,
+            "winner"       to null,
+            "state"        to "QUESTION"
         )
 
         // Where & When initial state
-        val shuffledChallengeIds = gameChallenges.map { it.id }.shuffled() // Shuffle all challenge IDs
-        val firstWawChallengeId = shuffledChallengeIds.firstOrNull() // Get the first from shuffled list
-            ?: gameChallenges.firstOrNull()?.id // Fallback if shuffle is empty (e.g. gameChallenges is empty)
-            ?: "jfk" // Absolute fallback
+        val whereAndWhenState: Map<String, Any?> = if (gameId == "whereandwhen") {
+            val shuffledChallengeIds = gameChallenges.map { it.id }.shuffled()
+            val firstWawChallengeId = shuffledChallengeIds.firstOrNull()
+                ?: gameChallenges.firstOrNull()?.id
+                ?: "jfk"
+            mapOf(
+                "currentRoundIndex" to 0,
+                "currentChallengeId" to firstWawChallengeId,
+                "roundStartTimeMillis" to 0L,
+                "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING,
+                "playerGuesses" to emptyMap<String, Any>(),
+                "roundResults" to mapOf(
+                    "challengeId" to "",
+                    "results" to emptyMap<String, Any>()
+                ),
+                "playersReadyForNextRound" to emptyMap<String, Boolean>(),
+                "challengeOrder" to shuffledChallengeIds
+            )
+        } else {
+            emptyMap() // Placeholder if not W&W, though initialGameState handles this
+        }
 
-        val whereAndWhenState = mapOf(
-            "currentRoundIndex" to 0,
-            "currentChallengeId" to firstWawChallengeId, // Use the first from shuffled list
-            "roundStartTimeMillis" to 0L, // Will be set by host when game actually starts
-            "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING,
-            "playerGuesses" to emptyMap<String, Any>(),
-            "roundResults" to mapOf(
-                "challengeId" to "",
-                "results" to emptyMap<String, Any>()
-            ),
-            "playersReadyForNextRound" to emptyMap<String, Boolean>(),
-            "challengeOrder" to shuffledChallengeIds // Store the full shuffled order
-        )
 
         val initialGameState = when (gameId) {
             "battleships" -> mapOf("battleships" to battleshipsState)
             "ohpardon"    -> mapOf("ohpardon" to ohpardonState)
+            "triviatoe"   -> mapOf("triviatoe" to triviatoeState)
             "whereandwhen" -> mapOf("whereandwhen" to whereAndWhenState)
-            else          -> mapOf(gameId to mapOf("gameResult" to null)) // Generic fallback
+            else          -> mapOf(gameId to mapOf("gameResult" to null))
         }
 
         val playerObj = when (gameId) {
@@ -104,19 +122,13 @@ object LobbyService {
                     "pawn2" to -1,
                     "pawn3" to -1
                 )
-                // OhPardon might also need an initial totalScore for players array
-                // "totalScore" to 0
             )
-            "whereandwhen" -> mapOf( // MODIFIED: Added
+            "whereandwhen" -> mapOf( // Where & When player object
                 "uid" to hostUid,
                 "name" to hostName,
                 "totalScore" to 0
             )
-            else -> mapOf( // Default for Battleships and others
-                "uid" to hostUid,
-                "name" to hostName
-                // Battleships players don't have totalScore in this top-level array
-            )
+            else -> mapOf("uid" to hostUid, "name" to hostName)
         }
 
         val roomData = mapOf<String, Any?>(
@@ -129,12 +141,12 @@ object LobbyService {
             "status" to "waiting",
             "players" to listOf(playerObj),
             "gameState" to initialGameState,
-            "createdAt" to FieldValue.serverTimestamp(),
+            "createdAt" to FieldValue.serverTimestamp(), // Only one createdAt
             "rematchVotes" to emptyMap<String, Boolean>()
-            // Note: Your provided code had two "createdAt" fields, I kept one.
         )
 
         rooms.document(code).set(roomData).await()
+        Log.d("LobbyService", "Lobby created successfully with code: $code")
         return code
     }
 
@@ -156,17 +168,13 @@ object LobbyService {
         val maxPlayers = snap.getLong("maxPlayers")?.toInt() ?: return null
         val currentPlayers = (snap.get("players") as? List<Map<String, Any>>)?.toMutableList() ?: return null
         if (currentPlayers.any { it["uid"] == user.uid }) {
-            // User is already in the room, perhaps a rejoin attempt or error.
-            // Depending on game logic, you might allow rejoin or show an error.
-            // For now, let's treat it as if they successfully "joined" again if they are already in.
             return gameId
         }
         if (currentPlayers.size >= maxPlayers) return null
 
 
-        // Color check for ohpardon
         if (gameId == "ohpardon") {
-            if (selectedColor == null) return null // OhPardon requires a color to join
+            if (selectedColor == null) return null
             val takenColors = currentPlayers.mapNotNull { it["color"] as? String }
             if (takenColors.contains(selectedColor)) {
                 throw IllegalStateException("ColorAlreadyTaken")
@@ -184,35 +192,26 @@ object LobbyService {
                     "pawn2" to -1,
                     "pawn3" to -1
                 )
-                // "totalScore" to 0 // if OhPardon players need it in the main array
             )
-            "whereandwhen" -> mapOf( // MODIFIED: Added
+            "whereandwhen" -> mapOf( // Where & When player object
                 "uid" to user.uid,
                 "name" to userName,
                 "totalScore" to 0
             )
-            else -> mapOf( // Default for Battleships and others
-                "uid" to user.uid,
-                "name" to userName
-            )
+            else -> mapOf("uid" to user.uid, "name" to userName)
         }
 
         val updates = mutableMapOf<String, Any>(
             "players" to FieldValue.arrayUnion(playerObj)
         )
-
         if (gameId == "battleships") {
-            val battleshipsGs = snap.get("gameState.battleships") as? Map<String, Any?>
-            // Only set player2Id if it's not already set and there's room (which is checked by maxPlayers)
-            if (battleshipsGs?.get("player2Id") == null && currentPlayers.size < maxPlayers) {
+            val battleshipsStateMap = snap.get("gameState.battleships") as? Map<*, *>
+            if (battleshipsStateMap?.get("player2Id") == null) {
                 updates["gameState.battleships.player2Id"] = user.uid
             }
-            // Initialize energy and powerUps for the joining player in Battleships
             updates["gameState.battleships.powerUps.${user.uid}"] = listOf("RADAR", "BOMB")
             updates["gameState.battleships.energy.${user.uid}"]   = 3
         }
-        // For "whereandwhen", no specific gameState updates are needed for the joining player here.
-        // Their `playerObj` with `totalScore = 0` is added to the main `players` array.
 
         rooms.document(code).update(updates).await()
         return gameId
@@ -231,11 +230,7 @@ object LobbyService {
                 val list = qs!!.documents.mapNotNull { doc ->
                     val name = doc.getString("name") ?: return@mapNotNull null
                     val host = doc.getString("hostName") ?: "?"
-                    val playersList = (doc.get("players") as? List<*>)
-                    val players = playersList?.size ?: 0
-                    // Ensure all players in the list are indeed maps, otherwise, count might be wrong
-                    // This check is more robust if player data could be malformed.
-                    // val validPlayersCount = playersList?.count { it is Map<*, *> } ?: 0
+                    val players = (doc.get("players") as? List<*>)?.size ?: 0
                     val maxP = doc.getLong("maxPlayers")?.toInt() ?: 0
                     val locked = doc.getLong("password") != null
                     RoomSummary(doc.id, name, host, players, maxP, locked)
@@ -245,62 +240,33 @@ object LobbyService {
         awaitClose { registration.remove() }
     }
 
-    /** Surrender in Battleships */
     suspend fun surrender(
         roomCode: String,
-        gameId: String, // This param was unused, but good for context
+        gameId: String,
         surrenderingUid: String
     ) {
         val snap = rooms.document(roomCode).get().await()
         val players = snap.get("players") as? List<Map<String, Any>> ?: return
-
-        // Determine opponent based on game type if necessary
-        // For Battleships (2 players), it's simple:
         val opponent = players
-            .firstOrNull { (it["uid"] as? String) != surrenderingUid }
-            ?.get("uid") as? String
+            .firstOrNull { it["uid"] != surrenderingUid }
+            ?.get("uid") as? String ?: return
 
-        if (opponent == null && gameId == "battleships") {
-            // This case shouldn't happen in a 2-player game if both players are present.
-            // Could mean the room is in an inconsistent state or only one player.
-            // For robustness, might log an error or handle appropriately.
-            // For now, we'll proceed, but gameResult might be problematic.
-            // Perhaps set gameResult to something like "opponent_left" or handle in client.
-            rooms.document(roomCode).update("status", "ended").await() // End game without a clear winner
-            return
-        }
-
-
-        val gameSpecificResultPath = "gameState.$gameId.gameResult"
-        val updateMap = mutableMapOf<String, Any>(
-            "status" to "ended"
-        )
-
-        if (opponent != null) { // Only set winner/loser if opponent is found
-            updateMap[gameSpecificResultPath] = mapOf(
-                "winner" to opponent,
-                "loser" to surrenderingUid,
-                "reason" to "surrender"
-            )
-        } else if (gameId != "battleships") {
-            // For games with >2 players, surrender logic might be different
-            // For MVP, we might just mark the player as "surrendered" and let game continue or end based on rules.
-            // This example keeps it simple, similar to Battleships.
-            // If only one player remains, they could be the winner.
-            if (players.size == 1 && players.first()["uid"] == surrenderingUid) {
-                updateMap[gameSpecificResultPath] = mapOf("reason" to "last_player_surrendered")
-            }
-        }
-
-
-        // Assuming rematchVotes is a general feature for all games
         val rematchVotes = players.associate {
             val uid = it["uid"] as? String ?: ""
-            uid to false // Reset votes
+            uid to false
         }
-        updateMap["rematchVotes"] = rematchVotes
 
-        rooms.document(roomCode).update(updateMap).await()
+        rooms.document(roomCode).update(
+            mapOf(
+                "status" to "ended",
+                "gameState.$gameId.gameResult" to mapOf(
+                    "winner" to opponent,
+                    "loser" to surrenderingUid,
+                    "reason" to "surrender"
+                ),
+                "rematchVotes" to rematchVotes
+            )
+        ).await()
     }
 
     suspend fun voteRematch(roomCode: String, playerUid: String) {
@@ -314,7 +280,7 @@ object LobbyService {
 
         if (playerUids.all { votes[it] == true }) {
             val playersList = snap.get("players") as? List<Map<String, Any>> ?: return
-            val firstPlayerUid = playersList.firstOrNull()?.get("uid") as? String ?: return // Or determine starting player by game rules
+            val firstPlayerUid = playersList.firstOrNull()?.get("uid") as? String ?: return
             resetGame(roomCode, gameId, playersList, firstPlayerUid)
         }
     }
@@ -322,68 +288,72 @@ object LobbyService {
     private suspend fun resetGame(
         roomCode: String,
         gameId: String,
-        players: List<Map<String, Any>>, // List of player objects (Map<String, Any>)
+        players: List<Map<String, Any>>,
         startingPlayerUid: String
     ) {
-        val resetState = when (gameId) {
+        val resetState: Map<String, Any?> = when (gameId) {
             "battleships" -> mapOf(
                 "player1Id"    to players.getOrNull(0)?.get("uid"),
                 "player2Id"    to players.getOrNull(1)?.get("uid"),
                 "gameResult"   to null,
                 "currentTurn"  to startingPlayerUid,
-                "moves"        to emptyList<Any>(),
-                "ships"        to emptyMap<String, Any>(),
-                "powerUps"     to players.associate { (it["uid"] as String) to listOf("RADAR", "BOMB") },
-                "energy"       to players.associate { (it["uid"] as String) to 3 },
+                "moves"        to emptyList<String>(),
+                "powerUps"     to players.associate { it["uid"] as String to listOf("RADAR", "BOMB") },
+                "energy"       to players.associate { it["uid"] as String to 3 },
                 "mapVotes"     to emptyMap<String, Int>(),
                 "chosenMap"    to null,
-                "powerUpMoves" to emptyList<String>(),
-                "placedMines"  to emptyMap<String, Any>(),
-                "triggeredMines" to emptyMap<String, Any>()
+                "powerUpMoves" to emptyList<String>()
             )
             "ohpardon" -> mapOf(
-                "currentPlayer" to startingPlayerUid,
-                "gameResult" to null,
-                "diceRoll" to null
-                // Reset other OhPardon specific fields (like pawn positions within each player in the main players array if not here)
+                "gameResult" to null
             )
-            "whereandwhen" -> { // MODIFIED: Added
-                val firstWawChallengeIdReset = gameChallenges.firstOrNull()?.id ?: "jfk"
+            "triviatoe"   -> mapOf(
+                "players"      to players,
+                "board"        to emptyList<Map<String, Any>>(),
+                "moves"        to emptyList<Map<String, Any>>(),
+                "currentRound" to 0,
+                "quizQuestion" to null,
+                "answers"      to emptyMap<String, Any>(),
+                "firstToMove"  to null,
+                "currentTurn"  to startingPlayerUid,
+                "winner"       to null,
+                "state"        to "QUESTION"
+            )
+            "whereandwhen" -> { // Where & When reset state
+                val newShuffledOrder = gameChallenges.map { it.id }.shuffled()
                 mapOf(
                     "currentRoundIndex" to 0,
-                    "currentChallengeId" to firstWawChallengeIdReset,
-                    "roundStartTimeMillis" to 0L, // To be set by host/logic when round starts
+                    "currentChallengeId" to (newShuffledOrder.firstOrNull() ?: gameChallenges.firstOrNull()?.id ?: "jfk"),
+                    "roundStartTimeMillis" to 0L,
                     "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING,
                     "playerGuesses" to emptyMap<String, Any>(),
-                    "roundResults" to mapOf(
-                        "challengeId" to "",
-                        "results" to emptyMap<String, Any>()
-                    ),
-                    "playersReadyForNextRound" to emptyMap<String, Boolean>()
+                    "roundResults" to mapOf("challengeId" to "", "results" to emptyMap<String,Any>()),
+                    "playersReadyForNextRound" to emptyMap<String, Boolean>(),
+                    "challengeOrder" to newShuffledOrder
                 )
             }
-            else -> mapOf("gameResult" to null) // Generic
+            else -> mapOf("gameResult" to null)
         }
 
         val resetVotes = players.associate {
-            (it["uid"] as? String ?: "") to false
+            val uid = it["uid"] as? String ?: ""
+            uid to false
         }
 
-        // For Where & When, also reset totalScore for each player in the main players array
-        val updatedPlayersArray = if (gameId == "whereandwhen") {
+        val updatedPlayersArray = if (gameId == "whereandwhen") { // Where & When player score reset
             players.map { playerMap ->
                 playerMap.toMutableMap().apply { this["totalScore"] = 0 }
             }
         } else {
-            players // No change for other games unless they also need this
+            players
         }
 
         rooms.document(roomCode).update(
             mapOf(
-                "status" to "playing", // Or "waiting_for_start" if host needs to explicitly start round 1
+                "status" to "playing",
                 "rematchVotes" to resetVotes,
                 "gameState.$gameId" to resetState,
-                "players" to updatedPlayersArray // Update players array if scores were reset
+                "players" to updatedPlayersArray
             )
         ).await()
     }

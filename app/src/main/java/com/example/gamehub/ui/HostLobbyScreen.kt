@@ -1,31 +1,31 @@
 package com.example.gamehub.ui
 
-import android.content.Intent 
-import android.content.Context 
+import android.content.Intent
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.clickable 
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment 
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext 
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.gamehub.features.codenames.service.CodenamesService 
-import com.example.gamehub.features.codenames.ui.CodenamesActivity 
+import com.example.gamehub.features.codenames.service.CodenamesService
+import com.example.gamehub.features.codenames.ui.CodenamesActivity
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.FieldValue 
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import android.util.Log
 
-import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
-import com.example.gamehub.features.whereandwhen.ui.gameChallenges 
+
+import com.example.gamehub.features.whereandwhe.model.WhereAndWhenGameState
 
 
 @Composable
@@ -33,12 +33,12 @@ fun HostLobbyScreen(
     navController: NavController,
     gameId: String,
     roomId: String,
-    context: Context 
+    context: Context
 ) {
     val db = Firebase.firestore
     val auth = Firebase.auth
     val scope = rememberCoroutineScope()
-    val localCtx = LocalContext.current 
+    val localCtx = LocalContext.current
 
     var roomName by remember { mutableStateOf<String?>(null) }
     var hostName by remember { mutableStateOf<String?>(null) }
@@ -237,7 +237,7 @@ fun HostLobbyScreen(
                 }
                 Spacer(Modifier.height(24.dp))
             } else {
-           
+
                 players.forEach { player ->
                     val name = player["name"] as? String ?: ""
                     Text("• $name")
@@ -249,21 +249,28 @@ fun HostLobbyScreen(
                 onClick = {
                     scope.launch {
                         val startingPlayerUid = players.firstOrNull()?.get("uid") as? String
-                        // val hostUid = auth.currentUser?.uid // hostUid from auth is already available
-                        if (startingPlayerUid.isNullOrEmpty() || auth.currentUser?.uid.isNullOrEmpty()) return@launch
+                        // val hostUid = auth.currentUser?.uid // auth.currentUser?.uid is already available
 
-                     
-                        val gameUpdates = mutableMapOf<String, Any?>("status" to "started")
+                        if (startingPlayerUid.isNullOrEmpty() || auth.currentUser?.uid.isNullOrEmpty()) {
+                            Log.e("HostLobby", "Starting player UID or host UID is null. Cannot start game.")
+                            return@launch
+                        }
 
-                        
-                        val specificGameStateUpdates = when (gameId) {
-                            "battleships" -> {
-                               
-                                mapOf(
+                        val updatesToSendToFirestore = mutableMapOf<String, Any?>(
+                            "status" to "started"
+                        )
+
+                        if (gameId == "whereandwhen") {
+                            updatesToSendToFirestore["gameState.whereandwhen.roundStartTimeMillis"] = System.currentTimeMillis()
+                            updatesToSendToFirestore["gameState.whereandwhen.roundStatus"] = WhereAndWhenGameState.STATUS_GUESSING
+
+                        } else {
+                            val initialGameStateForOtherGames = when (gameId) {
+                                "battleships" -> mapOf(
                                     "player1Id" to players.getOrNull(0)?.get("uid"),
                                     "player2Id" to players.getOrNull(1)?.get("uid"),
                                     "currentTurn" to startingPlayerUid,
-                                    "moves" to emptyList<String>(), // Should match LobbyService type
+                                    "moves" to emptyList<String>(),
                                     "powerUps" to players.associate { (it["uid"] as? String ?: "") to listOf("RADAR", "BOMB") },
                                     "energy" to players.associate { (it["uid"] as? String ?: "") to 3 },
                                     "gameResult" to null,
@@ -271,19 +278,13 @@ fun HostLobbyScreen(
                                     "chosenMap" to null,
                                     "powerUpMoves" to emptyList<String>()
                                 )
-                            }
-                            "ohpardon" -> {
-                                
-                                mapOf(
+                                "ohpardon" -> mapOf(
                                     "currentPlayer" to startingPlayerUid,
-                                    "scores" to emptyMap<String, Int>(), 
+                                    "scores" to emptyMap<String, Int>(),
                                     "gameResult" to null,
                                     "diceRoll" to null
                                 )
-                            }
-                            "triviatoe" -> {
-                                
-                                mapOf(
+                                "triviatoe" -> mapOf(
                                     "players"      to players,
                                     "board"        to emptyList<Map<String, Any>>(),
                                     "moves"        to emptyList<Map<String, Any>>(),
@@ -296,52 +297,74 @@ fun HostLobbyScreen(
                                     "state"        to "QUESTION",
                                     "usedQuestions" to emptyList<Int>()
                                 )
+                                "codenames" -> CodenamesService.generateGameState()
+                                else -> emptyMap()
                             }
-                            "codenames" -> {
-                                // From develop:
-                                CodenamesService.generateGameState()
-                            }
-                            "whereandwhen" -> {
-                                
-                                mapOf(
-                                    "roundStartTimeMillis" to System.currentTimeMillis(),
-                                    "roundStatus" to WhereAndWhenGameState.STATUS_GUESSING
-                                    
-                                )
-                            }
-                            else -> emptyMap()
-                        }
 
-                       
-                        if (specificGameStateUpdates.isNotEmpty()) {
-                            gameUpdates["gameState.$gameId"] = specificGameStateUpdates
-                        }
-
-                       
-                        if(gameId == "battleships") {
-                             val rematchVotes = players.associate {
-                                val uid = it["uid"] as? String ?: ""
-                                uid to false
+                            if (initialGameStateForOtherGames.isNotEmpty()) {
+                                updatesToSendToFirestore["gameState.$gameId"] = initialGameStateForOtherGames
                             }
-                            gameUpdates["rematchVotes"] = rematchVotes
-                        }
 
+                            if(gameId == "battleships") {
+                                val rematchVotes = players.associate {
+                                    val uid = it["uid"] as? String ?: ""
+                                    uid to false
+                                }
+                                updatesToSendToFirestore["rematchVotes"] = rematchVotes
+                            }
+                        }
 
                         try {
-                            db.collection("rooms").document(roomId).update(gameUpdates)
+                            Log.d("HostLobby", "Updating Firestore for game start. Updates: $updatesToSendToFirestore")
+                            db.collection("rooms").document(roomId).update(updatesToSendToFirestore)
                                 .addOnSuccessListener {
-                                    println("✅ Game started successfully") 
-                                }.addOnFailureListener {
-                                    println("❌ Failed to start game: ${it.message}") 
+                                    println("✅ Game started successfully (HostLobbyScreen)")
+                                    Log.d("HostLobby", "Firestore update SUCCESS. Room status: started. GameId: $gameId")
+                                }.addOnFailureListener { e ->
+                                    println("❌ Failed to start game: ${e.message}")
+                                    Log.e("HostLobby", "Firestore update FAILED for starting game. GameId: $gameId", e)
                                 }
                         } catch (e: Exception) {
-                            println("🔥 Exception during game start: ${e.message}") 
+                            println("🔥 Exception during game start: ${e.message}")
+                            Log.e("HostLobby", "EXCEPTION during game start. GameId: $gameId", e)
                         }
                     }
                 },
-                enabled = players.size >= maxPlayers && status == "waiting" 
+                enabled = status == "waiting" &&
+                        when (gameId) {
+                            "whereandwhen" -> players.size in 2..maxPlayers
+                            "battleships" -> players.size == maxPlayers
+                            "ohpardon" -> players.size >= 2 && players.size <= maxPlayers
+                            "triviatoe" -> players.size == maxPlayers
+                            "codenames" -> players.size >= 4 && players.size <= maxPlayers
+                            else -> players.size >= 2 && players.size <= maxPlayers // Default for other games
+                        }
             ) {
-                Text(if (players.size >= maxPlayers && status == "waiting") "Start Game" else if (status != "waiting") "Game In Progress..." else "Waiting for players… (${players.size}/$maxPlayers)")
+                // BUTTON TEXT LOGIC
+                val canStartNow = when (gameId) {
+                    "whereandwhen" -> players.size in 2..maxPlayers
+                    "battleships" -> players.size == maxPlayers
+                    "ohpardon" -> players.size >= 2 && players.size <= maxPlayers
+                    "triviatoe" -> players.size == maxPlayers
+                    "codenames" -> players.size >= 4 && players.size <= maxPlayers
+                    else -> players.size >= 2 && players.size <= maxPlayers
+                }
+                Text(
+                    if (status != "waiting") "Game In Progress..."
+                    else if (canStartNow) "Start Game (${players.size}/$maxPlayers)"
+                    else {
+                        val minPlayersRequired = when (gameId) {
+                            "whereandwhen" -> 2
+                            "battleships" -> 2
+                            "ohpardon" -> 2
+                            "triviatoe" -> 2
+                            "codenames" -> 4
+                            else -> 2
+                        }
+                        if (players.size < minPlayersRequired) "Waiting for more players... (${players.size}/$maxPlayers, minimum $minPlayersRequired)"
+                        else "Waiting for players... (${players.size}/$maxPlayers)" // If min met but not max for games that require max
+                    }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
@@ -359,9 +382,9 @@ fun HostLobbyScreen(
                     val route = when (gameId) {
                         "battleships" -> NavRoutes.BATTLE_VOTE
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
-                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM 
-                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME 
-                        "codenames"   -> { 
+                        "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
+                        "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME
+                        "codenames"   -> {
                             val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
                             val isMaster = currentPlayer?.get("role") == "master"
                             Log.d("CodenamesHostDebug", """

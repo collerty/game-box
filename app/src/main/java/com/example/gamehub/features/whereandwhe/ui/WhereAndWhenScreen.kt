@@ -1,4 +1,4 @@
-package com.example.gamehub.features.whereandwhen.ui
+package com.example.gamehub.features.whereandwhe.ui
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -37,10 +37,10 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.gamehub.R // YOUR PROJECT'S R
-import com.example.gamehub.features.whereandwhen.model.WWPlayerGuess
-import com.example.gamehub.features.whereandwhen.model.WWPlayerRoundResult
-import com.example.gamehub.features.whereandwhen.model.WWRoundResultsContainer
-import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState
+import com.example.gamehub.features.whereandwhe.model.WWPlayerGuess
+import com.example.gamehub.features.whereandwhe.model.WWPlayerRoundResult
+import com.example.gamehub.features.whereandwhe.model.WWRoundResultsContainer
+import com.example.gamehub.features.whereandwhe.model.WhereAndWhenGameState
 import com.example.gamehub.navigation.NavRoutes
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -50,7 +50,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.ktx.Firebase
 import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState

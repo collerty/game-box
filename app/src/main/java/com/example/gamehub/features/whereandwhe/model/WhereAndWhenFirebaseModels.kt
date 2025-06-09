@@ -1,4 +1,4 @@
-package com.example.gamehub.features.whereandwhen.model
+package com.example.gamehub.features.whereandwhe.model
 
 // Represents a player's guess for a round in Firestore
 data class WWPlayerGuess(

@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -38,14 +37,10 @@ import com.example.gamehub.ui.HostLobbyScreen
 import com.example.gamehub.ui.LobbyMenuScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
-import com.example.gamehub.features.whereandwhen.ui.WhereAndWhenScreen
+import com.example.gamehub.features.whereandwhe.ui.WhereAndWhenScreen
 import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.auth.auth
-import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
-import com.google.firebase.auth.ktx.auth
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)

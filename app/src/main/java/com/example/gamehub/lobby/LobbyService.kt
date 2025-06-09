@@ -1,7 +1,7 @@
 package com.example.gamehub.lobby
 
-import com.example.gamehub.features.whereandwhen.model.WhereAndWhenGameState 
-import com.example.gamehub.features.whereandwhen.ui.gameChallenges
+import com.example.gamehub.features.whereandwhe.model.WhereAndWhenGameState
+import com.example.gamehub.features.whereandwhe.ui.gameChallenges
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -42,7 +42,7 @@ object LobbyService {
             "battleships" -> 2
             "ohpardon" -> 4
             "triviatoe"   -> 2
-            "codenames" -> 1
+            "codenames" -> 4
             "whereandwhen" -> 4 
             else -> 2
         }

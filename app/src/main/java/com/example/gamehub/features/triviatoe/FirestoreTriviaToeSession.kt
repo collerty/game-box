@@ -96,18 +96,21 @@ class FirestoreTriviatoeSession(
             "submitMove"
         )
 
-        // Use the *latest* board plus your move, NOT the one from Firestore
         val snap = room.get().await()
         val gs = snap.get("gameState") as? Map<*, *> ?: return
         val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
         val session = TriviatoeCodec.decodeState(triviatoeState as Map<String, Any?>)
+        if (session.state == TriviatoeRoundState.FINISHED) {
+            println("submitMove: Already finished, skipping any updates.")
+            return
+        }
+        // Prevent further moves if already finished
 
-        // Locally add this move if it's not already present (guard against duplicate)
         val boardCells = session.board.toMutableList()
         if (!boardCells.any { it.row == row && it.col == col }) {
             boardCells.add(TriviatoeCell(row, col, symbol))
         }
-        // Use this local version for win detection
+
         if (checkWinForMoveBoard(boardCells, row, col, symbol, session.players)) {
             safeUpdate(
                 mapOf(
@@ -116,27 +119,29 @@ class FirestoreTriviatoeSession(
                 ),
                 "instantWin"
             )
-        } else {
-            val movesThisRound = session.moves.count { it.round == session.currentRound }
-            val playerIds = session.players.map { it.uid }
-            val otherPlayerId = playerIds.firstOrNull { it != playerId }
+            return // <--- **DO NOT PROCEED**: this "locks" the game
+        }
 
-            if (movesThisRound == 1 && otherPlayerId != null) {
-                safeUpdate(
-                    mapOf(
-                        "gameState.triviatoe.currentTurn" to otherPlayerId,
-                        "gameState.triviatoe.state" to "MOVE_2"
-                    ),
-                    "nextTurn"
-                )
-            } else if (movesThisRound == 2) {
-                safeUpdate(
-                    mapOf(
-                        "gameState.triviatoe.state" to "CHECK_WIN"
-                    ),
-                    "checkWin"
-                )
-            }
+        // Only advance state if still not finished (no win)
+        val movesThisRound = session.moves.count { it.round == session.currentRound }
+        val playerIds = session.players.map { it.uid }
+        val otherPlayerId = playerIds.firstOrNull { it != playerId }
+
+        if (movesThisRound == 1 && otherPlayerId != null) {
+            safeUpdate(
+                mapOf(
+                    "gameState.triviatoe.currentTurn" to otherPlayerId,
+                    "gameState.triviatoe.state" to "MOVE_2"
+                ),
+                "nextTurn"
+            )
+        } else if (movesThisRound == 2) {
+            safeUpdate(
+                mapOf(
+                    "gameState.triviatoe.state" to "CHECK_WIN"
+                ),
+                "checkWin"
+            )
         }
     }
 
@@ -197,6 +202,14 @@ class FirestoreTriviatoeSession(
         val snap = room.get().await()
         val triviatoe = (snap.get("gameState") as? Map<*, *>)?.get("triviatoe") as? Map<*, *>
         val usedQuestions = (triviatoe?.get("usedQuestions") as? List<Long>)?.map { it.toInt() } ?: emptyList()
+        val gs = snap.get("gameState") as? Map<*, *> ?: return
+        val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
+        val state = triviatoeState["state"] as? String
+        if (state == TriviatoeRoundState.FINISHED.name) {
+            println("FunctionName: Already finished, skipping.")
+            return
+        }
+
 
         // Indices of available questions
         val available = (TriviatoeQuestionBank.all.indices).filter { it !in usedQuestions }
@@ -246,6 +259,14 @@ class FirestoreTriviatoeSession(
     suspend fun advanceGameState() {
         val snap = room.get().await()
         val triviatoe = (snap.get("gameState") as? Map<*, *>)?.get("triviatoe") as? Map<*, *>
+        val gs = snap.get("gameState") as? Map<*, *> ?: return
+        val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
+        val state = triviatoeState["state"] as? String
+        if (state == TriviatoeRoundState.FINISHED.name) {
+            println("FunctionName: Already finished, skipping.")
+            return
+        }
+
         val firstToMove = triviatoe?.get("firstToMove") as? String
         safeUpdate(
             mapOf(
@@ -322,7 +343,11 @@ class FirestoreTriviatoeSession(
         val gs = snap.get("gameState") as? Map<*, *> ?: return
         val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
         val state = triviatoeState["state"] as? String
-        if (state == TriviatoeRoundState.FINISHED.name) return
+        if (state == TriviatoeRoundState.FINISHED.name) {
+            println("FunctionName: Already finished, skipping.")
+            return
+        }
+
 
         val other = players.firstOrNull { it.uid != firstToMove }?.uid ?: return
         safeUpdate(
@@ -340,7 +365,10 @@ class FirestoreTriviatoeSession(
         val gs = snap.get("gameState") as? Map<*, *> ?: return
         val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
         val state = triviatoeState["state"] as? String
-        if (state == TriviatoeRoundState.FINISHED.name) return // Early exit if game is already finished!
+        if (state == TriviatoeRoundState.FINISHED.name) {
+            println("FunctionName: Already finished, skipping.")
+            return
+        }
 
         safeUpdate(
             mapOf("gameState.triviatoe.state" to "CHECK_WIN"),
@@ -352,9 +380,10 @@ class FirestoreTriviatoeSession(
     suspend fun finishMoveRound(session: TriviatoeSession) {
         // Don't do anything if game is already finished!
         if (session.state == TriviatoeRoundState.FINISHED) {
-            println("finishMoveRound: Already FINISHED, ignoring.")
+            println("FunctionName: Already finished, skipping.")
             return
         }
+
         println("finishMoveRound called for round ${session.currentRound}")
         val winnerUid = checkWinConditionGetWinnerUid(session)
         if (winnerUid != null) {
@@ -505,7 +534,6 @@ class FirestoreTriviatoeSession(
                     "gameState.triviatoe.lastQuestion" to null,
                     "gameState.triviatoe.lastCorrectIndex" to null,
                     "gameState.triviatoe.randomized" to null,
-                    // Clear the resetting flag so another rematch is possible later
                     "gameState.triviatoe.resetting" to false
                 ),
                 "resetForRematch"

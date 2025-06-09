@@ -11,7 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,23 +33,22 @@ import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersPreGameScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersScreen
 import com.example.gamehub.features.triviatoe.FirestoreTriviatoeSession
 import com.example.gamehub.features.triviatoe.ui.TriviatoePlayScreen
+import com.example.gamehub.features.codenames.ui.CodenamesScreen
 import com.example.gamehub.ui.GuestGameScreen
 import com.example.gamehub.ui.HostLobbyScreen
 import com.example.gamehub.ui.LobbyMenuScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.example.gamehub.features.whereandwhe.ui.WhereAndWhenScreen
 import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.auth.auth
-import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
-import com.google.firebase.auth.ktx.auth
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "onCreate called")
         FirebaseAuth.getInstance().signInAnonymously()
             .addOnSuccessListener { Log.d("Auth", "Signed in anonymously") }
             .addOnFailureListener { Log.e("Auth", "Anonymous sign-in failed", it) }
@@ -62,6 +61,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GameHubApp() {
     val navController = rememberNavController()
+    val context = LocalContext.current
+    Log.d("MainActivity", "GameHubApp composable created")
 
     Scaffold { innerPadding ->
         NavHost(
@@ -79,6 +80,7 @@ fun GameHubApp() {
                 arguments = listOf(navArgument("gameId") { type = NavType.StringType })
             ) { backStack ->
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
+                Log.d("MainActivity", "Navigating to LobbyMenuScreen with gameId: $gameId")
                 LobbyMenuScreen(navController, gameId)
             }
 
@@ -91,7 +93,13 @@ fun GameHubApp() {
             ) { backStack ->
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
                 val code   = backStack.arguments?.getString("code")   ?: return@composable
-                HostLobbyScreen(navController, gameId, code)
+                Log.d("MainActivity", "Navigating to HostLobbyScreen with gameId: $gameId, code: $code")
+                HostLobbyScreen(
+                    navController = navController,
+                    gameId = gameId,
+                    roomId = code,
+                    context = context
+                )
             }
 
             composable(
@@ -105,7 +113,13 @@ fun GameHubApp() {
                 val gameId   = backStack.arguments?.getString("gameId")   ?: return@composable
                 val code     = backStack.arguments?.getString("code")     ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
-                GuestGameScreen(navController, gameId, code, userName)
+                GuestGameScreen(
+                    navController = navController,
+                    gameId = gameId,
+                    code = code,
+                    userName = userName,
+                    context = context
+                )
             }
 
             // Voting screen
@@ -162,6 +176,37 @@ fun GameHubApp() {
             }
 
             composable(
+                NavRoutes.WHERE_AND_WHEN_GAME,
+                arguments = listOf(
+                    navArgument("code") { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code = backStack.arguments?.getString("code") ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                WhereAndWhenScreen(navController = navController, roomCode = code, currentUserName = userName)
+        }
+
+                composable(
+                  NavRoutes.CODENAMES_GAME,
+                arguments = listOf(
+                    navArgument("code")     { type = NavType.StringType },
+                    navArgument("userName") { type = NavType.StringType }
+                )
+            ) { backStack ->
+                val code     = backStack.arguments?.getString("code")     ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                val isMaster = userName.contains("master", ignoreCase = true)
+                val masterTeam = if (isMaster) {
+                    if (userName.contains("red", ignoreCase = true)) "RED" else "BLUE"
+                } else null
+                CodenamesScreen(
+                    navController = navController,
+                    roomId = code,
+                    isMaster = isMaster,
+                    masterTeam = masterTeam
+                )
+                  composable(
                 "${NavRoutes.SPACE_INVADERS_GAME}/{name}",
                 arguments = listOf(
                     navArgument("name") { type = NavType.StringType }

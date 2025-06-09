@@ -399,6 +399,316 @@ object TriviatoeQuestionBank {
             question = "What is the name of the fairy in Peter Pan?",
             answers = listOf("Silvermist", "Rosetta", "Tinker Bell", "Iridessa"),
             correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the hottest planet in our solar system?",
+            answers = listOf("Mercury", "Venus", "Mars", "Jupiter"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the hardest natural substance on Earth?",
+            answers = listOf("Gold", "Iron", "Diamond", "Quartz"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Who discovered penicillin?",
+            answers = listOf("Marie Curie", "Alexander Fleming", "Louis Pasteur", "Gregor Mendel"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which language has the most native speakers?",
+            answers = listOf("English", "Mandarin", "Spanish", "Hindi"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "How many hearts does an octopus have?",
+            answers = listOf("1", "2", "3", "4"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What does the 'www' stand for in a website browser?",
+            answers = listOf("World Wide Web", "Wild Wild West", "Wide Web World", "Web World Wide"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which continent is the least populated?",
+            answers = listOf("Antarctica", "Australia", "South America", "Europe"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which instrument has keys, pedals and strings?",
+            answers = listOf("Guitar", "Violin", "Piano", "Trumpet"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which country hosted the 2016 Summer Olympics?",
+            answers = listOf("China", "Brazil", "Russia", "UK"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the tallest building in the world (as of 2024)?",
+            answers = listOf("Shanghai Tower", "Abraj Al Bait", "Burj Khalifa", "One World Trade Center"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "How many ribs are in a human body?",
+            answers = listOf("12", "20", "24", "30"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the main ingredient in traditional Japanese miso soup?",
+            answers = listOf("Soybean paste", "Seaweed", "Rice", "Fish"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the fastest land animal?",
+            answers = listOf("Cheetah", "Lion", "Horse", "Gazelle"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the national flower of Japan?",
+            answers = listOf("Rose", "Lily", "Cherry Blossom", "Lotus"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which planet has the most moons?",
+            answers = listOf("Earth", "Jupiter", "Saturn", "Mars"),
+            correctIndex = 2 // As of 2024, Saturn leads!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the smallest country in the world?",
+            answers = listOf("Monaco", "Vatican City", "Malta", "Liechtenstein"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the most widely spoken language in South America?",
+            answers = listOf("Portuguese", "English", "Spanish", "French"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which sea creature has three hearts?",
+            answers = listOf("Dolphin", "Shark", "Octopus", "Whale"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the longest bone in the human body?",
+            answers = listOf("Tibia", "Fibula", "Femur", "Humerus"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal is known as the 'King of the Jungle'?",
+            answers = listOf("Tiger", "Elephant", "Lion", "Gorilla"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What element does 'K' stand for on the periodic table?",
+            answers = listOf("Krypton", "Potassium", "Kelvin", "Kerosene"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which is the largest internal organ in the human body?",
+            answers = listOf("Heart", "Liver", "Lung", "Brain"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal cannot jump?",
+            answers = listOf("Elephant", "Kangaroo", "Lion", "Rabbit"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which country has the most islands in the world?",
+            answers = listOf("Canada", "Indonesia", "Sweden", "Philippines"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "How long is a day on Venus compared to Earth?",
+            answers = listOf("Shorter", "Same", "Longer", "No days"),
+            correctIndex = 2 // It's longer than its year!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the only mammal capable of true flight?",
+            answers = listOf("Bat", "Flying squirrel", "Sugar glider", "Owl"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which fruit was once known as a 'love apple'?",
+            answers = listOf("Tomato", "Apple", "Cherry", "Peach"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What color is hippo sweat?",
+            answers = listOf("Blue", "Red", "Green", "Pink"),
+            correctIndex = 1 // It's actually red!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the loudest animal on Earth relative to its size?",
+            answers = listOf("Howler monkey", "Tiger pistol shrimp", "Lion", "Elephant"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which planet rains diamonds?",
+            answers = listOf("Earth", "Neptune", "Jupiter", "Uranus"),
+            correctIndex = 3 // Uranus and Neptune
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What was the first toy to be advertised on TV?",
+            answers = listOf("Barbie", "Lego", "Mr. Potato Head", "Teddy Bear"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the only food astronauts can’t eat in space?",
+            answers = listOf("Bread", "Honey", "Salt", "Pizza"),
+            correctIndex = 0 // Bread makes crumbs!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "How many hearts does an earthworm have?",
+            answers = listOf("1", "5", "7", "10"),
+            correctIndex = 1 // 5 hearts!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal’s fingerprints are so similar to humans' they can taint crime scenes?",
+            answers = listOf("Chimpanzee", "Koala", "Gorilla", "Dog"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the only bird that can fly backwards?",
+            answers = listOf("Parrot", "Hummingbird", "Swallow", "Ostrich"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "How much of Earth's oxygen is produced by the Amazon rainforest?",
+            answers = listOf("5%", "10%", "20%", "50%"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which ocean is the deepest in the world?",
+            answers = listOf("Atlantic", "Arctic", "Indian", "Pacific"),
+            correctIndex = 3
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the only letter that doesn’t appear in any U.S. state name?",
+            answers = listOf("Q", "Z", "X", "J"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal has rectangular pupils?",
+            answers = listOf("Cat", "Goat", "Horse", "Rabbit"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What animal can sleep with one eye open?",
+            answers = listOf("Horse", "Shark", "Dolphin", "Cow"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal can taste with its feet?",
+            answers = listOf("Butterfly", "Frog", "Duck", "Bat"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "How many years can a snail sleep?",
+            answers = listOf("Up to 3", "Up to 1", "Up to 7", "Up to 10"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What does 'Wi-Fi' let you do?",
+            answers = listOf("Connect to the internet wirelessly", "Wash dishes", "Write code", "Take photos"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What food did astronauts famously eat on the moon?",
+            answers = listOf("Pizza", "Ice Cream", "Cheese", "Bacon"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which country once had a king who only reigned for 20 minutes?",
+            answers = listOf("France", "Italy", "Spain", "Greece"),
+            correctIndex = 1 // Italy, King Umberto II!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which fruit can float on water because it's made of 25% air?",
+            answers = listOf("Apple", "Banana", "Watermelon", "Grape"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is the official national animal of Scotland?",
+            answers = listOf("Sheep", "Unicorn", "Horse", "Dragon"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which bird is known for dancing to impress a mate?",
+            answers = listOf("Penguin", "Peacock", "Blue-footed Booby", "Chicken"),
+            correctIndex = 2
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What do you call a group of flamingos?",
+            answers = listOf("A bunch", "A flock", "A parade", "A stand"),
+            correctIndex = 2 // A parade!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which planet in our solar system smells like rotten eggs?",
+            answers = listOf("Venus", "Mars", "Uranus", "Saturn"),
+            correctIndex = 3 // Saturn (hydrogen sulfide)!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is banned in public places in Florida after 6pm on a Thursday?",
+            answers = listOf("Singing", "Dancing", "Whistling", "Farting"),
+            correctIndex = 3 // It's true!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal is known for laughing when tickled?",
+            answers = listOf("Dog", "Chimpanzee", "Rat", "Horse"),
+            correctIndex = 2 // Rats!
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is a group of crows called?",
+            answers = listOf("A murder", "A party", "A school", "A pack"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which country invented French fries?",
+            answers = listOf("France", "Belgium", "USA", "Canada"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which sea creature can change its color to hide or show off?",
+            answers = listOf("Crab", "Octopus", "Shrimp", "Lobster"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "How many noses does a slug have?",
+            answers = listOf("1", "2", "3", "4"),
+            correctIndex = 3
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal can sleep for three years at a time?",
+            answers = listOf("Tortoise", "Snail", "Bat", "Frog"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What is illegal to own as a pet in Switzerland unless you have two of them?",
+            answers = listOf("Parrots", "Guinea pigs", "Cats", "Goldfish"),
+            correctIndex = 1
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What did the first oranges look like?",
+            answers = listOf("Green", "Orange", "Yellow", "Red"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "What animal do you get when you cross a donkey and a zebra?",
+            answers = listOf("Zonkey", "Dorse", "ZebraDonk", "Zorilla"),
+            correctIndex = 0
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which animal can hold its breath the longest underwater?",
+            answers = listOf("Dolphin", "Whale", "Sea turtle", "Sperm whale"),
+            correctIndex = 3
+        ),
+        TriviatoeQuestion.MultipleChoice(
+            question = "Which country is known for inventing pizza?",
+            answers = listOf("Greece", "Italy", "France", "Turkey"),
+            correctIndex = 1
         )
     )
     val totalCount get() = all.size

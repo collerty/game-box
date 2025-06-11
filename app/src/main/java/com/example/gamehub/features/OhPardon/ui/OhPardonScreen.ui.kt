@@ -23,8 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
@@ -32,8 +38,8 @@ import com.example.gamehub.features.ohpardon.Player
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.gamehub.R
-import com.example.gamehub.features.OhPardon.classes.SoundManager
-import com.example.gamehub.features.OhPardon.classes.VibrationManager
+import com.example.gamehub.features.ohpardon.classes.SoundManager
+import com.example.gamehub.features.ohpardon.classes.VibrationManager
 import com.example.gamehub.features.ohpardon.UiEvent
 
 enum class CellType {
@@ -168,93 +174,151 @@ fun OhPardonScreen(
     }
 
 
+    val pixelFont = FontFamily(Font(R.font.arcade_classic)) // Replace with your actual font
+
     Scaffold { padding ->
         val isTablet = screenWidthDp > 600
-        Column(
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(if (isTablet) 32.dp else 16.dp)
-                .verticalScroll(rememberScrollState())
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            // Background image
+            Image(
+                painter = painterResource(id = R.drawable.ohpardon_background),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
 
-            if (gameRoom != null) {
-                val board = viewModel.getBoardForUI(gameRoom!!.players)
+            // Overlay to make text readable
+            Box(modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0x99000000)) // semi-transparent black
+            )
 
-                GameBoard(
-                    board = board, onPawnClick = { pawnId ->
-                        selectedPawnId = pawnId
-                    },
-                    currentPlayer = currentPlayer
-                )
-
+            // Foreground content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (isTablet) 32.dp else 16.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val currentTurnPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+                if (gameRoom != null) {
+                    val board = viewModel.getBoardForUI(gameRoom!!.players)
 
-                if (currentTurnPlayer != null) {
-                    Text(
-                        text = "It's ${currentTurnPlayer.name}'s turn!",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    gameRoom!!.gameState.diceRoll?.let {
-                        Text(
-                            text = "${currentTurnPlayer.name} rolled a $it!",
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(bottom = 16.dp)
+                    // Centered GameBoard
+                    Box(contentAlignment = Alignment.Center) {
+                        GameBoard(
+                            board = board,
+                            onPawnClick = { selectedPawnId = it },
+                            currentPlayer = currentPlayer
                         )
                     }
-                }
 
-                val isMyTurn = gameRoom!!.gameState.currentTurnUid == currentPlayer?.uid
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                if (isMyTurn) {
-                    // Dice roll button
-                    if (currentDiceRoll == null) {
-                        Button(
-                            onClick = { viewModel.attemptRollDice(userName) },
+                    val currentTurnPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+
+                    if (currentTurnPlayer != null) {
+                        Text(
+                            text = "It's ${currentTurnPlayer.name}'s turn!",
+                            style = TextStyle(fontFamily = pixelFont, fontSize = 20.sp, color = Color.White),
                             modifier = Modifier.padding(bottom = 8.dp)
-                        ) {
-                            Text("Roll Dice")
+                        )
+
+                        currentDiceRoll?.let {
+                            Text(
+                                text = "${currentTurnPlayer.name} rolled a $it!",
+                                style = TextStyle(fontFamily = pixelFont, fontSize = 16.sp, color = Color.White),
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
                         }
                     }
 
-                    // Move button
-                    if (currentDiceRoll != null && selectedPawnId != null) {
-                        Button(
-                            onClick = {
-                                viewModel.attemptMovePawn(gameRoom!!.gameState.currentTurnUid, selectedPawnId.toString())
-                                selectedPawnId = null
-                            },
-                            modifier = Modifier.padding(bottom = 8.dp)
+                    val isMyTurn = gameRoom!!.gameState.currentTurnUid == currentPlayer?.uid
+
+                    val buttonModifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .border(1.dp, Color.Black)
+                        .background(Color.White)
+
+                    val buttonTextStyle = TextStyle(
+                        fontFamily = pixelFont,
+                        fontSize = 16.sp,
+                        color = Color.Black
+                    )
+
+                    if (isMyTurn) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth(0.8f) // optional width constraint
                         ) {
-                            Text("Move Selected Pawn")
+                            // Roll Dice Button with Dice Image
+                            if (currentDiceRoll == null) {
+                                Button(
+                                    onClick = { viewModel.attemptRollDice(userName) },
+                                    modifier = buttonModifier,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                    shape = RectangleShape,
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.dice_icon),
+                                        contentDescription = "Dice",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Roll Dice", style = buttonTextStyle)
+                                }
+                            }
+
+                            // Move Selected Pawn
+                            if (currentDiceRoll != null && selectedPawnId != null) {
+                                Button(
+                                    onClick = {
+                                        viewModel.attemptMovePawn(gameRoom!!.gameState.currentTurnUid, selectedPawnId.toString())
+                                        selectedPawnId = null
+                                    },
+                                    modifier = buttonModifier,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                    shape = RectangleShape
+                                ) {
+                                    Text("Move Selected Pawn", style = buttonTextStyle)
+                                }
+                            }
+
+                            // Skip Turn
+                            Button(
+                                onClick = {
+                                    viewModel.skipTurn(userName)
+                                    selectedPawnId = null
+                                },
+                                modifier = buttonModifier,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                shape = RectangleShape
+                            ) {
+                                Text("Skip Turn", style = buttonTextStyle)
+                            }
                         }
                     }
 
-                    // Skip turn
-                    Button(
-                        onClick = {
-                            viewModel.skipTurn(userName)
-                            selectedPawnId = null
-                        },
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    ) {
-                        Text("Skip Turn")
-                    }
-
+                } else {
+                    CircularProgressIndicator()
+                    Text(
+                        "Loading game data...",
+                        style = TextStyle(fontFamily = pixelFont, fontSize = 16.sp, color = Color.White)
+                    )
                 }
-
-            } else {
-                CircularProgressIndicator()
-                Text("Loading game data...")
             }
         }
     }
-
 }
 
 @Composable

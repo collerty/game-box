@@ -1,4 +1,4 @@
-package com.example.gamehub.features.OhPardon.classes
+package com.example.gamehub.features.ohpardon.classes
 
 import android.content.Context
 import android.os.Build

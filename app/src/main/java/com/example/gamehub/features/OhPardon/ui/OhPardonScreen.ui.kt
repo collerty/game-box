@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,7 +65,7 @@ fun OhPardonScreen(
     val soundManager = remember { SoundManager(context) }
     val vibrationManager = remember { VibrationManager(context) }
 
-
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
 
     val viewModel: OhPardonViewModel = viewModel(
         factory = OhPardonViewModelFactory(application, code, userName)
@@ -168,11 +169,12 @@ fun OhPardonScreen(
 
 
     Scaffold { padding ->
+        val isTablet = screenWidthDp > 600
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(if (isTablet) 32.dp else 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -287,6 +289,8 @@ fun getPawnImageRes(color: Color?): Int {
 @Composable
 fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) -> Unit) {
     val isMyPawn = cell.pawn?.color == currentPlayer?.color
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val cellSize = screenWidth / 12 // or dynamically based on board size
 
     val backgroundColor = when (cell.type) {
         CellType.EMPTY -> Color.LightGray
@@ -298,7 +302,7 @@ fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) ->
 
     Box(
         modifier = Modifier
-            .size(32.dp)
+            .size(cellSize)
             .border(1.dp, Color.Black)
             .background(backgroundColor)
             .clickable(enabled = isMyPawn) {
@@ -309,7 +313,7 @@ fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) ->
         cell.pawn?.let {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(cellSize)
                     .background(Color.LightGray, shape = CircleShape)
                     .border(1.dp, Color.DarkGray, shape = CircleShape),
                 contentAlignment = Alignment.Center
@@ -317,7 +321,7 @@ fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) ->
                 Image(
                     painter = painterResource(id = getPawnImageRes(it.color)),
                     contentDescription = "Pawn",
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(cellSize * 0.85f)
                 )
             }
 

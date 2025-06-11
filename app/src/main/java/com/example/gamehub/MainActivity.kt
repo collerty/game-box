@@ -1,10 +1,12 @@
 package com.example.gamehub
 
 import TriviatoeIntroAnimScreen
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -45,6 +47,7 @@ import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +60,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameHubApp() {
@@ -193,7 +197,8 @@ fun GameHubApp() {
                     navArgument("code")     { type = NavType.StringType },
                     navArgument("userName") { type = NavType.StringType }
                 )
-            ) { backStack ->
+            )
+                { backStack ->
                 val code     = backStack.arguments?.getString("code")     ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
                 val isMaster = userName.contains("master", ignoreCase = true)
@@ -205,7 +210,7 @@ fun GameHubApp() {
                     roomId = code,
                     isMaster = isMaster,
                     masterTeam = masterTeam
-                )
+                ) }
                   composable(
                 "${NavRoutes.SPACE_INVADERS_GAME}/{name}",
                 arguments = listOf(

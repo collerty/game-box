@@ -101,7 +101,41 @@ val gameChallenges = listOf(
     Challenge("pearlharbor", R.drawable.pearl_harbor_attack_1941, 1941, 21.3667, -157.9333, "Pearl Harbor, Hawaii, USA", "Attack on Pearl Harbor"),
     Challenge("dday", R.drawable.d_day_landing_1944, 1944, 49.3389, -0.6217, "Omaha Beach, Normandy, France", "D-Day Normandy Landings"),
     Challenge("fall_soviet", R.drawable.soviet_union_dissolution_1991, 1991, 55.7558, 37.6173, "Moscow, Russia", "Dissolution of the Soviet Union"),
-    Challenge("great_depression", R.drawable.wall_street_crash_1929, 1929, 40.7069, -74.0113, "Wall Street, New York, USA", "Wall Street Crash of 1929")
+    Challenge("great_depression", R.drawable.wall_street_crash_1929, 1929, 40.7069, -74.0113, "Wall Street, New York, USA", "Wall Street Crash of 1929"),
+    Challenge("gettysburg_battle", R.drawable.gettysburg_battle_1863, 1863, 39.8140, -77.2301, "Gettysburg, Pennsylvania, USA", "Battle of Gettysburg"),
+    Challenge("suez_canal_opening", R.drawable.suez_canal_opening_1869, 1869, 30.5852, 32.2623, "Port Said, Egypt", "Opening of the Suez Canal"),
+    Challenge("eiffel_tower_construction", R.drawable.eiffel_tower_construction, 1888, 48.8584, 2.2945, "Paris, France", "Construction of the Eiffel Tower"),
+    Challenge("klondike_gold_rush", R.drawable.klondike_gold_rush_1897, 1897, 64.0500, -139.4333, "Dawson City, Yukon, Canada", "Klondike Gold Rush"),
+    Challenge("panama_canal_opening", R.drawable.panama_canal_opening_1914, 1914, 9.0800, -79.6800, "Panama Canal, Panama", "Opening of the Panama Canal"),
+    Challenge("russian_revolution_1917", R.drawable.russian_revolution_1917, 1917, 59.9371, 30.3097, "Winter Palace, St. Petersburg, Russia", "Russian Revolution (Storming of Winter Palace)"),
+    Challenge("prohibition_usa_start", R.drawable.prohibition_usa_start_1920, 1920, 40.7128, -74.0060, "New York City, USA (Speakeasy imagery)", "Start of Prohibition in the USA"),
+    Challenge("tutankhamun_tomb_discovery", R.drawable.tutankhamun_tomb_discovery_1922, 1922, 25.7402, 32.6014, "Valley of the Kings, Luxor, Egypt", "Discovery of Tutankhamun's Tomb"),
+    Challenge("hoover_dam_completion", R.drawable.hoover_dam_completion_1936, 1936, 36.0160, -114.7377, "Hoover Dam, Nevada/Arizona, USA", "Completion of Hoover Dam"),
+    Challenge("hindenburg_disaster", R.drawable.hindenburg_disaster_1937, 1937, 40.0793, -74.3293, "Lakehurst, New Jersey, USA", "Hindenburg Disaster"),
+    Challenge("battle_of_britain", R.drawable.battle_of_britain_1940, 1940, 51.5074, -0.1278, "London, UK (Spitfires/Blitz imagery)", "Battle of Britain"),
+    Challenge("battle_stalingrad", R.drawable.battle_stalingrad_1943, 1943, 48.7081, 44.5133, "Stalingrad (Volgograd), Russia", "Battle of Stalingrad (Turning Point)"),
+    Challenge("israel_founding_1948", R.drawable.israel_founding_1948, 1948, 32.0853, 34.7818, "Tel Aviv, Israel", "Founding of the State of Israel"),
+    Challenge("everest_first_ascent", R.drawable.everest_first_ascent_1953, 1953, 27.9881, 86.9250, "Mount Everest, Nepal/China", "First Ascent of Mount Everest"),
+    Challenge("sputnik_launch", R.drawable.sputnik_launch_1957, 1957, 45.9647, 63.3052, "Baikonur Cosmodrome, Kazakhstan", "Launch of Sputnik 1"),
+    Challenge("march_on_washington", R.drawable.march_on_washington_1963, 1963, 38.8893, -77.0502, "Lincoln Memorial, Washington D.C., USA", "March on Washington for Jobs and Freedom"),
+    Challenge("woodstock_festival", R.drawable.woodstock_festival_1969, 1969, 41.7137, -74.8754, "Bethel, New York, USA", "Woodstock Music Festival"),
+    Challenge("watergate_scandal_breakin", R.drawable.watergate_scandal_breakin_1972, 1972, 38.9007, -77.0506, "Watergate Complex, Washington D.C., USA", "Watergate Break-in"),
+    Challenge("fall_of_saigon", R.drawable.fall_of_saigon_1975, 1975, 10.7769, 106.7009, "Ho Chi Minh City (Saigon), Vietnam", "Fall of Saigon"),
+    Challenge("apple_founded_1976", R.drawable.apple_founded_1976, 1976, 37.3318, -122.0312, "Cupertino, California, USA (Garage imagery)", "Founding of Apple Computer"),
+    Challenge("challenger_disaster_1986", R.drawable.challenger_disaster_1986, 1986, 28.6084, -80.6043, "Cape Canaveral, Florida, USA", "Space Shuttle Challenger Disaster"),
+    Challenge("tiananmen_square_protests", R.drawable.tiananmen_square_protests_1989, 1989, 39.9075, 116.3972, "Tiananmen Square, Beijing, China", "Tiananmen Square Protests (Tank Man)"),
+    Challenge("dolly_the_sheep_cloned", R.drawable.dolly_the_sheep_cloned_1996, 1996, 55.9291, -3.2122, "Roslin Institute, Scotland, UK", "Cloning of Dolly the Sheep"),
+    Challenge("hong_kong_handover_1997", R.drawable.hong_kong_handover_1997, 1997, 22.2793, 114.1628, "Hong Kong Convention and Exhibition Centre", "Handover of Hong Kong to China"),
+    Challenge("indian_ocean_tsunami_2004", R.drawable.indian_ocean_tsunami_2004, 2004, 3.3166, 95.8536, "Banda Aceh, Indonesia (epicenter proxy)", "Indian Ocean Tsunami"),
+    Challenge("hurricane_katrina_2005", R.drawable.hurricane_katrina_2005, 2005, 29.9511, -90.0715, "New Orleans, Louisiana, USA", "Hurricane Katrina"),
+    Challenge("iphone_launch_2007", R.drawable.iphone_launch_2007, 2007, 37.7749, -122.4194, "San Francisco, CA (Moscone Center)", "Launch of the first iPhone"),
+    Challenge("financial_crisis_2008", R.drawable.financial_crisis_2008, 2008, 40.7069, -74.0113, "Wall Street, New York, USA", "Global Financial Crisis (Lehman Brothers collapse)"),
+    Challenge("arab_spring_egypt_2011", R.drawable.arab_spring_egypt_2011, 2011, 30.0444, 31.2357, "Tahrir Square, Cairo, Egypt", "Egyptian Revolution (Arab Spring)"),
+    Challenge("crimea_annexation_2014", R.drawable.crimea_annexation_2014, 2014, 44.9521, 34.1024, "Simferopol, Crimea", "Annexation of Crimea by Russia"),
+    Challenge("paris_agreement_climate", R.drawable.paris_agreement_climate_2015, 2015, 48.8566, 2.3522, "Paris, France", "Paris Agreement on Climate Change Signed"),
+    Challenge("notre_dame_fire_2019", R.drawable.notre_dame_fire_2019, 2019, 48.8530, 2.3499, "Notre-Dame Cathedral, Paris, France", "Notre-Dame Cathedral Fire"),
+    Challenge("us_capitol_attack_2021", R.drawable.us_capitol_attack_2021, 2021, 38.8899, -77.0091, "U.S. Capitol, Washington D.C., USA", "January 6th Capitol Attack"),
+    Challenge("ukraine_invasion_2022", R.drawable.ukraine_invasion_2022, 2022, 50.4501, 30.5234, "Kyiv, Ukraine", "Start of Full-Scale Ukraine Invasion")
 )
 
 private val TOTAL_ROUNDS = 5
@@ -238,18 +272,11 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                             } catch (e: Exception) { Log.e("WW_Firestore", "Error parsing game state", e) }
                         } else { Log.w("WW_Firestore", "gameState.whereandwhen is null or not a map") }
 
-                        if (snapshot.getString("status") == "ended" && !amIHost) { // Check for amIHost here
-                            // If game ended and I am not the host, it means the host might have triggered the end.
-                            // Show final results for guests too if the host has ended the game.
-                            // The host's exit button would have already deleted the room if they were the one ending.
-                            // This ensures guests see final scores if host ends game normally *before* deleting.
-                            // If host *deletes* room abruptly, the `else` block below handles it.
+                        if (snapshot.getString("status") == "ended" && !amIHost) {
                             showFinalResultsDialog = true
                         }
 
                     } else {
-                        // --- THIS IS THE NEW/MODIFIED PART ---
-                        // Room document does not exist (e.g., host deleted it or network issue confirmed deletion)
                         Log.w("WW_Firestore", "Room document $roomCode does not exist or was deleted.")
                         if (!amIHost) { // Only guests should be auto-navigated
                             Toast.makeText(context, "Host closed the room.", Toast.LENGTH_LONG).show()
@@ -259,15 +286,11 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                                 launchSingleTop = true
                             }
                         } else {
-                            // If I am the host and the room doesn't exist, it means I already deleted it.
-                            // This can happen if navigation from final results dialog is slower than listener.
-                            // No action needed here for the host as they initiated the deletion/navigation.
                             Log.d("WW_Firestore", "Host: Room already deleted by me. Listener confirming.")
                         }
                         // For safety, clear local state that might depend on the room
                         wwGameState = null
                         roomDocSnapshot = null
-                        // (context as? Activity)?.finish() // DO NOT finish the activity directly for guests
                     }
                 }
             }
@@ -351,7 +374,7 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                 val nextChallengeId = currentChallengeOrder.getOrNull(nextRoundIdx)
                     ?: run {
                         Log.e("WW_Host", "Error: Could not get next challenge ID from challengeOrder. Order size: ${currentChallengeOrder.size}, nextRoundIdx: $nextRoundIdx. Fallback needed.")
-                        // Fallback: Pick a random challenge not recently used, or a default. This shouldn't happen if TOTAL_ROUNDS <= challengeOrder.size
+
                         gameChallenges.map { it.id }.filterNot { it == wwGameState?.currentChallengeId }.shuffled().firstOrNull() ?: gameChallenges.first().id
                     }
 
@@ -482,13 +505,13 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                                 Text(
                                     "  Location: $distKmStr -> ${result.locationScore} pts",
                                     fontSize = 14.sp, // Adjust
-                                    fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                                    fontFamily = arcadeFontFamily_WhereAndWhen
                                 )
                                 if(result.timeRanOut) Text(
                                     "  (Time ran out for $playerName)",
                                     color = Color.Red.copy(alpha = 0.8f),
                                     fontSize = 13.sp, // Adjust
-                                    fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                                    fontFamily = arcadeFontFamily_WhereAndWhen
                                 )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
@@ -507,7 +530,7 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                             if (wwGameState?.playersReadyForNextRound?.get(myPlayerId) == true) "Waiting..."
                             else if ((wwGameState?.currentRoundIndex ?: 0) + 1 < TOTAL_ROUNDS) "Next Round"
                             else "Final Scores",
-                            fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                            fontFamily = arcadeFontFamily_WhereAndWhen
                         )
                     }
                 },
@@ -525,7 +548,7 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                 title = {
                     Text(
                         "GAME OVER!",
-                        fontFamily = arcadeFontFamily_WhereAndWhen, // APPLY FONT
+                        fontFamily = arcadeFontFamily_WhereAndWhen,
                         fontSize = 30.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
@@ -537,7 +560,7 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                         Text(
                             "Final Standings:",
                             style = TextStyle(
-                                fontFamily = arcadeFontFamily_WhereAndWhen, // APPLY FONT
+                                fontFamily = arcadeFontFamily_WhereAndWhen,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -547,7 +570,7 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                             textAlign = TextAlign.Center,
                             fontSize = 18.sp, // Adjust
                             lineHeight = 22.sp, // Adjust for arcade font
-                            fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                            fontFamily = arcadeFontFamily_WhereAndWhen
                         )
                     }
                 },
@@ -567,7 +590,7 @@ fun WhereAndWhenScreen(navController: NavController, roomCode: String, currentUs
                     }) {
                         Text(
                             "Exit to Lobby",
-                            fontFamily = arcadeFontFamily_WhereAndWhen // APPLY FONT
+                            fontFamily = arcadeFontFamily_WhereAndWhen
                         )
                     }
                 },

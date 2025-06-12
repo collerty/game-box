@@ -3,8 +3,10 @@ package com.example.gamehub.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -20,6 +22,7 @@ import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.ui.components.NinePatchBorder
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun CameraTestScreen(navController: NavController) {
     val context = LocalContext.current
@@ -62,7 +65,7 @@ fun CameraTestScreen(navController: NavController) {
                     .height(90.dp)
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             // Central bordered box for "Take Picture" and preview
             Box(

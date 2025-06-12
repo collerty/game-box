@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import com.example.gamehub.audio.SoundManager
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -50,9 +51,7 @@ fun SpriteMenuButton(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = {
-                    val player = MediaPlayer.create(context, R.raw.menu_button_press)
-                    player.setOnCompletionListener { it.release() }
-                    player.start()
+                    SoundManager.playEffect(context, R.raw.menu_button_press)
                     onClick()
                 }
             ),

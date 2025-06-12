@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.ui.components.NinePatchBorder
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun VibrationTestScreen(navController: NavController) {
     val context = LocalContext.current
@@ -53,9 +55,9 @@ fun VibrationTestScreen(navController: NavController) {
                     .height(90.dp)
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Central bordered box for controls
+            // Centered bordered box with controls
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
@@ -63,7 +65,7 @@ fun VibrationTestScreen(navController: NavController) {
             ) {
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border // CHANGE THIS to your actual border!
+                    drawableRes = R.drawable.border // your 9-patch border
                 )
                 Column(
                     modifier = Modifier

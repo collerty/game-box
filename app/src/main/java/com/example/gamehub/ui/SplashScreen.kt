@@ -19,6 +19,7 @@ import com.example.gamehub.R
 import kotlinx.coroutines.delay
 import android.media.MediaPlayer
 import androidx.compose.runtime.DisposableEffect
+import com.example.gamehub.audio.SoundManager
 
 @Composable
 fun SplashScreen(navController: NavController) {
@@ -40,13 +41,13 @@ fun SplashScreen(navController: NavController) {
 
     // Play both sounds in sequence
     LaunchedEffect(Unit) {
-        glitchPlayer.start()
+        SoundManager.playEffect(context, R.raw.glitch)
         delay(500)
-        arcadePlayer.start()
+        SoundManager.playEffect(context, R.raw.game_start)
         delay(1000)
-        boxPlayer.start()
+        SoundManager.playEffect(context, R.raw.game_box)
         delay(1500)
-        paperPlayer.start()
+        SoundManager.playEffect(context, R.raw.paper_flying)
     }
 
     // Ensure MediaPlayers are released when the composable leaves composition

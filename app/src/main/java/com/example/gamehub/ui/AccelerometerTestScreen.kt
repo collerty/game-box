@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -19,6 +21,7 @@ import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.ui.components.NinePatchBorder
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AccelerometerTestScreen(navController: NavController) {
     val context = LocalContext.current
@@ -36,6 +39,7 @@ fun AccelerometerTestScreen(navController: NavController) {
                 y = event.values[1]
                 z = event.values[2]
             }
+
             override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
         }
         sensorManager.registerListener(listener, acc, SensorManager.SENSOR_DELAY_UI)
@@ -59,7 +63,7 @@ fun AccelerometerTestScreen(navController: NavController) {
         ) {
             Spacer(Modifier.height(40.dp))
 
-            // Pixel-art title image
+            // Title image
             Image(
                 painter = painterResource(id = R.drawable.accelerometer),
                 contentDescription = "Accelerometer Test",
@@ -68,9 +72,10 @@ fun AccelerometerTestScreen(navController: NavController) {
                     .height(90.dp)
             )
 
-            Spacer(Modifier.height(24.dp))
+            // Use Spacer(weight=1f) before the data box
+            Spacer(modifier = Modifier.weight(1f))
 
-            // 9-patch border with sensor values inside
+            // Centered bordered box
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
@@ -104,6 +109,7 @@ fun AccelerometerTestScreen(navController: NavController) {
                 }
             }
 
+            // Another Spacer(weight=1f) after the data box
             Spacer(modifier = Modifier.weight(1f))
 
             // Back button at the bottom

@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -19,6 +21,7 @@ import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.ui.components.NinePatchBorder
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun GyroscopeTestScreen(navController: NavController) {
     val context = LocalContext.current
@@ -59,7 +62,7 @@ fun GyroscopeTestScreen(navController: NavController) {
         ) {
             Spacer(Modifier.height(40.dp))
 
-            // Pixel-art title image for gyroscope
+            // Title image
             Image(
                 painter = painterResource(id = R.drawable.gyroscope),
                 contentDescription = "Gyroscope Test",
@@ -68,9 +71,10 @@ fun GyroscopeTestScreen(navController: NavController) {
                     .height(90.dp)
             )
 
-            Spacer(Modifier.height(24.dp))
+            // Spacer before data box to help center
+            Spacer(modifier = Modifier.weight(1f))
 
-            // 9-patch border with sensor values inside
+            // Centered bordered box
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
@@ -78,7 +82,7 @@ fun GyroscopeTestScreen(navController: NavController) {
             ) {
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border // CHANGE to your actual 9-patch resource name
+                    drawableRes = R.drawable.border // 9-patch border resource
                 )
                 Column(
                     modifier = Modifier
@@ -104,6 +108,7 @@ fun GyroscopeTestScreen(navController: NavController) {
                 }
             }
 
+            // Spacer after data box to help center
             Spacer(modifier = Modifier.weight(1f))
 
             // Back button at the bottom

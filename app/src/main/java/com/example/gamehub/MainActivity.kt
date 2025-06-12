@@ -48,6 +48,7 @@ import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
 import com.example.gamehub.ui.AccelerometerTestScreen
 import com.example.gamehub.ui.CameraTestScreen
+import com.example.gamehub.ui.GameInfoScreen
 import com.example.gamehub.ui.GyroscopeTestScreen
 import com.example.gamehub.ui.MicrophoneTestScreen
 import com.example.gamehub.ui.ProximityTestScreen
@@ -90,7 +91,7 @@ fun GameHubApp() {
             composable("splash") { SplashScreen(navController) }
             composable(NavRoutes.MAIN_MENU)    { MainMenu(navController) }
             composable(NavRoutes.GAMES_LIST)   { GamesListScreen(navController) }
-            composable(NavRoutes.SETTINGS)     { SettingsScreen() }
+            composable(NavRoutes.SETTINGS)     { SettingsScreen(navController) }
             composable(NavRoutes.TEST_SENSORS) { TestSensorsScreen(navController) }
 
             composable(NavRoutes.ACCEL_TEST) { AccelerometerTestScreen(navController) }
@@ -359,6 +360,14 @@ fun GameHubApp() {
             }
 
             composable(NavRoutes.MEMORY_MATCHING_GAME) { MemoryMatchingScreen() }
+
+            composable(
+                NavRoutes.GAME_INFO,
+                arguments = listOf(navArgument("gameId") { type = NavType.StringType })
+            ) { backStack ->
+                val gameId = backStack.arguments?.getString("gameId") ?: return@composable
+                GameInfoScreen(navController, gameId)
+            }
         }
     }
 }

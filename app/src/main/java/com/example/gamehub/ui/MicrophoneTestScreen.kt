@@ -1,5 +1,6 @@
 package com.example.gamehub.ui
 
+import GameBoxFontFamily
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -32,7 +33,6 @@ fun MicrophoneTestScreen(navController: NavController) {
     val context = LocalContext.current
 
     var audioUri by remember { mutableStateOf<Uri?>(null) }
-    // 1. Remember a single MediaPlayer instance
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     val recordLauncher = rememberLauncherForActivityResult(
@@ -51,7 +51,6 @@ fun MicrophoneTestScreen(navController: NavController) {
     }
 
     DisposableEffect(Unit) {
-        // Clean up on screen exit
         onDispose {
             mediaPlayer?.release()
             mediaPlayer = null
@@ -59,7 +58,6 @@ fun MicrophoneTestScreen(navController: NavController) {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Pixel-art background
         Image(
             painter = painterResource(id = R.drawable.game_box_bg1),
             contentDescription = null,
@@ -83,9 +81,9 @@ fun MicrophoneTestScreen(navController: NavController) {
                     .height(90.dp)
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Bordered area for record/play
+            // Bordered area for record/play, now centered vertically
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
@@ -93,7 +91,7 @@ fun MicrophoneTestScreen(navController: NavController) {
             ) {
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border // <- use your actual border resource
+                    drawableRes = R.drawable.border
                 )
                 Column(
                     modifier = Modifier
@@ -105,7 +103,6 @@ fun MicrophoneTestScreen(navController: NavController) {
                     SpriteMenuButton(
                         text = "Record Audio",
                         onClick = {
-                            // Always stop current audio
                             mediaPlayer?.let {
                                 if (it.isPlaying) it.stop()
                                 it.release()
@@ -131,12 +128,10 @@ fun MicrophoneTestScreen(navController: NavController) {
                         SpriteMenuButton(
                             text = "Play Recording",
                             onClick = {
-                                // Stop any current playback
                                 mediaPlayer?.let {
                                     if (it.isPlaying) it.stop()
                                     it.release()
                                 }
-                                // Start new playback
                                 val mp = MediaPlayer().apply {
                                     setDataSource(context, uri)
                                     prepare()
@@ -151,8 +146,7 @@ fun MicrophoneTestScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth(0.88f),
                             normalRes = R.drawable.menu_button_long,
                             pressedRes = R.drawable.menu_button_long_pressed,
-                            // Here’s the override for smaller text:
-                            textStyle = TextStyle(fontSize = 15.sp)
+                            textStyle = TextStyle(fontSize = 15.sp, fontFamily = GameBoxFontFamily)
                         )
                         Spacer(Modifier.height(8.dp))
                     }
@@ -181,3 +175,4 @@ fun MicrophoneTestScreen(navController: NavController) {
         }
     }
 }
+

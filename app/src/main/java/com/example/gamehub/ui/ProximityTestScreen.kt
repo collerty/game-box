@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,6 +23,7 @@ import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.ui.components.NinePatchBorder
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ProximityTestScreen(navController: NavController) {
     val context = LocalContext.current
@@ -91,7 +94,7 @@ fun ProximityTestScreen(navController: NavController) {
                         .fillMaxSize()
                         .padding(16.dp)
                         .background(
-                            if (isDetected) Color.Red else Color.Green,
+                            if (isDetected) Color(0xFFba8add) else Color(0xFF5b2f77),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp) // no extra rounding
                         ),
                     verticalArrangement = Arrangement.Center,
@@ -99,7 +102,7 @@ fun ProximityTestScreen(navController: NavController) {
                 ) {
                     Text(
                         text = if (isDetected) "OBJECT DETECTED" else "NO OBJECT",
-                        color = Color.White,
+                        color = if (isDetected) Color(0xFF5b2f77) else Color(0xFFba8add),
                         fontSize = 24.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )

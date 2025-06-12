@@ -1,10 +1,13 @@
 package com.example.gamehub
 
+import MainMenu
 import TriviatoeIntroAnimScreen
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -12,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,7 +23,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.GamesListScreen
-import com.example.gamehub.ui.MainMenu
 import com.example.gamehub.ui.SettingsScreen
 import com.example.gamehub.ui.TestSensorsScreen
 import com.example.gamehub.features.battleships.ui.BattleshipsPlayScreen
@@ -43,8 +46,17 @@ import com.example.gamehub.features.whereandwhe.ui.WhereAndWhenScreen
 import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
+import com.example.gamehub.ui.AccelerometerTestScreen
+import com.example.gamehub.ui.CameraTestScreen
+import com.example.gamehub.ui.GyroscopeTestScreen
+import com.example.gamehub.ui.MicrophoneTestScreen
+import com.example.gamehub.ui.ProximityTestScreen
+import com.example.gamehub.ui.SplashScreen
+import com.example.gamehub.ui.VibrationTestScreen
+import com.example.gamehub.ui.theme.GameHubTheme
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,10 +65,15 @@ class MainActivity : ComponentActivity() {
             .addOnSuccessListener { Log.d("Auth", "Signed in anonymously") }
             .addOnFailureListener { Log.e("Auth", "Anonymous sign-in failed", it) }
 
-        setContent { GameHubApp() }
+        setContent {
+            GameHubTheme {  // <--- YOUR THEME!
+                GameHubApp()
+            }
+        }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameHubApp() {
@@ -67,13 +84,21 @@ fun GameHubApp() {
     Scaffold { innerPadding ->
         NavHost(
             navController    = navController,
-            startDestination = NavRoutes.MAIN_MENU,
+            startDestination = "splash",
             modifier         = Modifier.padding(innerPadding)
         ) {
+            composable("splash") { SplashScreen(navController) }
             composable(NavRoutes.MAIN_MENU)    { MainMenu(navController) }
             composable(NavRoutes.GAMES_LIST)   { GamesListScreen(navController) }
             composable(NavRoutes.SETTINGS)     { SettingsScreen() }
             composable(NavRoutes.TEST_SENSORS) { TestSensorsScreen(navController) }
+
+            composable(NavRoutes.ACCEL_TEST) { AccelerometerTestScreen(navController) }
+            composable(NavRoutes.GYRO_TEST) { GyroscopeTestScreen(navController) }
+            composable(NavRoutes.PROXIMITY_TEST) { ProximityTestScreen(navController) }
+            composable(NavRoutes.VIBRATION_TEST) { VibrationTestScreen(navController) }
+            composable(NavRoutes.MIC_TEST) { MicrophoneTestScreen(navController) }
+            composable(NavRoutes.CAMERA_TEST) { CameraTestScreen(navController) }
 
             composable(
                 NavRoutes.LOBBY_MENU,
@@ -185,28 +210,29 @@ fun GameHubApp() {
                 val code = backStack.arguments?.getString("code") ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
                 WhereAndWhenScreen(navController = navController, roomCode = code, currentUserName = userName)
-        }
+            }
 
-                composable(
-                  NavRoutes.CODENAMES_GAME,
+            composable(
+                NavRoutes.CODENAMES_GAME,
                 arguments = listOf(
                     navArgument("code")     { type = NavType.StringType },
                     navArgument("userName") { type = NavType.StringType }
                 )
             ) { backStack ->
-                val code     = backStack.arguments?.getString("code")     ?: return@composable
-                val userName = backStack.arguments?.getString("userName") ?: return@composable
-                val isMaster = userName.contains("master", ignoreCase = true)
-                val masterTeam = if (isMaster) {
-                    if (userName.contains("red", ignoreCase = true)) "RED" else "BLUE"
-                } else null
-                CodenamesScreen(
-                    navController = navController,
-                    roomId = code,
-                    isMaster = isMaster,
-                    masterTeam = masterTeam
-                )
-                  composable(
+                    val code = backStack.arguments?.getString("code") ?: return@composable
+                    val userName = backStack.arguments?.getString("userName") ?: return@composable
+                    val isMaster = userName.contains("master", ignoreCase = true)
+                    val masterTeam = if (isMaster) {
+                        if (userName.contains("red", ignoreCase = true)) "RED" else "BLUE"
+                    } else null
+                    CodenamesScreen(
+                        navController = navController,
+                        roomId = code,
+                        isMaster = isMaster,
+                        masterTeam = masterTeam
+                    )
+                }
+            composable(
                 "${NavRoutes.SPACE_INVADERS_GAME}/{name}",
                 arguments = listOf(
                     navArgument("name") { type = NavType.StringType }

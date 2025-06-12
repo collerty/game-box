@@ -3,37 +3,44 @@ package com.example.gamehub.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaPlayer
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts.*
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
-import android.provider.MediaStore
-import android.media.MediaPlayer
-import android.net.Uri
-import androidx.activity.result.contract.ActivityResultContracts
+import com.example.gamehub.R
+import com.example.gamehub.ui.components.NinePatchBorder
 
-
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MicrophoneTestScreen(navController: NavController) {
     val context = LocalContext.current
 
-    // 1) Record sound launcher
     var audioUri by remember { mutableStateOf<Uri?>(null) }
+    // 1. Remember a single MediaPlayer instance
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
     val recordLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         audioUri = result.data?.data
     }
 
-    // 2) RECORD_AUDIO permission launcher
     val permLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -43,43 +50,134 @@ fun MicrophoneTestScreen(navController: NavController) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Button(onClick = {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED) {
-                val intent = Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
-                recordLauncher.launch(intent)
-            } else {
-                permLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-        }, Modifier.fillMaxWidth()) {
-            Text("Record Audio")
+    DisposableEffect(Unit) {
+        // Clean up on screen exit
+        onDispose {
+            mediaPlayer?.release()
+            mediaPlayer = null
         }
+    }
 
-        Spacer(Modifier.height(16.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Pixel-art background
+        Image(
+            painter = painterResource(id = R.drawable.game_box_bg1),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(40.dp))
 
-        audioUri?.let { uri ->
-            Button(onClick = {
-                MediaPlayer().apply {
-                    setDataSource(context, uri)
-                    prepare()
-                    start()
+            // Microphone image at top
+            Image(
+                painter = painterResource(id = R.drawable.microphone),
+                contentDescription = "Microphone Test",
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .height(90.dp)
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // Bordered area for record/play
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .wrapContentHeight()
+            ) {
+                NinePatchBorder(
+                    modifier = Modifier.matchParentSize(),
+                    drawableRes = R.drawable.border // <- use your actual border resource
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Record Button
+                    SpriteMenuButton(
+                        text = "Record Audio",
+                        onClick = {
+                            // Always stop current audio
+                            mediaPlayer?.let {
+                                if (it.isPlaying) it.stop()
+                                it.release()
+                                mediaPlayer = null
+                            }
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                                == PackageManager.PERMISSION_GRANTED) {
+                                val intent = Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION)
+                                recordLauncher.launch(intent)
+                            } else {
+                                permLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(0.88f),
+                        normalRes = R.drawable.menu_button_long,
+                        pressedRes = R.drawable.menu_button_long_pressed
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Play button if audio recorded
+                    audioUri?.let { uri ->
+                        SpriteMenuButton(
+                            text = "Play Recording",
+                            onClick = {
+                                // Stop any current playback
+                                mediaPlayer?.let {
+                                    if (it.isPlaying) it.stop()
+                                    it.release()
+                                }
+                                // Start new playback
+                                val mp = MediaPlayer().apply {
+                                    setDataSource(context, uri)
+                                    prepare()
+                                    start()
+                                    setOnCompletionListener {
+                                        it.release()
+                                        mediaPlayer = null
+                                    }
+                                }
+                                mediaPlayer = mp
+                            },
+                            modifier = Modifier.fillMaxWidth(0.88f),
+                            normalRes = R.drawable.menu_button_long,
+                            pressedRes = R.drawable.menu_button_long_pressed,
+                            // Here’s the override for smaller text:
+                            textStyle = TextStyle(fontSize = 15.sp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
-            }, Modifier.fillMaxWidth()) {
-                Text("Play Recording")
             }
-        }
 
-        Spacer(Modifier.height(32.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
-        Button(onClick = { navController.popBackStack() }, Modifier.fillMaxWidth()) {
-            Text("Back")
+            SpriteMenuButton(
+                text = "Back",
+                onClick = {
+                    mediaPlayer?.let {
+                        if (it.isPlaying) it.stop()
+                        it.release()
+                        mediaPlayer = null
+                    }
+                    navController.popBackStack()
+                },
+                modifier = Modifier
+                    .fillMaxWidth(0.95f),
+                normalRes = R.drawable.menu_button_long,
+                pressedRes = R.drawable.menu_button_long_pressed
+            )
+
+            Spacer(Modifier.height(20.dp))
         }
     }
 }

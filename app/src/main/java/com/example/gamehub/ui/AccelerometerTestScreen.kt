@@ -5,15 +5,19 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.compose.material3.Button
+import com.example.gamehub.R
+import com.example.gamehub.ui.components.NinePatchBorder
 
 @Composable
 fun AccelerometerTestScreen(navController: NavController) {
@@ -22,11 +26,11 @@ fun AccelerometerTestScreen(navController: NavController) {
     var y by remember { mutableStateOf(0f) }
     var z by remember { mutableStateOf(0f) }
 
-    // Set up the sensor listener
+    // Listen to the sensor
     DisposableEffect(Unit) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val acc = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        val listener = object: SensorEventListener {
+        val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 x = event.values[0]
                 y = event.values[1]
@@ -38,19 +42,81 @@ fun AccelerometerTestScreen(navController: NavController) {
         onDispose { sensorManager.unregisterListener(listener) }
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Accel X: ${"%.2f".format(x)}")
-        Text("Accel Y: ${"%.2f".format(y)}")
-        Text("Accel Z: ${"%.2f".format(z)}")
-        Spacer(Modifier.height(32.dp))
-        Button(onClick = { navController.popBackStack() }) {
-            Text("Back")
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background
+        Image(
+            painter = painterResource(id = R.drawable.game_box_bg1),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(40.dp))
+
+            // Pixel-art title image
+            Image(
+                painter = painterResource(id = R.drawable.accelerometer),
+                contentDescription = "Accelerometer Test",
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .height(90.dp)
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // 9-patch border with sensor values inside
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .wrapContentHeight()
+            ) {
+                NinePatchBorder(
+                    modifier = Modifier.matchParentSize(),
+                    drawableRes = R.drawable.border
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Accel X: ${"%.2f".format(x)}",
+                        color = androidx.compose.ui.graphics.Color(0xFFc08cdc),
+                        fontSize = 24.sp
+                    )
+                    Text(
+                        "Accel Y: ${"%.2f".format(y)}",
+                        color = androidx.compose.ui.graphics.Color(0xFFc08cdc),
+                        fontSize = 24.sp
+                    )
+                    Text(
+                        "Accel Z: ${"%.2f".format(z)}",
+                        color = androidx.compose.ui.graphics.Color(0xFFc08cdc),
+                        fontSize = 24.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Back button at the bottom
+            SpriteMenuButton(
+                text = "Back",
+                onClick = { navController.popBackStack() },
+                modifier = Modifier
+                    .fillMaxWidth(0.95f),
+                normalRes = R.drawable.menu_button_long,
+                pressedRes = R.drawable.menu_button_long_pressed
+            )
+
+            Spacer(Modifier.height(20.dp))
         }
     }
 }

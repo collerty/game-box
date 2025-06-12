@@ -215,7 +215,7 @@ fun GameHubApp() {
                 val name = backStack.arguments?.getString("name") ?: return@composable
                 SpaceInvadersScreen(navController = navController, name = name)
             }
-
+            }
 
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }

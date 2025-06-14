@@ -157,7 +157,6 @@ class OhPardonViewModel(
                 val now = System.currentTimeMillis()
                 if (now - lastShakeTime > SHAKE_SLOP_TIME_MS) {
                     lastShakeTime = now
-                    val result = rollDice()
                     attemptRollDice(currentUserName)
                 }
             }

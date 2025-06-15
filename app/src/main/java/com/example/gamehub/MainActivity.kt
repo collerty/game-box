@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.splashscreen.SplashScreen
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -243,7 +242,7 @@ fun GameHubApp() {
                 val name = backStack.arguments?.getString("name") ?: return@composable
                 SpaceInvadersScreen(navController = navController, name = name)
             }
-            }
+
 
             composable(NavRoutes.SPY_GAME)       { SpyScreen() }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }

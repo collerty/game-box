@@ -4,9 +4,13 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.drawable.Animatable // Added for GIF control
+import android.os.Build.VERSION.SDK_INT
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -17,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -29,6 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.ImageLoader
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import com.example.gamehub.R
 import com.example.gamehub.features.ScreamOSaur.model.GameState
 import com.example.gamehub.features.ScreamOSaur.model.Obstacle
@@ -119,11 +127,15 @@ private fun GameContent(viewModel: ScreamOSaurViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val haptic = LocalHapticFeedback.current
 
-    val dinosaurSizeDp = 50.dp
+    val gameBackgroundColor = Color.White
+    val gameObjectColor = Color.Black
+    val scoreTextColor = Color(0xFF535353)
+
+    val dinosaurSizeDp = 54.dp // Increased size
     val gameHeightDp = 200.dp
-    val groundHeightDp = 15.dp
+    val groundHeightDp = 2.dp
     val dinosaurVisualXOffsetDp = 40.dp
-    val jumpMagnitudeDp = 120.dp
+    val jumpMagnitudeDp = 100.dp
 
     val density = LocalDensity.current
 
@@ -149,112 +161,68 @@ private fun GameContent(viewModel: ScreamOSaurViewModel) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Score: ${uiState.score}",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, end = 16.dp)) {
+            Text(
+                text = "HI ${uiState.score.toString().padStart(5, '0')}",
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, color = scoreTextColor, fontWeight = FontWeight.Bold),
+                modifier = Modifier.align(Alignment.TopEnd)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(gameHeightDp)
-                .background(Color(0xFFE0F7FA))
+                .background(gameBackgroundColor)
+                .border(BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f)))
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val sunRadius = 25.dp.toPx()
-                val sunCenter = Offset(size.width * 0.15f, size.height * 0.15f)
-                drawCircle(color = Color(0xFFFFD54F), radius = sunRadius, center = sunCenter)
-                val numRays = 8
-                for (i in 0 until numRays) {
-                    val angle = Math.toRadians((i * (360.0 / numRays)) + 15.0)
-                    val rayStartOffset = sunRadius * 1.1f
-                    val rayEndOffset = sunRadius * 1.6f
-                    drawLine(
-                        color = Color(0xFFFFB74D).copy(alpha = 0.7f),
-                        start = Offset(sunCenter.x + kotlin.math.cos(angle).toFloat() * rayStartOffset, sunCenter.y + kotlin.math.sin(angle).toFloat() * rayStartOffset),
-                        end = Offset(sunCenter.x + kotlin.math.cos(angle).toFloat() * rayEndOffset, sunCenter.y + kotlin.math.sin(angle).toFloat() * rayEndOffset),
-                        strokeWidth = 2.dp.toPx()
-                    )
-                }
+                val gameWidthPx = size.width
+                val gameHeightPx = uiState.gameHeightPx
+                val groundHeightPx = uiState.groundHeightPx
+                val groundTopY = gameHeightPx - groundHeightPx
 
-                val groundBaseColor = Color(0xFFBCAAA4)
-                val groundDarkerColor = Color(0xFF8D6E63)
-                val groundTopY = uiState.gameHeightPx - uiState.groundHeightPx
-                drawRect(
-                    color = groundBaseColor,
-                    topLeft = Offset(0f, groundTopY),
-                    size = Size(size.width, uiState.groundHeightPx)
+                drawLine(
+                    color = gameObjectColor,
+                    start = Offset(0f, groundTopY),
+                    end = Offset(gameWidthPx, groundTopY),
+                    strokeWidth = groundHeightPx
                 )
-                val numGroundPatches = 30
-                for (i in 0..numGroundPatches) {
-                    val patchY = groundTopY + (Random.nextFloat() * (uiState.groundHeightPx - 4.dp.toPx())) + 2.dp.toPx()
-                    val patchX = Random.nextFloat() * size.width
-                    val patchWidth = Random.nextFloat() * 20.dp.toPx() + 10.dp.toPx()
-                    val patchHeight = Random.nextFloat() * 2.dp.toPx() + 1.dp.toPx()
-                    drawRect(
-                        color = groundDarkerColor.copy(alpha = Random.nextFloat() * 0.3f + 0.2f),
-                        topLeft = Offset(patchX, patchY),
-                        size = Size(patchWidth, patchHeight)
-                    )
-                }
 
                 uiState.obstacles.forEach { obstacle ->
-                    val cactusColor = Color(0xFF4CAF50)
-                    val cactusDarkerColor = Color(0xFF388E3C)
-
                     val obX = obstacle.xPosition
-                    val obY = uiState.gameHeightPx - uiState.groundHeightPx - obstacle.height
+                    val obYBase = gameHeightPx - groundHeightPx - obstacle.height
                     val obW = obstacle.width
                     val obH = obstacle.height
 
-                    val bodyW = obW * 0.4f
-                    val bodyH = obH
-                    val bodyX = obX + (obW - bodyW) / 2
-                    val bodyBaseY = obY
-
-                    drawRoundRect(
-                        color = cactusColor,
-                        topLeft = Offset(bodyX, bodyBaseY),
-                        size = Size(bodyW, bodyH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(bodyW * 0.25f)
+                    drawRect(
+                        color = gameObjectColor,
+                        topLeft = Offset(obX + obW * 0.3f, obYBase),
+                        size = Size(obW * 0.4f, obH)
                     )
-
-                    if (obH > 30.dp.toPx()) {
-                        val armBaseHeight = bodyH * 0.4f
-                        val armBaseWidth = bodyW * 0.8f
-                        val armAttachY = bodyBaseY + bodyH * 0.2f
-                        val horizontalSegmentW = armBaseWidth * 0.5f
-                        val horizontalSegmentH = armBaseHeight * 0.3f
-                        val verticalSegmentW = armBaseWidth * 0.3f
-                        val verticalSegmentH = armBaseHeight * 0.8f
-                        val rArmHorizX = bodyX + bodyW - horizontalSegmentW * 0.2f
-                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f))
-                        val rArmVertX = rArmHorizX + horizontalSegmentW - verticalSegmentW * 0.5f
-                        val rArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH
-                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmVertX, rArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f))
-                    }
-
-                    if (obH > 40.dp.toPx() && obW > 20.dp.toPx()) {
-                        val armBaseHeight = bodyH * 0.4f
-                        val armBaseWidth = bodyW * 0.8f
-                        val armAttachY = bodyBaseY + bodyH * 0.45f
-                        val horizontalSegmentW = armBaseWidth * 0.5f
-                        val horizontalSegmentH = armBaseHeight * 0.3f
-                        val verticalSegmentW = armBaseWidth * 0.3f
-                        val verticalSegmentH = armBaseHeight * 0.8f
-                        val lArmHorizX = bodyX - horizontalSegmentW + horizontalSegmentW * 0.2f
-                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f))
-                        val lArmVertX = lArmHorizX + horizontalSegmentW * 0.5f - verticalSegmentW * 0.5f
-                        val lArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH
-                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmVertX, lArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f))
-                    }
-
-                    val numLines = (bodyW / 6.dp.toPx()).toInt().coerceIn(2, 5)
-                    if (numLines > 1) {
-                        for (i in 1 until numLines) {
-                            val lineX = bodyX + (bodyW / numLines) * i
-                            drawLine(color = cactusDarkerColor, start = Offset(lineX, bodyBaseY + bodyH * 0.05f), end = Offset(lineX, bodyBaseY + bodyH * 0.95f), strokeWidth = 1.dp.toPx())
-                        }
+                    if (obH > 20.dp.toPx() && obW > 15.dp.toPx()) {
+                        val armWidth = obW * 0.3f
+                        val armHeight = obH * 0.4f
+                        drawRect(
+                            color = gameObjectColor,
+                            topLeft = Offset(obX, obYBase + obH * 0.2f),
+                            size = Size(armWidth, armHeight)
+                        )
+                        drawRect(
+                            color = gameObjectColor,
+                            topLeft = Offset(obX, obYBase + obH * 0.2f),
+                            size = Size(obW * 0.7f, armHeight * 0.4f)
+                        )
+                        drawRect(
+                            color = gameObjectColor,
+                            topLeft = Offset(obX + obW * 0.7f, obYBase + obH * 0.1f),
+                            size = Size(armWidth, armHeight * 0.8f)
+                        )
+                        drawRect(
+                            color = gameObjectColor,
+                            topLeft = Offset(obX + obW * 0.3f, obYBase + obH * 0.1f),
+                            size = Size(obW * 0.7f, armHeight * 0.3f)
+                        )
                     }
                 }
             }
@@ -262,31 +230,51 @@ private fun GameContent(viewModel: ScreamOSaurViewModel) {
             val currentDinoTopYDp = with(density) {
                 (uiState.dinoTopYOnGroundPx - (uiState.jumpAnimValue * uiState.jumpMagnitudePx)).toDp()
             }
-            Box(
+
+            // Dinosaur GIF Display & Control
+            val imageLoader = ImageLoader.Builder(LocalContext.current)
+                .components {
+                    if (SDK_INT >= 28) {
+                        add(ImageDecoderDecoder.Factory())
+                    } else {
+                        add(GifDecoder.Factory())
+                    }
+                }
+                .build()
+
+            val painter = rememberAsyncImagePainter(
+                model = "file:///android_asset/dino_model.gif",
+                imageLoader = imageLoader
+            )
+
+            Image(
+                painter = painter,
+                contentDescription = "Dinosaur",
                 modifier = Modifier
-                    .size(dinosaurSizeDp)
+                    .size(dinosaurSizeDp) // Uses the updated size
                     .offset(x = dinosaurVisualXOffsetDp, y = currentDinoTopYDp)
-            ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    drawRoundRect(color = Color(0xFFF44336), topLeft = Offset(size.width * 0.15f, size.height * 0.2f), size = Size(size.width * 0.7f, size.height * 0.6f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f))
-                    drawRoundRect(color = Color(0xFFF44336), topLeft = Offset(size.width * 0.55f, size.height * 0.05f), size = Size(size.width * 0.4f, size.height * 0.4f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f))
-                    drawCircle(color = Color.White, center = Offset(size.width * 0.75f, size.height * 0.25f), radius = size.width * 0.1f)
-                    drawCircle(color = Color.Black, center = Offset(size.width * 0.78f, size.height * 0.27f), radius = size.width * 0.05f)
-                    val legWidth = size.width * 0.15f
-                    val legHeight = size.height * 0.35f
-                    val legYPos = size.height * 0.75f
-                    val legOffsetFactor = when {
-                        uiState.isJumping -> 0.15f
-                        else -> when (uiState.runningAnimState) {
-                            0 -> 0.0f
-                            1 -> 0.05f
-                            2 -> 0.1f
-                            else -> 0.05f
+            )
+
+            // Control GIF animation based on game state
+            val painterState = painter.state
+            if (painterState is AsyncImagePainter.State.Success) {
+                val animatable = painterState.result.drawable as? Animatable
+                if (animatable != null) {
+                    // Use DisposableEffect to manage start/stop and ensure stop on dispose/key change
+                    DisposableEffect(animatable, uiState.gameState) {
+                        if (uiState.gameState == GameState.PLAYING) {
+                            animatable.start()
+                        } else {
+                            // Stop for READY, PAUSED, GAME_OVER
+                            animatable.stop()
+                        }
+
+                        onDispose {
+                            // This ensures the animation is stopped when the effect is disposed
+                            // (e.g., gameState changes, animatable instance changes, or composable is removed)
+                            animatable.stop()
                         }
                     }
-                    drawRoundRect(color = Color(0xFFD32F2F), topLeft = Offset(size.width * (0.3f - legOffsetFactor), legYPos), size = Size(legWidth, legHeight), cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f))
-                    drawRoundRect(color = Color(0xFFD32F2F), topLeft = Offset(size.width * (0.55f + legOffsetFactor), legYPos), size = Size(legWidth, legHeight), cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f))
-                    drawRoundRect(color = Color(0xFFF44336), topLeft = Offset(size.width * 0.0f, size.height * 0.4f), size = Size(size.width * 0.3f, size.height * 0.2f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.05f))
                 }
             }
 
@@ -297,9 +285,12 @@ private fun GameContent(viewModel: ScreamOSaurViewModel) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("ROAR to make the dinosaur jump!", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("ROAR TO JUMP", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = gameObjectColor)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.startGame() }) { Text("Start Game") }
+                        Button(
+                            onClick = { viewModel.startGame() },
+                            colors = ButtonDefaults.buttonColors(containerColor = gameObjectColor, contentColor = gameBackgroundColor)
+                        ) { Text("START") }
                     }
                 }
                 GameState.GAME_OVER -> {
@@ -308,18 +299,21 @@ private fun GameContent(viewModel: ScreamOSaurViewModel) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Game Over!", fontSize = 24.sp, color = Color.Red, fontWeight = FontWeight.Bold)
-                        Text("Score: ${uiState.score}", fontSize = 20.sp)
+                        Text("G A M E   O V E R", fontSize = 24.sp, color = gameObjectColor, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.startGame() }) { Text("Play Again") }
+                        Button(
+                            onClick = { viewModel.startGame() },
+                            colors = ButtonDefaults.buttonColors(containerColor = gameObjectColor, contentColor = gameBackgroundColor)
+                        ) { Text("RESTART") }
                     }
                 }
                 GameState.PAUSED -> {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)),
+                        modifier = Modifier.fillMaxSize().background(gameBackgroundColor.copy(alpha = 0.5f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("PAUSED", fontSize = 30.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("P A U S E D", fontSize = 22.sp, color = gameObjectColor, fontWeight = FontWeight.Bold)
                     }
                 }
                 GameState.PLAYING -> { /* No overlay */ }
@@ -357,21 +351,21 @@ private fun SoundMeter(
     val normalizedAmplitude = (displayAmplitude.toFloat() / maxMeterAmplitude).coerceIn(0f, 1f)
 
     val barColor = when {
-        amplitude == 0 -> MaterialTheme.colorScheme.surfaceVariant
-        normalizedAmplitude < 0.4f -> Color(0xFF4CAF50)
-        normalizedAmplitude < 0.75f -> Color(0xFFFFEB3B)
-        else -> Color(0xFFF44336)
+        amplitude == 0 -> Color.LightGray
+        normalizedAmplitude < 0.4f -> Color.Gray
+        normalizedAmplitude < 0.75f -> Color.DarkGray
+        else -> Color.Black
     }
-    val meterHeight = 20.dp
+    val meterHeight = 16.dp
 
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Sound Level",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            text = "SOUND",
+            fontSize = 10.sp,
+            color = Color.DarkGray
         )
         Spacer(modifier = Modifier.height(4.dp))
         Box(
@@ -379,13 +373,13 @@ private fun SoundMeter(
                 .height(meterHeight)
                 .fillMaxWidth(0.8f)
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = Color.LightGray,
                     shape = RoundedCornerShape(meterHeight / 2)
                 )
                 .clip(RoundedCornerShape(meterHeight / 2))
                 .border(
                     1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    Color.Gray.copy(alpha = 0.3f),
                     RoundedCornerShape(meterHeight / 2)
                 )
         ) {
@@ -407,12 +401,16 @@ private fun PermissionRequest(onRequestPermission: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            "This game needs microphone access to hear your roar!",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
+            "GAME NEEDS MIC TO HEAR ROAR!",
+            style = MaterialTheme.typography.titleMedium.copy(color = Color.Black),
+            modifier = Modifier.padding(bottom = 16.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
-        Button(onClick = onRequestPermission) {
-            Text("Grant Microphone Access")
+        Button(
+            onClick = onRequestPermission,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)
+        ) {
+            Text("GRANT MIC ACCESS")
         }
     }
 }

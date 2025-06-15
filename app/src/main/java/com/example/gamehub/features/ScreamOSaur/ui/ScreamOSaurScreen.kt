@@ -1,4 +1,4 @@
-package com.example.gamehub.features.screamosaur.ui
+package com.example.gamehub.features.ScreamOSaur.ui
 
 import android.Manifest
 import android.app.Activity
@@ -30,9 +30,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gamehub.R
-import com.example.gamehub.features.screamosaur.model.GameState
-import com.example.gamehub.features.screamosaur.model.Obstacle
-import com.example.gamehub.features.screamosaur.model.ScreamOSaurViewModel
+import com.example.gamehub.features.ScreamOSaur.model.GameState
+import com.example.gamehub.features.ScreamOSaur.model.Obstacle
+import com.example.gamehub.features.ScreamOSaur.model.ScreamOSaurViewModel
 import kotlin.random.Random
 
 @Composable

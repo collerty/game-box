@@ -11,6 +11,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.snapshotFlow // Added import for snapshotFlow
 import androidx.compose.ui.geometry.Rect
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
@@ -89,7 +90,7 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
         initializeSoundPlayers()
         // Observe jumpAnim changes and update uiState
         viewModelScope.launch {
-            jumpAnim.valueFlow.collect { value ->
+            snapshotFlow { jumpAnim.value }.collect { value -> // Changed to snapshotFlow
                 _uiState.update { it.copy(jumpAnimValue = value) }
             }
         }
@@ -347,7 +348,7 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
                 targetValue = 0f,
                 animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
             )
-            _uiState.update { it.copy(isJumping = false) } // jumpAnimValue is updated by the collector
+            _uiState.update { it.copy(isJumping = false, jumpAnimValue = 0f) } // Ensure jumpAnimValue is reset after animation
         }
     }
 

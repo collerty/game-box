@@ -28,10 +28,12 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -148,13 +150,24 @@ private fun GameContent() {
     val dinosaurVisualXOffsetDp = 40.dp
     val jumpMagnitudeDp = 120.dp
 
-    val density = LocalDensity.current
+    val density = LocalDensity.current // Capture density once
+    val configuration = LocalConfiguration.current
+
+    val actualScreenWidthPx: Float = with(density) {
+        configuration.screenWidthDp.dp.toPx()
+    }
 
     val gameHeightPx = with(density) { gameHeightDp.toPx() }
     val groundHeightPx = with(density) { groundHeightDp.toPx() }
     val dinosaurSizePx = with(density) { dinosaurSizeDp.toPx() }
     val dinosaurVisualXPositionPx = with(density) { dinosaurVisualXOffsetDp.toPx() }
     val jumpMagnitudePx = with(density) { jumpMagnitudeDp.toPx() }
+
+    // Pre-calculate obstacle dimensions in Px using the captured density
+    val obstacleMinHeightPx = with(density) { 25.dp.toPx() }
+    val obstacleMaxHeightPx = with(density) { 55.dp.toPx() }
+    val obstacleMinWidthPx = with(density) { 15.dp.toPx() }
+    val obstacleMaxWidthPx = with(density) { 30.dp.toPx() }
 
     val dinoTopYOnGroundPx = gameHeightPx - groundHeightPx - dinosaurSizePx
 
@@ -220,27 +233,19 @@ private fun GameContent() {
                         it.copy(xPosition = it.xPosition - gameSpeed)
                     }.filter { it.xPosition + it.width > 0 }
 
-                    val canvasWidthPx = gameHeightPx * (16f / 9f)
-                    val spawnNewObstacleTriggerX = canvasWidthPx * 0.5f
-                    val newObstacleBaseX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
-                    val firstObstacleX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
-
-                    val obstacleMinHeightPx = with(density) { 25.dp.toPx() }
-                    val obstacleMaxHeightPx = with(density) { 55.dp.toPx() }
-                    val obstacleMinWidthPx = with(density) { 15.dp.toPx() }
-                    val obstacleMaxWidthPx = with(density) { 30.dp.toPx() }
+                    val spawnNewObstacleTriggerX = actualScreenWidthPx * 0.5f
 
                     if (obstacles.isEmpty() && elapsedGameTime > 0) {
                         obstacles = listOf(
                             Obstacle(
-                                xPosition = firstObstacleX,
+                                xPosition = actualScreenWidthPx + Random.nextFloat() * (actualScreenWidthPx * 0.2f),
                                 height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
                                 width = Random.nextFloat() * (obstacleMaxWidthPx - obstacleMinWidthPx) + obstacleMinWidthPx
                             )
                         )
                     } else if (obstacles.isNotEmpty() && obstacles.last().xPosition < spawnNewObstacleTriggerX && obstacles.size < 5) {
                         obstacles = obstacles + Obstacle(
-                            xPosition = newObstacleBaseX,
+                            xPosition = actualScreenWidthPx + Random.nextFloat() * (actualScreenWidthPx * 0.2f),
                             height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
                             width = Random.nextFloat() * (obstacleMaxWidthPx - obstacleMinWidthPx) + obstacleMinWidthPx
                         )
@@ -416,37 +421,37 @@ private fun GameContent() {
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 // Sun
-                val sunRadius = 25.dp.toPx()
+                val sunRadius = with(density) { 25.dp.toPx() }
                 val sunCenter = Offset(size.width * 0.15f, size.height * 0.15f)
-                drawCircle(color = sunColor, radius = sunRadius, center = sunCenter) // Use sunColor
+                drawCircle(color = sunColor, radius = sunRadius, center = sunCenter)
                 val numRays = 8
                 for (i in 0 until numRays) {
                     val angle = Math.toRadians((i * (360.0 / numRays)) + 15.0)
                     val rayStartOffset = sunRadius * 1.1f
                     val rayEndOffset = sunRadius * 1.6f
                     drawLine(
-                        color = sunRayColor.copy(alpha = 0.7f), // Use sunRayColor
+                        color = sunRayColor.copy(alpha = 0.7f),
                         start = Offset(sunCenter.x + kotlin.math.cos(angle).toFloat() * rayStartOffset, sunCenter.y + kotlin.math.sin(angle).toFloat() * rayStartOffset),
                         end = Offset(sunCenter.x + kotlin.math.cos(angle).toFloat() * rayEndOffset, sunCenter.y + kotlin.math.sin(angle).toFloat() * rayEndOffset),
-                        strokeWidth = 2.dp.toPx()
+                        strokeWidth = with(density) { 2.dp.toPx() }
                     )
                 }
 
                 // Ground
                 val groundTopYCanvas = size.height - groundHeightPx
                 drawRect(
-                    color = groundColor, // Use groundColor
+                    color = groundColor,
                     topLeft = Offset(0f, groundTopYCanvas),
                     size = Size(size.width, groundHeightPx)
                 )
                 val numGroundPatches = 30
                 for (i in 0..numGroundPatches) {
-                    val patchY = groundTopYCanvas + (Random.nextFloat() * (groundHeightPx - 4.dp.toPx())) + 2.dp.toPx()
+                    val patchY = groundTopYCanvas + (Random.nextFloat() * (groundHeightPx - with(density) { 4.dp.toPx() }) + with(density) { 2.dp.toPx() })
                     val patchX = Random.nextFloat() * size.width
-                    val patchWidth = Random.nextFloat() * 20.dp.toPx() + 10.dp.toPx()
-                    val patchHeight = Random.nextFloat() * 2.dp.toPx() + 1.dp.toPx()
+                    val patchWidth = Random.nextFloat() * with(density) { 20.dp.toPx() } + with(density) { 10.dp.toPx() }
+                    val patchHeight = Random.nextFloat() * with(density) { 2.dp.toPx() } + with(density) { 1.dp.toPx() }
                     drawRect(
-                        color = groundDetailColor.copy(alpha = Random.nextFloat() * 0.3f + 0.2f), // Use groundDetailColor
+                        color = groundDetailColor.copy(alpha = Random.nextFloat() * 0.3f + 0.2f),
                         topLeft = Offset(patchX, patchY),
                         size = Size(patchWidth, patchHeight)
                     )
@@ -462,50 +467,53 @@ private fun GameContent() {
                     val bodyH = obH
                     val bodyX = obX + (obW - bodyW) / 2
                     val bodyBaseY = obY
-                    drawRoundRect(color = cactusColor, topLeft = Offset(bodyX, bodyBaseY), size = Size(bodyW, bodyH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(bodyW * 0.25f)) // Use cactusColor
+                    drawRoundRect(color = cactusColor, topLeft = Offset(bodyX, bodyBaseY), size = Size(bodyW, bodyH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(bodyW * 0.25f))
                     val armBaseHeight = bodyH * 0.4f
                     val armBaseWidth = bodyW * 0.8f
-                    if (obH > 30.dp.toPx()) {
+                    if (obH > with(density) { 30.dp.toPx() }) {
                         val armAttachY = bodyBaseY + bodyH * 0.2f
                         val horizontalSegmentW = armBaseWidth * 0.5f
                         val horizontalSegmentH = armBaseHeight * 0.3f
                         val verticalSegmentW = armBaseWidth * 0.3f
                         val verticalSegmentH = armBaseHeight * 0.8f
                         val rArmHorizX = bodyX + bodyW - horizontalSegmentW * 0.2f
-                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f)) // Use cactusColor
+                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f))
                         val rArmVertX = rArmHorizX + horizontalSegmentW - verticalSegmentW * 0.5f
                         val rArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH
-                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmVertX, rArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f)) // Use cactusColor
+                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmVertX, rArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f))
                     }
-                    if (obH > 40.dp.toPx() && obW > 20.dp.toPx()) {
+                    if (obH > with(density) { 40.dp.toPx() } && obW > with(density) { 20.dp.toPx() }) {
                         val armAttachY = bodyBaseY + bodyH * 0.45f
                         val horizontalSegmentW = armBaseWidth * 0.5f
                         val horizontalSegmentH = armBaseHeight * 0.3f
                         val verticalSegmentW = armBaseWidth * 0.3f
                         val verticalSegmentH = armBaseHeight * 0.8f
                         val lArmHorizX = bodyX - horizontalSegmentW + horizontalSegmentW * 0.2f
-                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f)) // Use cactusColor
+                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f))
                         val lArmVertX = lArmHorizX + horizontalSegmentW * 0.5f - verticalSegmentW * 0.5f
                         val lArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH
-                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmVertX, lArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f)) // Use cactusColor
+                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmVertX, lArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f))
                     }
-                    val numLines = (bodyW / 6.dp.toPx()).toInt().coerceIn(2, 5)
+                    val numLines = (bodyW / with(density) { 6.dp.toPx() }).toInt().coerceIn(2, 5)
                     if (numLines > 1) {
                         for (i in 1 until numLines) {
                             val lineX = bodyX + (bodyW / numLines) * i
-                            drawLine(color = cactusDarkerColor, start = Offset(lineX, bodyBaseY + bodyH * 0.05f), end = Offset(lineX, bodyBaseY + bodyH * 0.95f), strokeWidth = 1.dp.toPx()) // Use cactusDarkerColor
+                            drawLine(color = cactusDarkerColor, start = Offset(lineX, bodyBaseY + bodyH * 0.05f), end = Offset(lineX, bodyBaseY + bodyH * 0.95f), strokeWidth = with(density) { 1.dp.toPx() })
                         }
                     }
                 }
             }
 
             // Dinosaur
-            val currentDinoTopYDp = with(density) { (dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)).toDp() }
-            val dinoGifVerticalOffsetDp = 8.dp // Added offset to visually lower the GIF
+            // For toDp conversion, use with(density) { ... toDp() }
+            val currentDinoTopPx = dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)
+            val currentDinoTopYDp = with(density) { currentDinoTopPx.toDp() }
+
+            val dinoGifVerticalOffsetDp = 8.dp
             Box(
                 modifier = Modifier
                     .size(dinosaurSizeDp)
-                    .offset(x = dinosaurVisualXOffsetDp, y = currentDinoTopYDp + dinoGifVerticalOffsetDp) // Apply the offset here
+                    .offset(x = dinosaurVisualXOffsetDp, y = currentDinoTopYDp + dinoGifVerticalOffsetDp)
             ) {
                 val imageLoader = coil.ImageLoader.Builder(LocalContext.current)
                     .components {
@@ -516,7 +524,7 @@ private fun GameContent() {
                 val painter = rememberAsyncImagePainter(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data("file:///android_asset/dino_model.gif")
-                        .diskCacheKey(gameState.name) // Changed from .key() to .diskCacheKey()
+                        .diskCacheKey(gameState.name)
                         .build(),
                     imageLoader = imageLoader,
                     onState = { state ->
@@ -568,7 +576,7 @@ private fun GameContent() {
                         Text("Game Over!", fontSize = 24.sp, color = Color.Red, fontWeight = FontWeight.Bold)
                         Text("Score: $score", fontSize = 20.sp, color = scoreTextColor)
                         Spacer(modifier = Modifier.height(16.dp))
-                        TextButton( // Changed from Button to TextButton
+                        TextButton(
                             onClick = {
                                 coroutineScope.launch { jumpAnim.snapTo(0f) }
                                 isJumping = false
@@ -577,14 +585,14 @@ private fun GameContent() {
                                 gameSpeed = 5f
                                 initialDelayHasOccurred = false
                                 gameState = GameState.PLAYING
-                                isRunningAnimating = true // Ensure animation restarts
+                                isRunningAnimating = true
                             }
                         ) {
                             Text(
                                 text = "Play Again",
-                                fontSize = 20.sp, // Matched font size
-                                fontWeight = FontWeight.Bold, // Matched font weight
-                                color = scoreTextColor // Matched color
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = scoreTextColor
                             )
                         }
                     }
@@ -603,10 +611,10 @@ private fun GameContent() {
 
         Spacer(modifier = Modifier.height(8.dp))
         SoundMeter(amplitude = currentAmplitude)
-        Spacer(modifier = Modifier.height(16.dp)) // Increased spacer for more separation
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
-            TextButton( // Changed from Button to TextButton
+            TextButton(
                 onClick = {
                     if (gameState == GameState.PLAYING) {
                         timeAtPause = System.currentTimeMillis()
@@ -616,19 +624,16 @@ private fun GameContent() {
                         val pausedDuration = System.currentTimeMillis() - timeAtPause
                         gameStartTime += pausedDuration
                         gameState = GameState.PLAYING
-                        // When resuming, ensure isRunningAnimating is set back if needed
-                        // This might be handled by the LaunchedEffect(gameState) already,
-                        // but explicitly setting it here can be clearer or a safeguard.
                         isRunningAnimating = true
                     }
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text(
-                    text = if (gameState == GameState.PLAYING) "Pause" else "Resume", // Shortened text
-                    fontSize = 20.sp, // Increased font size
+                    text = if (gameState == GameState.PLAYING) "Pause" else "Resume",
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = scoreTextColor // Using scoreTextColor for consistency
+                    color = scoreTextColor
                 )
             }
         }
@@ -644,12 +649,11 @@ private fun SoundMeter(
     val displayAmplitude = amplitude.coerceAtMost(maxMeterAmplitude)
     val normalizedAmplitude = (displayAmplitude.toFloat() / maxMeterAmplitude).coerceIn(0f, 1f)
 
-    // Adjusted bar colors for grayscale theme, but keeping some indication of level
     val barColor = when {
-        amplitude == 0 -> Color(0xFFE0E0E0) // Light gray for empty
-        normalizedAmplitude < 0.4f -> Color(0xFFA0A0A0) // Medium gray
-        normalizedAmplitude < 0.75f -> Color(0xFF808080) // Darker gray
-        else -> Color(0xFF606060) // Darkest gray for high amplitude
+        amplitude == 0 -> Color(0xFFE0E0E0)
+        normalizedAmplitude < 0.4f -> Color(0xFFA0A0A0)
+        normalizedAmplitude < 0.75f -> Color(0xFF808080)
+        else -> Color(0xFF606060)
     }
     val meterHeight = 20.dp
 
@@ -660,7 +664,7 @@ private fun SoundMeter(
         Text(
             text = "Sound Level",
             fontSize = 12.sp,
-            color = Color.DarkGray // Adjusted for better visibility on white background
+            color = Color.DarkGray
         )
         Spacer(modifier = Modifier.height(4.dp))
         Box(
@@ -668,13 +672,13 @@ private fun SoundMeter(
                 .height(meterHeight)
                 .fillMaxWidth(0.8f)
                 .background(
-                    color = Color(0xFFF0F0F0), // Lighter gray for meter background
+                    color = Color(0xFFF0F0F0),
                     shape = RoundedCornerShape(meterHeight / 2)
                 )
                 .clip(RoundedCornerShape(meterHeight / 2))
                 .border(
                     1.dp,
-                    Color.Gray.copy(alpha = 0.5f), // Gray border
+                    Color.Gray.copy(alpha = 0.5f),
                     RoundedCornerShape(meterHeight / 2)
                 )
         ) {
@@ -699,7 +703,7 @@ private fun PermissionRequest(onRequestPermission: () -> Unit) {
             "This game needs microphone access to hear your roar!",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(bottom = 16.dp),
-            color = Color.Black // Ensure text is visible
+            color = Color.Black
         )
         Button(onClick = onRequestPermission) {
             Text("Grant Microphone Access")

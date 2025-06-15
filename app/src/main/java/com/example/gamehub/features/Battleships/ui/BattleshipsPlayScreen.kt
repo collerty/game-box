@@ -49,6 +49,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.compose.runtime.Composable
 import android.content.Context
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 
 
@@ -128,7 +129,6 @@ fun BattleshipsPlayScreen(
     roomCode: String,
     userName: String
 ) {
-
     val context = LocalContext.current
     val uid = Firebase.auth.uid ?: return
     val scope = rememberCoroutineScope()
@@ -141,7 +141,6 @@ fun BattleshipsPlayScreen(
 
     var placingMine by remember { mutableStateOf(false) }
     var selectedPowerUp by remember { mutableStateOf<PowerUp?>(null) }
-    // --- LASER ORIENTATION STATE ---
     var laserOrientation by remember { mutableStateOf(Orientation.Horizontal) }
 
     val opponentId = listOf(state.player1Id, state.player2Id)
@@ -154,7 +153,6 @@ fun BattleshipsPlayScreen(
     val oppShips: List<UiShip> = (state.ships[opponentId] ?: emptyList()).map { ds ->
         UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation)
     }
-
 
     val myDestroyedShips = myShips.filter { ship ->
         ship.coveredCells().all { cell ->
@@ -181,7 +179,6 @@ fun BattleshipsPlayScreen(
     val myMoves = state.moves.filter { it.playerId == uid }
     val oppMoves = state.moves.filter { it.playerId == opponentId }
 
-    // --- For incoming attack animation ---
     val lastOppMove = oppMoves.lastOrNull()
     val iSunkOpponent = havePlacedShips && areAllShipsSunk(oppShips, myMoves)
     val opponentSunkMe = havePlacedShips && areAllShipsSunk(myShips, oppMoves)
@@ -192,11 +189,11 @@ fun BattleshipsPlayScreen(
         } ?: false
     }
 
-    fun vibrateDevice(context: Context, duration: Long = 500) { // Try 500-800ms
+    fun vibrateDevice(context: Context, duration: Long = 500) {
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(
-                VibrationEffect.createOneShot(duration, 255) // 255 = max amplitude
+                VibrationEffect.createOneShot(duration, 255)
             )
         } else {
             @Suppress("DEPRECATION")
@@ -204,7 +201,6 @@ fun BattleshipsPlayScreen(
         }
     }
 
-    // Vibrate if opponent hit you (when new move appears)
     LaunchedEffect(lastOppMove) {
         if (wasHit && lastOppMove != null) {
             vibrateDevice(context)
@@ -217,19 +213,12 @@ fun BattleshipsPlayScreen(
     val isSurrenderedGameOver = surrenderedUserId != null
     val isLocallyGameOver = (iSunkOpponent || opponentSunkMe || isBackendGameOver || isSurrenderedGameOver) && havePlacedShips
 
-
-    // --- MINE CELLS ---
     val myMines = state.placedMines[uid] ?: emptyList()
     val enemyMines = state.placedMines[opponentId] ?: emptyList()
-
-    // Triggered mines = any enemy mine that was attacked by YOU (for enemy board)
-    // For your own board, any of your mines that were hit by the opponent
     val myTriggeredMines = state.triggeredMines[uid] ?: emptyList()
     val enemyTriggeredMines = state.triggeredMines[opponentId] ?: emptyList()
 
-    var minesAtTurnStart by remember(state.currentTurn) {
-        mutableStateOf(myMines.size)
-    }
+    var minesAtTurnStart by remember(state.currentTurn) { mutableStateOf(myMines.size) }
     val hasPlacedMineThisTurn = myMines.size > minesAtTurnStart
 
     suspend fun spendEnergy(roomRef: com.google.firebase.firestore.DocumentReference, uid: String, amount: Int) {
@@ -289,34 +278,26 @@ fun BattleshipsPlayScreen(
             }
         }
     }
-    // Place these after your val boardOffset/cellSizePx lines (or replace them)
-    var myBoardOffset by remember { mutableStateOf(Offset.Zero) }
-    var myCellSizePx by remember { mutableStateOf(0f) }
-    var oppBoardOffset by remember { mutableStateOf(Offset.Zero) }
-    var oppCellSizePx by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(myBoardOffset, myCellSizePx, oppBoardOffset, oppCellSizePx) {
-        println("DEBUG: myBoardOffset = $myBoardOffset, myCellSizePx = $myCellSizePx, oppBoardOffset = $oppBoardOffset, oppCellSizePx = $oppCellSizePx")
-    }
-
-    // Right after you get attackAnim from state
+    // Animation state
     val attackAnim = state.currentAttack
-
-    // Decide if the current attack is targeting ME or the opponent
-    val isAttackOnMe = attackAnim?.playerId != uid // true if you're being attacked
+    val isAttackOnMe = attackAnim?.playerId != uid
 
     LaunchedEffect(attackAnim?.x, attackAnim?.y, attackAnim?.playerId, attackAnim?.startedAt) {
         if (attackAnim != null && animatingMove == null) {
             animatingMove = Cell(attackAnim.y, attackAnim.x)
-            animIsHit = oppShips.any { it.covers(attackAnim.y, attackAnim.x) } // If you want to show hit on enemy board
-            // Optionally: for your own board, you can check myShips.any { ... } instead!
+            animIsHit = if (isAttackOnMe) {
+                myShips.any { it.covers(attackAnim.y, attackAnim.x) }
+            } else {
+                oppShips.any { it.covers(attackAnim.y, attackAnim.x) }
+            }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // --- FULLSCREEN BACKGROUND IMAGE ---
         Image(
-            painter = painterResource(com.example.gamehub.R.drawable.bg_battleships), // your background
+            painter = painterResource(com.example.gamehub.R.drawable.bg_battleships),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
@@ -353,7 +334,7 @@ fun BattleshipsPlayScreen(
                 Text(
                     text = "Current turn: ${if (isMyTurn) "You" else "Opponent"}",
                     style = MaterialTheme.typography.titleLarge,
-                    color = Color.White // White for top text
+                    color = Color.White
                 )
                 Spacer(Modifier.height(16.dp))
 
@@ -361,134 +342,152 @@ fun BattleshipsPlayScreen(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    if (placingMine) {
-                        BoardGrid(
-                            gridSize = 10,
-                            cellSize = 32.dp,
-                            ships = myShips,
-                            attacks = buildAttackMap(myShips, oppMoves),
-                            enabled = true,
-                            destroyedShips = myDestroyedShips,
-                            mineCells = myMines,
-                            triggeredMines = myTriggeredMines,
-                            onCellClick = { row, col ->
-                                val isMineHere = myMines.any { it.row == row && it.col == col }
-                                val alreadyHit = oppMoves.any { it.x == col && it.y == row }
-                                if (!isMineHere && !alreadyHit && (state.energy[uid] ?: 0) >= PowerUp.Mine.cost) {
-                                    scope.launch {
-                                        try {
-                                            spendEnergy(roomRef, uid, PowerUp.Mine.cost)
-                                            val updatedMines = myMines + Cell(row, col)
-                                            roomRef.update(
-                                                "gameState.battleships.placedMines.$uid",
-                                                updatedMines.map { mapOf("row" to it.row, "col" to it.col) }
-                                            ).await()
-                                            placingMine = false
-                                            selectedPowerUp = null
-                                        } catch (e: Exception) {
-                                            println("ERROR PLACING MINE: ${e.message}")
-                                        }
-                                    }
-                                }
-                            },
-                            onBoardPositioned = { offset, cellPx ->
-                                myBoardOffset = offset
-                                myCellSizePx = cellPx
-                            }
-                        )
-                    }
-                    else {
-                        if (isMyTurn) {
-                            val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
-                            BoardGrid(
-                                gridSize = 10,
-                                cellSize = 32.dp,
-                                ships = emptyList(),
-                                attacks = buildAttackMap(oppShips, myMoves),
-                                enabled = !isLocallyGameOver,
-                                destroyedShips = oppDestroyedShips,
-                                mineCells = emptyList(),
-                                triggeredMines = enemyTriggeredMines,
-                                onCellClick = { row, col ->
-                                    if (!isMyTurn || isLocallyGameOver) return@BoardGrid
-                                    val cell = Cell(row, col)
-                                    val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
-
-                                    when (selectedPowerUp) {
-                                        PowerUp.Bomb2x2 -> {
-                                            if (row in 0 until 9 && col in 0 until 9 && (state.energy[uid] ?: 0) >= PowerUp.Bomb2x2.cost) {
-                                                scope.launch {
-                                                    spendEnergy(roomRef, uid, PowerUp.Bomb2x2.cost)
-                                                    val targets = PowerUp.Bomb2x2.expand(Cell(row, col))
-                                                    targets.forEach { targetCell ->
-                                                        session.submitMove(targetCell.col, targetCell.row, uid)
-                                                    }
-                                                    selectedPowerUp = null
-                                                }
-                                            }
-                                        }
-                                        PowerUp.Laser -> {
-                                            if ((state.energy[uid] ?: 0) >= PowerUp.Laser.cost) {
-                                                scope.launch {
-                                                    // 2. Spend energy
-                                                    spendEnergy(roomRef, uid, PowerUp.Laser.cost)
-
-                                                    // 3. Calculate Laser targets
-                                                    val targets = if (laserOrientation == Orientation.Horizontal) {
-                                                        (0 until 10).map { c -> Cell(row, c) }
-                                                    } else {
-                                                        (0 until 10).map { r -> Cell(r, col) }
-                                                    }
-
-                                                    // 4. Fire all laser shots (could also do in parallel)
-                                                    targets.forEach { targetCell ->
-                                                        session.submitMove(targetCell.col, targetCell.row, uid)
-                                                    }
-                                                    selectedPowerUp = null
-
-                                                }
-                                            }
-                                        }
-                                        else -> {
-                                            if (cell !in myHitCells && animatingMove == null && oppCellSizePx > 0f) {
-                                                val isHit = oppShips.any { it.covers(row, col) }
-                                                // NEW: Store pending move, don't fire immediately!
-                                                val startedAt = System.currentTimeMillis()
-                                                scope.launch {
-                                                    // Write to Firestore that a new attack animation should play
-                                                    roomRef.update(
-                                                        mapOf("gameState.battleships.currentAttack" to mapOf(
-                                                            "x" to col,
-                                                            "y" to row,
-                                                            "playerId" to uid,
-                                                            "startedAt" to startedAt
-                                                        ))
-                                                    ).await()
-                                                }
-                                            }
-                                        }
-                                    }
-                                },
-                                onBoardPositioned = { offset, cellPx ->
-                                    oppBoardOffset = offset
-                                    oppCellSizePx = cellPx
-                                }
-                            )
-                        } else {
+                    // --- KEY PART: SINGLE BOX HOLDS GRID & OVERLAYS ---
+                    Box(modifier = Modifier.size(32.dp * 10)) {
+                        if (placingMine) {
                             BoardGrid(
                                 gridSize = 10,
                                 cellSize = 32.dp,
                                 ships = myShips,
                                 attacks = buildAttackMap(myShips, oppMoves),
-                                enabled = false,
+                                enabled = true,
                                 destroyedShips = myDestroyedShips,
                                 mineCells = myMines,
                                 triggeredMines = myTriggeredMines,
-                                onCellClick = { _, _ -> },
-                                onBoardPositioned = { offset, cellPx ->
-                                    myBoardOffset = offset
-                                    myCellSizePx = cellPx
-                                }
+                                onCellClick = { row, col ->
+                                    val isMineHere = myMines.any { it.row == row && it.col == col }
+                                    val alreadyHit = oppMoves.any { it.x == col && it.y == row }
+                                    if (!isMineHere && !alreadyHit && (state.energy[uid] ?: 0) >= PowerUp.Mine.cost) {
+                                        scope.launch {
+                                            try {
+                                                spendEnergy(roomRef, uid, PowerUp.Mine.cost)
+                                                val updatedMines = myMines + Cell(row, col)
+                                                roomRef.update(
+                                                    "gameState.battleships.placedMines.$uid",
+                                                    updatedMines.map { mapOf("row" to it.row, "col" to it.col) }
+                                                ).await()
+                                                placingMine = false
+                                                selectedPowerUp = null
+                                            } catch (e: Exception) {
+                                                println("ERROR PLACING MINE: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                },
+                                onBoardPositioned = null // Not needed
+                            )
+                        } else {
+                            if (isMyTurn) {
+                                val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
+                                BoardGrid(
+                                    gridSize = 10,
+                                    cellSize = 32.dp,
+                                    ships = emptyList(),
+                                    attacks = buildAttackMap(oppShips, myMoves),
+                                    enabled = !isLocallyGameOver,
+                                    destroyedShips = oppDestroyedShips,
+                                    mineCells = emptyList(),
+                                    triggeredMines = enemyTriggeredMines,
+                                    onCellClick = { row, col ->
+                                        if (!isMyTurn || isLocallyGameOver) return@BoardGrid
+                                        val cell = Cell(row, col)
+                                        val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
+
+                                        when (selectedPowerUp) {
+                                            PowerUp.Bomb2x2 -> {
+                                                if (row in 0 until 9 && col in 0 until 9 && (state.energy[uid] ?: 0) >= PowerUp.Bomb2x2.cost) {
+                                                    scope.launch {
+                                                        spendEnergy(roomRef, uid, PowerUp.Bomb2x2.cost)
+                                                        val targets = PowerUp.Bomb2x2.expand(Cell(row, col))
+                                                        targets.forEach { targetCell ->
+                                                            session.submitMove(targetCell.col, targetCell.row, uid)
+                                                        }
+                                                        selectedPowerUp = null
+                                                    }
+                                                }
+                                            }
+                                            PowerUp.Laser -> {
+                                                if ((state.energy[uid] ?: 0) >= PowerUp.Laser.cost) {
+                                                    scope.launch {
+                                                        spendEnergy(roomRef, uid, PowerUp.Laser.cost)
+                                                        val targets = if (laserOrientation == Orientation.Horizontal) {
+                                                            (0 until 10).map { c -> Cell(row, c) }
+                                                        } else {
+                                                            (0 until 10).map { r -> Cell(r, col) }
+                                                        }
+                                                        targets.forEach { targetCell ->
+                                                            session.submitMove(targetCell.col, targetCell.row, uid)
+                                                        }
+                                                        selectedPowerUp = null
+                                                    }
+                                                }
+                                            }
+                                            else -> {
+                                                if (cell !in myHitCells && animatingMove == null) {
+                                                    val isHit = oppShips.any { it.covers(row, col) }
+                                                    val startedAt = System.currentTimeMillis()
+                                                    scope.launch {
+                                                        roomRef.update(
+                                                            mapOf("gameState.battleships.currentAttack" to mapOf(
+                                                                "x" to col,
+                                                                "y" to row,
+                                                                "playerId" to uid,
+                                                                "startedAt" to startedAt
+                                                            ))
+                                                        ).await()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onBoardPositioned = null
+                                )
+                            } else {
+                                BoardGrid(
+                                    gridSize = 10,
+                                    cellSize = 32.dp,
+                                    ships = myShips,
+                                    attacks = buildAttackMap(myShips, oppMoves),
+                                    enabled = false,
+                                    destroyedShips = myDestroyedShips,
+                                    mineCells = myMines,
+                                    triggeredMines = myTriggeredMines,
+                                    onCellClick = { _, _ -> },
+                                    onBoardPositioned = null
+                                )
+                            }
+                        }
+
+                        // --- OVERLAY: Debug/Animation ---
+                        DebugCellCentersOverlay(
+                            boardOffset = Offset.Zero,
+                            cellSizePx = with(LocalDensity.current) { 32.dp.toPx() },
+                            gridSize = 10
+                        )
+
+                        if (animatingMove != null) {
+                            CannonAttackAnimation(
+                                boardOffset = Offset.Zero,
+                                cell = animatingMove!!,
+                                cellSizePx = with(LocalDensity.current) { 32.dp.toPx() },
+                                isHit = animIsHit,
+                                onFinished = {
+                                    scope.launch {
+                                        val currentAttack = attackAnim
+                                        if (currentAttack != null) {
+                                            session.submitMove(
+                                                currentAttack.x,
+                                                currentAttack.y,
+                                                currentAttack.playerId
+                                            )
+                                            roomRef.update(mapOf("gameState.battleships.currentAttack" to FieldValue.delete()))
+                                                .await()
+                                        }
+                                    }
+                                    animatingMove = null
+                                    animIsHit = null
+                                },
+                                vibrateOnHit = { vibrateDevice(context, 500) }
                             )
                         }
                     }
@@ -553,7 +552,6 @@ fun BattleshipsPlayScreen(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Cancel PowerUp button (unchanged)
                             Button(
                                 onClick = {
                                     selectedPowerUp = null
@@ -569,8 +567,6 @@ fun BattleshipsPlayScreen(
                             ) {
                                 Text("Cancel PowerUp")
                             }
-
-                            // Laser orientation button (if needed)
                             if (selectedPowerUp == PowerUp.Laser) {
                                 Spacer(Modifier.height(10.dp))
                                 Button(
@@ -605,7 +601,6 @@ fun BattleshipsPlayScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Power-up panel: grey box for contrast
                 if (isMyTurn && !isLocallyGameOver) {
                     val modelPUs = state.availablePowerUps[uid] ?: emptyList()
                     val uiPUs = modelPUs.mapNotNull { mp ->
@@ -634,7 +629,6 @@ fun BattleshipsPlayScreen(
                                 }
                             }
                         }
-                        // --- LASER TOGGLE BUTTON ---
                         if (selectedPowerUp == PowerUp.Laser) {
                             Button(
                                 onClick = {
@@ -653,7 +647,6 @@ fun BattleshipsPlayScreen(
                 }
             }
 
-            // --- SURRENDER DIALOG ---
             if (showSurrenderDialog) {
                 AlertDialog(
                     onDismissRequest = { showSurrenderDialog = false },
@@ -676,7 +669,6 @@ fun BattleshipsPlayScreen(
                 )
             }
 
-            // --- GAME OVER DIALOG ---
             if (isLocallyGameOver) {
                 AlertDialog(
                     onDismissRequest = {},
@@ -722,30 +714,6 @@ fun BattleshipsPlayScreen(
                     containerColor = Color(0xFF222222)
                 )
             }
-        }
-        if (animatingMove != null) {
-            // Always animate on the DEFENDER's board (the target of the attack)
-            val boardOffsetToUse = if (isAttackOnMe) myBoardOffset else oppBoardOffset
-            val cellSizeToUse = if (isAttackOnMe) myCellSizePx else oppCellSizePx
-
-            CannonAttackAnimation(
-                boardOffset = boardOffsetToUse,
-                cell = animatingMove!!,
-                cellSizePx = cellSizeToUse,
-                isHit = animIsHit,
-                onFinished = {
-                    scope.launch {
-                        val currentAttack = attackAnim
-                        if (currentAttack != null) {
-                            session.submitMove(currentAttack.x, currentAttack.y, currentAttack.playerId)
-                            roomRef.update(mapOf("gameState.battleships.currentAttack" to FieldValue.delete())).await()
-                        }
-                    }
-                    animatingMove = null
-                    animIsHit = null
-                },
-                vibrateOnHit = { vibrateDevice(context, 500) }
-            )
         }
     }
 }
@@ -795,7 +763,7 @@ fun BoardGrid(
             .border(4.dp, Color.Black, RectangleShape)
             .onGloballyPositioned { coordinates ->
                 // Give the parent the board offset and the cell size in px
-                val position = coordinates.positionInRoot()
+                val position = coordinates.positionInWindow()
                 val offset = Offset(position.x, position.y)
                 val cellPx = with(density) { cellSize.toPx() }
                 onBoardPositioned?.invoke(offset, cellPx)

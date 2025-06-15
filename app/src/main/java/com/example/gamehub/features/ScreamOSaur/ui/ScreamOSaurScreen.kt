@@ -565,18 +565,28 @@ private fun GameContent() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Game Over!", fontSize = 24.sp, color = Color.Red, fontWeight = FontWeight.Bold) // Game Over text can remain red for emphasis
+                        Text("Game Over!", fontSize = 24.sp, color = Color.Red, fontWeight = FontWeight.Bold)
                         Text("Score: $score", fontSize = 20.sp, color = scoreTextColor)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = {
-                            coroutineScope.launch { jumpAnim.snapTo(0f) }
-                            isJumping = false
-                            score = 0
-                            obstacles = emptyList()
-                            gameSpeed = 5f
-                            initialDelayHasOccurred = false
-                            gameState = GameState.PLAYING
-                        }) { Text("Play Again") }
+                        TextButton( // Changed from Button to TextButton
+                            onClick = {
+                                coroutineScope.launch { jumpAnim.snapTo(0f) }
+                                isJumping = false
+                                score = 0
+                                obstacles = emptyList()
+                                gameSpeed = 5f
+                                initialDelayHasOccurred = false
+                                gameState = GameState.PLAYING
+                                isRunningAnimating = true // Ensure animation restarts
+                            }
+                        ) {
+                            Text(
+                                text = "Play Again",
+                                fontSize = 20.sp, // Matched font size
+                                fontWeight = FontWeight.Bold, // Matched font weight
+                                color = scoreTextColor // Matched color
+                            )
+                        }
                     }
                 }
                 GameState.PAUSED -> {
@@ -593,10 +603,10 @@ private fun GameContent() {
 
         Spacer(modifier = Modifier.height(8.dp))
         SoundMeter(amplitude = currentAmplitude)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp)) // Increased spacer for more separation
 
         if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
-            Button(
+            TextButton( // Changed from Button to TextButton
                 onClick = {
                     if (gameState == GameState.PLAYING) {
                         timeAtPause = System.currentTimeMillis()
@@ -606,11 +616,20 @@ private fun GameContent() {
                         val pausedDuration = System.currentTimeMillis() - timeAtPause
                         gameStartTime += pausedDuration
                         gameState = GameState.PLAYING
+                        // When resuming, ensure isRunningAnimating is set back if needed
+                        // This might be handled by the LaunchedEffect(gameState) already,
+                        // but explicitly setting it here can be clearer or a safeguard.
+                        isRunningAnimating = true
                     }
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text(if (gameState == GameState.PLAYING) "Pause Game" else "Resume Game")
+                Text(
+                    text = if (gameState == GameState.PLAYING) "Pause" else "Resume", // Shortened text
+                    fontSize = 20.sp, // Increased font size
+                    fontWeight = FontWeight.Bold,
+                    color = scoreTextColor // Using scoreTextColor for consistency
+                )
             }
         }
     }

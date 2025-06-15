@@ -7,7 +7,6 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaPlayer
 import android.media.MediaRecorder
-import android.util.Log // Added for logging
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -27,7 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext // Added import for withContext
+import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
 import kotlin.random.Random
 
@@ -36,11 +35,11 @@ enum class GameState { READY, PLAYING, PAUSED, GAME_OVER }
 
 // Obstacle data class
 data class Obstacle(
-    var xPosition: Float, // Pixel value
-    val height: Float,    // Pixel value
-    val width: Float,     // Pixel value
+    var xPosition: Float,
+    val height: Float,
+    val width: Float,
     var passed: Boolean = false,
-    val id: Long = Random.nextLong() // Unique ID for animations/keys
+    val id: Long = Random.nextLong()
 )
 
 // UI State data class
@@ -51,8 +50,7 @@ data class ScreamOSaurUiState(
     val currentAmplitude: Int = 0,
     val jumpAnimValue: Float = 0f,
     val isJumping: Boolean = false,
-    val runningAnimState: Int = 0, // Added back
-    // Game dimensions - will be set by the UI
+    val runningAnimState: Int = 0,
     val dinosaurVisualXPositionPx: Float = 0f,
     val dinoTopYOnGroundPx: Float = 0f,
     val dinosaurSizePx: Float = 0f,
@@ -60,7 +58,7 @@ data class ScreamOSaurUiState(
     val groundHeightPx: Float = 0f,
     val jumpMagnitudePx: Float = 0f,
     val gameSpeed: Float = ScreamOSaurViewModel.INITIAL_GAME_SPEED,
-    val hasAudioPermission: Boolean? = null // Null initially, set by UI
+    val hasAudioPermission: Boolean? = null
 )
 
 class ScreamOSaurViewModel(application: Application) : AndroidViewModel(application) {
@@ -71,7 +69,7 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
     private var audioRecord: AudioRecord? = null
     private var recordJob: Job? = null
     private var gameLoopJob: Job? = null
-    private var animationJob: Job? = null // Added back
+    private var animationJob: Job? = null
 
     private val jumpAnim = Animatable(0f)
 
@@ -90,7 +88,6 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
 
     init {
         initializeSoundPlayers()
-        // Observe jumpAnim changes and update uiState
         viewModelScope.launch {
             snapshotFlow { jumpAnim.value }.collect { value ->
                 _uiState.update { it.copy(jumpAnimValue = value) }
@@ -111,7 +108,8 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
             } else {
                 try {
                     it.start()
-                } catch (_: IllegalStateException) { /* Handle or log */ }
+                } catch (e: IllegalStateException) {
+                }
             }
         }
     }
@@ -138,9 +136,9 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
     fun updateAudioPermissionState(hasPermission: Boolean) {
         _uiState.update { it.copy(hasAudioPermission = hasPermission) }
         if (hasPermission && _uiState.value.gameState == GameState.PLAYING) {
-            startAudioProcessing() // Start if game was already playing and permission granted
+            startAudioProcessing()
         } else if (!hasPermission) {
-            recordJob?.cancel() // Stop audio processing if permission revoked
+            recordJob?.cancel()
             audioRecord?.release()
             audioRecord = null
             _uiState.update { it.copy(currentAmplitude = 0) }
@@ -156,23 +154,32 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
                 obstacles = emptyList(),
                 gameSpeed = INITIAL_GAME_SPEED,
                 isJumping = false,
-                runningAnimState = 0 // Added back
+                runningAnimState = 0
             )
         }
         initialDelayHasOccurred = false
-        stopAllJobs(releaseAudio = true) // Ensure everything is reset
+        gameStartTime = 0L
+        timeAtPause = 0L
+        stopAllJobs(releaseAudio = true)
+
         startGameLoop()
+
         if (_uiState.value.hasAudioPermission == true) {
-            startAudioProcessing()
+            viewModelScope.launch {
+                delay(200)
+                if (_uiState.value.gameState == GameState.PLAYING) {
+                    startAudioProcessing()
+                }
+            }
         }
-        startRunningAnimation() // Added back
+        startRunningAnimation()
     }
 
     fun pauseGame() {
         if (_uiState.value.gameState == GameState.PLAYING) {
             timeAtPause = System.currentTimeMillis()
             _uiState.update { it.copy(gameState = GameState.PAUSED) }
-            stopAllJobs(releaseAudio = true) // Release mic when paused
+            stopAllJobs(releaseAudio = true)
         }
     }
 
@@ -185,7 +192,7 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
             if (_uiState.value.hasAudioPermission == true) {
                 startAudioProcessing()
             }
-            startRunningAnimation() // Added back
+            startRunningAnimation()
         }
     }
 
@@ -207,23 +214,20 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
                 val currentTime = System.currentTimeMillis()
                 val elapsedGameTime = currentTime - gameStartTime
 
-                // Update obstacles
                 val updatedObstacles = currentState.obstacles.map {
                     it.copy(xPosition = it.xPosition - currentState.gameSpeed)
                 }.filter { it.xPosition + it.width > 0 }
 
-                // Spawn new obstacles
                 val canvasWidthPx = currentState.gameHeightPx * (16f / 9f)
                 val spawnTriggerX = canvasWidthPx * 0.5f
                 var newObstaclesCurrent = updatedObstacles
 
-                if (newObstaclesCurrent.isEmpty() && elapsedGameTime > 500) { // Wait a bit before first obstacle
+                if (newObstaclesCurrent.isEmpty() && elapsedGameTime > 500) {
                     newObstaclesCurrent = listOf(createNewObstacle(canvasWidthPx, currentState))
                 } else if (newObstaclesCurrent.isNotEmpty() && newObstaclesCurrent.last().xPosition < spawnTriggerX && newObstaclesCurrent.size < 5) {
                     newObstaclesCurrent = newObstaclesCurrent + createNewObstacle(canvasWidthPx, currentState)
                 }
 
-                // Update score and game speed
                 var newScore = currentState.score
                 var newSpeed = currentState.gameSpeed
                 val scoredObstacles = newObstaclesCurrent.map { obstacle ->
@@ -244,14 +248,13 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 }
 
-                // Collision check
-                if (elapsedGameTime > 2000) { // Delay collision check
+                if (elapsedGameTime > 2000) {
                     val dinoTopY = currentState.dinoTopYOnGroundPx - (jumpAnim.value * currentState.jumpMagnitudePx)
                     val dinoHitbox = Rect(
-                        left = currentState.dinosaurVisualXPositionPx + currentState.dinosaurSizePx * 0.20f,
-                        top = dinoTopY + currentState.dinosaurSizePx * 0.20f,
-                        right = currentState.dinosaurVisualXPositionPx + currentState.dinosaurSizePx * 0.80f,
-                        bottom = dinoTopY + currentState.dinosaurSizePx * 0.90f // Adjusted for feet
+                        left = currentState.dinosaurVisualXPositionPx + currentState.dinosaurSizePx * 0.25f, // Changed from 0.20f
+                        top = dinoTopY + currentState.dinosaurSizePx * 0.25f, // Changed from 0.20f
+                        right = currentState.dinosaurVisualXPositionPx + currentState.dinosaurSizePx * 0.75f, // Changed from 0.80f
+                        bottom = dinoTopY + currentState.dinosaurSizePx * 0.85f // Changed from 0.90f
                     )
 
                     val collision = scoredObstacles.any { obs ->
@@ -265,12 +268,11 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
                     }
 
                     if (collision) {
-                        Log.d("ScreamOSaurVM_Collision", "Collision! jumpAnimValue: ${jumpAnim.value}, dinoTopY: $dinoTopY, isJumping: ${currentState.isJumping}, Obstacles: ${scoredObstacles.filter { dinoHitbox.overlaps(Rect(it.xPosition, currentState.gameHeightPx - currentState.groundHeightPx - it.height, it.xPosition + it.width, currentState.gameHeightPx - currentState.groundHeightPx)) }}")
                         gameOver()
                         break
                     }
                 }
-                delay(16) // ~60fps
+                delay(16)
             }
         }
     }
@@ -292,9 +294,11 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(hasAudioPermission = true) }
 
         val bufferSize = AudioRecord.getMinBufferSize(8000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        if (bufferSize <= 0) { return }
+        if (bufferSize <= 0) {
+            return
+        }
 
-        audioRecord?.release() // Release previous instance if any
+        audioRecord?.release()
         audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC, 8000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize)
 
         if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
@@ -312,10 +316,13 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
                     if (read > 0) {
                         val maxAmplitudeRaw = buffer.take(read).maxOfOrNull { it.toInt().absoluteValue } ?: 0
                         val amp = if (maxAmplitudeRaw >= MIN_AMPLITUDE_THRESHOLD) maxAmplitudeRaw else 0
-                        _uiState.update { it.copy(currentAmplitude = amp) }
+
+                        if (_uiState.value.currentAmplitude != amp) {
+                            _uiState.update { it.copy(currentAmplitude = amp) }
+                        }
 
                         if (amp > JUMP_AMPLITUDE_THRESHOLD && !_uiState.value.isJumping) {
-                            viewModelScope.launch {
+                            withContext(Dispatchers.Main) {
                                 triggerJump()
                             }
                         }
@@ -323,63 +330,64 @@ class ScreamOSaurViewModel(application: Application) : AndroidViewModel(applicat
                     delay(50)
                 }
             } catch (e: Exception) {
-                // Log or handle exception
-                 _uiState.update { it.copy(currentAmplitude = 0) }
+                _uiState.update { it.copy(currentAmplitude = 0) }
             } finally {
                 if (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                    audioRecord?.stop()
+                    try {
+                        audioRecord?.stop()
+                    } catch (e: IllegalStateException) {
+                    }
                 }
-                // Don't release here if we might resume, release in onCleared or when explicitly stopped
-                if (_uiState.value.gameState != GameState.PLAYING || _uiState.value.hasAudioPermission != true) {
-                    _uiState.update { it.copy(currentAmplitude = 0) }
+                if (_uiState.value.gameState != GameState.PLAYING || _uiState.value.hasAudioPermission != true || !isActive) {
                     audioRecord?.release()
                     audioRecord = null
+                    if (!isActive || _uiState.value.hasAudioPermission != true) {
+                        _uiState.update { it.copy(currentAmplitude = 0) }
+                    }
                 }
             }
         }
     }
 
     private fun triggerJump() {
-        if (_uiState.value.isJumping) return
+        if (_uiState.value.isJumping) {
+            return
+        }
 
         _uiState.update { it.copy(isJumping = true) }
         playJumpSound()
 
         viewModelScope.launch {
-            withContext(Dispatchers.Main) { // Explicitly switch to Main for animation
-                try {
-                    jumpAnim.snapTo(0f)
-                    jumpAnim.animateTo(
-                        targetValue = 1f,
-                        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
-                    )
-                    jumpAnim.animateTo(
-                        targetValue = 0f,
-                        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
-                    )
-                } catch (e: Exception) {
-                    Log.e("ScreamOSaurVM", "Error in jump animation: ${e.message}", e)
-                    _uiState.update { it.copy(isJumping = false, jumpAnimValue = 0f) }
-                    return@withContext // Exit this withContext block
-                }
+            try {
+                jumpAnim.snapTo(0f)
+                jumpAnim.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
+                )
+                jumpAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+                )
+            } catch (e: Exception) {
+            } finally {
+                _uiState.update { it.copy(isJumping = false, jumpAnimValue = 0f) }
             }
-            _uiState.update { it.copy(isJumping = false, jumpAnimValue = 0f) }
         }
     }
 
     private fun startRunningAnimation() {
-        animationJob?.cancel() // Cancel any existing animation job
+        animationJob?.cancel()
         animationJob = viewModelScope.launch {
             while (isActive && _uiState.value.gameState == GameState.PLAYING) {
-                _uiState.update { it.copy(runningAnimState = (it.runningAnimState + 1) % 4) } // Cycle through 4 states
-                delay(100) // Animation frame delay
+                _uiState.update { it.copy(runningAnimState = (it.runningAnimState + 1) % 4) }
+                delay(100)
             }
         }
     }
 
     private fun stopAllJobs(releaseAudio: Boolean) {
         gameLoopJob?.cancel()
-        animationJob?.cancel() // Added back
+        animationJob?.cancel()
         recordJob?.cancel()
         if (releaseAudio) {
             audioRecord?.release()

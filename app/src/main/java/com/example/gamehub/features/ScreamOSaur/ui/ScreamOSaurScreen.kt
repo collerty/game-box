@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.drawable.Animatable // Added for Animatable
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaPlayer
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
+import coil.compose.AsyncImagePainter // Added for state type
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import com.example.gamehub.R
@@ -511,13 +513,27 @@ private fun GameContent() {
                     }
                     .build()
 
+                val painter = rememberAsyncImagePainter(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data("file:///android_asset/dino_model.gif")
+                        .diskCacheKey(gameState.name) // Changed from .key() to .diskCacheKey()
+                        .build(),
+                    imageLoader = imageLoader,
+                    onState = { state ->
+                        if (state is AsyncImagePainter.State.Success) {
+                            val drawable = state.result.drawable
+                            if (drawable is Animatable) {
+                                if (gameState == GameState.PLAYING) {
+                                    drawable.start()
+                                } else {
+                                    drawable.stop()
+                                }
+                            }
+                        }
+                    }
+                )
                 Image(
-                    painter = rememberAsyncImagePainter(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data("file:///android_asset/dino_model.gif")
-                            .build(),
-                        imageLoader = imageLoader
-                    ),
+                    painter = painter,
                     contentDescription = "Dinosaur",
                     modifier = Modifier.fillMaxSize()
                 )

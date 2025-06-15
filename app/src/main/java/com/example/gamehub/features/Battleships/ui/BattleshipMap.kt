@@ -36,7 +36,7 @@ fun BattleshipMap(
     @DrawableRes waterSprite: Int = R.drawable.ocean_spritesheet,
     waterFps: Int = 16,
     onCellClick: ((row: Int, col: Int) -> Unit)? = null,
-    highlightShip: ((row: Int, col: Int) -> Boolean)? = null
+    highlightShip: ((row: Int, col: Int) -> Boolean)? = null,
 ) {
     // 1) Compute a single shared frame [0..15] at waterFps
     val totalFrames = 16

@@ -241,9 +241,7 @@ fun BattleshipsPlayScreen(
 
     LaunchedEffect(lobbyStatus) {
         if (lobbyStatus == "ended") {
-            navController.navigate(
-                NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")
-            ) {
+            navController.navigate(NavRoutes.MAIN_MENU) {
                 popUpTo(0)
                 launchSingleTop = true
             }
@@ -272,8 +270,9 @@ fun BattleshipsPlayScreen(
                         .replace("{code}", roomCode)
                         .replace("{userName}", java.net.URLEncoder.encode(userName, "UTF-8"))
                 ) {
-                    popUpTo(0)
-                    launchSingleTop = true
+                    popUpTo(NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")) {
+                        inclusive = true // or false if you want to keep lobby menu below
+                    }
                 }
             }
         }
@@ -700,9 +699,7 @@ fun BattleshipsPlayScreen(
                                 scope.launch {
                                     roomRef.update("status", "ended").await()
                                 }
-                                navController.navigate(
-                                    NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")
-                                ) {
+                                navController.navigate(NavRoutes.MAIN_MENU) {
                                     popUpTo(0)
                                     launchSingleTop = true
                                 }

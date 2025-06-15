@@ -46,7 +46,7 @@ object LobbyService {
             "currentTurn"  to hostUid,
             "moves"        to emptyList<String>(),
             "powerUps"     to mapOf(hostUid to listOf("RADAR", "BOMB")),
-            "energy"       to mapOf(hostUid to 5),
+            "energy"       to mapOf(hostUid to 3),
             "mapVotes"     to emptyMap<String, Int>(),
             "chosenMap"    to null,
             "powerUpMoves" to emptyList<String>()
@@ -151,7 +151,7 @@ object LobbyService {
                 updates["gameState.battleships.player2Id"] = user.uid
             }
             updates["gameState.battleships.powerUps.${user.uid}"] = listOf("RADAR", "BOMB")
-            updates["gameState.battleships.energy.${user.uid}"]   = 5
+            updates["gameState.battleships.energy.${user.uid}"]   = 3
         }
 
         rooms.document(code).update(updates).await()
@@ -244,7 +244,7 @@ object LobbyService {
                 "currentTurn"  to startingPlayerUid,
                 "moves"        to emptyList<String>(),
                 "powerUps"     to players.associate { it["uid"] as String to listOf("RADAR", "BOMB") },
-                "energy"       to players.associate { it["uid"] as String to 5 },
+                "energy"       to players.associate { it["uid"] as String to 3 },
                 "mapVotes"     to emptyMap<String, Int>(),
                 "chosenMap"    to null,
                 "powerUpMoves" to emptyList<String>()

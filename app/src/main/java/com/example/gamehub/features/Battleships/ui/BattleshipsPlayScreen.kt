@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -22,12 +23,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavHostController
 import com.example.gamehub.features.battleships.model.Cell
-import com.example.gamehub.features.battleships.ui.PowerUp
-import com.example.gamehub.features.battleships.ui.PowerUpPanel
 import com.example.gamehub.features.battleships.ui.Ship as UiShip
-import com.example.gamehub.features.battleships.ui.Orientation
 import com.example.gamehub.lobby.FirestoreSession
 import com.example.gamehub.lobby.model.GameSession
 import com.example.gamehub.lobby.model.Move
@@ -38,8 +40,10 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.example.gamehub.navigation.NavRoutes
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import kotlinx.coroutines.tasks.await
+import com.example.gamehub.features.battleships.ui.CannonAttackAnimation
 
 private fun UiShip.coveredCells(): List<Cell> = if (orientation == Orientation.Horizontal) {
     (0 until size).map { offset -> Cell(startRow, startCol + offset) }
@@ -126,6 +130,11 @@ fun BattleshipsPlayScreen(
     val state by session.stateFlow.collectAsState(initial = GameSession.empty(roomCode))
     val isMyTurn = state.currentTurn == uid
 
+    var placingMine by remember { mutableStateOf(false) }
+    var selectedPowerUp by remember { mutableStateOf<PowerUp?>(null) }
+    // --- LASER ORIENTATION STATE ---
+    var laserOrientation by remember { mutableStateOf(Orientation.Horizontal) }
+
     val opponentId = listOf(state.player1Id, state.player2Id)
         .filterNotNull()
         .firstOrNull { it != uid } ?: ""
@@ -136,6 +145,7 @@ fun BattleshipsPlayScreen(
     val oppShips: List<UiShip> = (state.ships[opponentId] ?: emptyList()).map { ds ->
         UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation)
     }
+
 
     val myDestroyedShips = myShips.filter { ship ->
         ship.coveredCells().all { cell ->
@@ -155,6 +165,10 @@ fun BattleshipsPlayScreen(
     var surrenderedUserId by remember { mutableStateOf<String?>(null) }
     var showSurrenderDialog by remember { mutableStateOf(false) }
 
+    var animatingMove by remember { mutableStateOf<Cell?>(null) }
+    var animIsHit by remember { mutableStateOf<Boolean?>(null) }
+    var pendingMove by remember { mutableStateOf<Triple<Int, Int, (() -> Unit)>?>(null) }
+
     val havePlacedShips = myShips.isNotEmpty() && oppShips.isNotEmpty()
     val myMoves = state.moves.filter { it.playerId == uid }
     val oppMoves = state.moves.filter { it.playerId == opponentId }
@@ -166,6 +180,31 @@ fun BattleshipsPlayScreen(
     val isBackendGameOver = gameResult != null && gameResult != ""
     val isSurrenderedGameOver = surrenderedUserId != null
     val isLocallyGameOver = (iSunkOpponent || opponentSunkMe || isBackendGameOver || isSurrenderedGameOver) && havePlacedShips
+
+
+    // --- MINE CELLS ---
+    val myMines = state.placedMines[uid] ?: emptyList()
+    val enemyMines = state.placedMines[opponentId] ?: emptyList()
+
+    // Triggered mines = any enemy mine that was attacked by YOU (for enemy board)
+    // For your own board, any of your mines that were hit by the opponent
+    val myTriggeredMines = state.triggeredMines[uid] ?: emptyList()
+    val enemyTriggeredMines = state.triggeredMines[opponentId] ?: emptyList()
+
+    var minesAtTurnStart by remember(state.currentTurn) {
+        mutableStateOf(myMines.size)
+    }
+    val hasPlacedMineThisTurn = myMines.size > minesAtTurnStart
+
+    var boardOffset by remember { mutableStateOf(Offset.Zero) }
+    var cellSizePx by remember { mutableStateOf(0f) }
+
+    suspend fun spendEnergy(roomRef: com.google.firebase.firestore.DocumentReference, uid: String, amount: Int) {
+        roomRef.update(
+            "gameState.battleships.energy.$uid",
+            FieldValue.increment(-amount.toLong())
+        ).await()
+    }
 
     DisposableEffect(roomCode) {
         val reg = roomRef.addSnapshotListener { snap, _ ->
@@ -235,12 +274,7 @@ fun BattleshipsPlayScreen(
                         IconButton(
                             onClick = { showSurrenderDialog = true }
                         ) {
-                            Icon(Icons.Default.ExitToApp, contentDescription = "Surrender", tint = Color.White)
-                        }
-                        IconButton(
-                            onClick = { }
-                        ) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Surrender", tint = Color.White)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -271,33 +305,228 @@ fun BattleshipsPlayScreen(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    if (isMyTurn) {
-                        val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
-                        BoardGrid(
-                            gridSize = 10,
-                            cellSize = 32.dp,
-                            ships = emptyList(),
-                            attacks = buildAttackMap(oppShips, myMoves),
-                            enabled = !isLocallyGameOver,
-                            destroyedShips = oppDestroyedShips,
-                            onCellClick = { row, col ->
-                                val cell = Cell(row, col)
-                                if (cell in myHitCells) return@BoardGrid
-                                scope.launch {
-                                    session.submitMove(col, row, uid)
-                                }
-                            }
-                        )
-                    } else {
+                    if (placingMine) {
                         BoardGrid(
                             gridSize = 10,
                             cellSize = 32.dp,
                             ships = myShips,
                             attacks = buildAttackMap(myShips, oppMoves),
-                            enabled = false,
+                            enabled = true,
                             destroyedShips = myDestroyedShips,
-                            onCellClick = { _, _ -> }
+                            mineCells = myMines,
+                            triggeredMines = myTriggeredMines,
+                            onCellClick = { row, col ->
+                                val isMineHere = myMines.any { it.row == row && it.col == col }
+                                val alreadyHit = oppMoves.any { it.x == col && it.y == row }
+                                if (!isMineHere && !alreadyHit && (state.energy[uid] ?: 0) >= PowerUp.Mine.cost) {
+                                    scope.launch {
+                                        try {
+                                            spendEnergy(roomRef, uid, PowerUp.Mine.cost)
+                                            val updatedMines = myMines + Cell(row, col)
+                                            roomRef.update(
+                                                "gameState.battleships.placedMines.$uid",
+                                                updatedMines.map { mapOf("row" to it.row, "col" to it.col) }
+                                            ).await()
+                                            placingMine = false
+                                            selectedPowerUp = null
+                                        } catch (e: Exception) {
+                                            println("ERROR PLACING MINE: ${e.message}")
+                                        }
+                                    }
+                                }
+                            }
                         )
+                    }
+                    else {
+                        if (isMyTurn) {
+                            val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
+                            BoardGrid(
+                                gridSize = 10,
+                                cellSize = 32.dp,
+                                ships = emptyList(),
+                                attacks = buildAttackMap(oppShips, myMoves),
+                                enabled = !isLocallyGameOver,
+                                destroyedShips = oppDestroyedShips,
+                                mineCells = emptyList(),            // ← Hide untriggered mines and don't double-show triggered
+                                triggeredMines = enemyTriggeredMines,
+                                onCellClick = { row, col ->
+                                    if (!isMyTurn || isLocallyGameOver) return@BoardGrid
+                                    val cell = Cell(row, col)
+                                    val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
+
+                                    when (selectedPowerUp) {
+                                        PowerUp.Bomb2x2 -> {
+                                            if (row in 0 until 9 && col in 0 until 9 && (state.energy[uid] ?: 0) >= PowerUp.Bomb2x2.cost) {
+                                                scope.launch {
+                                                    spendEnergy(roomRef, uid, PowerUp.Bomb2x2.cost)
+                                                    val targets = PowerUp.Bomb2x2.expand(Cell(row, col))
+                                                    targets.forEach { targetCell ->
+                                                        session.submitMove(targetCell.col, targetCell.row, uid)
+                                                    }
+                                                    selectedPowerUp = null
+                                                }
+                                            }
+                                        }
+                                        PowerUp.Laser -> {
+                                            if ((state.energy[uid] ?: 0) >= PowerUp.Laser.cost) {
+                                                scope.launch {
+                                                    // 2. Spend energy
+                                                    spendEnergy(roomRef, uid, PowerUp.Laser.cost)
+
+                                                    // 3. Calculate Laser targets
+                                                    val targets = if (laserOrientation == Orientation.Horizontal) {
+                                                        (0 until 10).map { c -> Cell(row, c) }
+                                                    } else {
+                                                        (0 until 10).map { r -> Cell(r, col) }
+                                                    }
+
+                                                    // 4. Fire all laser shots (could also do in parallel)
+                                                    targets.forEach { targetCell ->
+                                                        session.submitMove(targetCell.col, targetCell.row, uid)
+                                                    }
+                                                    selectedPowerUp = null
+
+                                                }
+                                            }
+                                        }
+                                        else -> {
+                                            if (cell !in myHitCells && animatingMove == null && cellSizePx > 0f) {
+                                                println("DEBUG: boardOffset=$boardOffset, cellSizePx=$cellSizePx, cell=$cell")
+
+                                                // 1. Mark animation as in progress and what type
+                                                val isHit = oppShips.any { it.covers(row, col) }
+                                                animatingMove = cell
+                                                animIsHit = isHit
+                                                // 2. Store the move to send after animation
+                                                pendingMove = Triple(col, row) {
+                                                    scope.launch {
+                                                        session.submitMove(col, row, uid)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                onBoardPositioned = { offset, cellPx ->
+                                    boardOffset = offset
+                                    cellSizePx = cellPx
+                                }
+                            )
+                        } else {
+                            BoardGrid(
+                                gridSize = 10,
+                                cellSize = 32.dp,
+                                ships = myShips,
+                                attacks = buildAttackMap(myShips, oppMoves),
+                                enabled = false,
+                                destroyedShips = myDestroyedShips,
+                                mineCells = myMines,
+                                triggeredMines = myTriggeredMines,
+                                onCellClick = { _, _ -> }
+                            )
+                        }
+                    }
+                }
+
+                if (placingMine) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Select a square on your board to place the mine.",
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+                else if (selectedPowerUp is PowerUp.Bomb2x2) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Select a 2x2 zone on your opponent's board to drop the bomb. The cell you click will be the top-left corner of the bomb.",
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+                else if (selectedPowerUp is PowerUp.Laser) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Select a row or column to fire the laser. The laser will hit all cells in that row/column. Press the button below to toggle between row and column.",
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
+                                .padding(horizontal = 24.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+
+                if (selectedPowerUp != null || placingMine) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Cancel PowerUp button (unchanged)
+                            Button(
+                                onClick = {
+                                    selectedPowerUp = null
+                                    placingMine = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.Black,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(48.dp)
+                            ) {
+                                Text("Cancel PowerUp")
+                            }
+
+                            // Laser orientation button (if needed)
+                            if (selectedPowerUp == PowerUp.Laser) {
+                                Spacer(Modifier.height(10.dp))
+                                Button(
+                                    onClick = {
+                                        laserOrientation =
+                                            if (laserOrientation == Orientation.Horizontal)
+                                                Orientation.Vertical
+                                            else
+                                                Orientation.Horizontal
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.Black,
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier
+                                        .width(200.dp)
+                                        .height(48.dp)
+                                ) {
+                                    Text("Laser: ${if (laserOrientation == Orientation.Horizontal) "Row" else "Column"}")
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -328,12 +557,30 @@ fun BattleshipsPlayScreen(
                             .padding(12.dp)
                             .fillMaxWidth()
                     ) {
-                        Text("Energy: $energy", color = Color.White, style = MaterialTheme.typography.titleMedium)
-                        PowerUpPanel(energy) { pu ->
-                            pu.expand(Cell(0, 0)).forEach { cell ->
-                                scope.launch {
-                                    session.submitMove(cell.col, cell.row, uid)
+                        PowerUpPanel(energy, hasPlacedMineThisTurn) { pu ->
+                            when (pu) {
+                                PowerUp.Mine -> {
+                                    placingMine = true
+                                    selectedPowerUp = pu
                                 }
+                                else -> {
+                                    selectedPowerUp = pu
+                                }
+                            }
+                        }
+                        // --- LASER TOGGLE BUTTON ---
+                        if (selectedPowerUp == PowerUp.Laser) {
+                            Button(
+                                onClick = {
+                                    laserOrientation =
+                                        if (laserOrientation == Orientation.Horizontal)
+                                            Orientation.Vertical
+                                        else
+                                            Orientation.Horizontal
+                                },
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text("Laser: ${if (laserOrientation == Orientation.Horizontal) "Row" else "Column"}")
                             }
                         }
                     }
@@ -410,8 +657,25 @@ fun BattleshipsPlayScreen(
                 )
             }
         }
+        if (animatingMove != null) {
+            CannonAttackAnimation(
+                boardOffset = boardOffset,
+                cell = animatingMove!!,
+                cellSizePx = cellSizePx,
+                isHit = animIsHit,
+                onFinished = {
+                    // After animation is done, submit the move and clear state
+                    val (x, y, submitFn) = pendingMove!!
+                    submitFn()
+                    animatingMove = null
+                    animIsHit = null
+                    pendingMove = null
+                }
+            )
+        }
     }
 }
+
 
 // BoardGrid & helpers
 private fun buildAttackMap(
@@ -436,8 +700,13 @@ fun BoardGrid(
     attacks: Map<Cell, AttackResult>,
     enabled: Boolean,
     destroyedShips: List<UiShip> = emptyList(),
-    onCellClick: (row: Int, col: Int) -> Unit
+    mineCells: List<Cell> = emptyList(),
+    triggeredMines: List<Cell> = emptyList(),
+    onCellClick: (row: Int, col: Int) -> Unit,
+    onBoardPositioned: ((Offset, Float) -> Unit)? = null
 ) {
+    val density = LocalDensity.current
+
     val frame = rememberWaterFrame(
         spriteRes    = com.example.gamehub.R.drawable.ocean_spritesheet,
         framesPerRow = 8,
@@ -449,7 +718,14 @@ fun BoardGrid(
         modifier = Modifier
             .size(cellSize * gridSize)
             .clipToBounds()
-            .border(4.dp, Color.Black, RectangleShape) // <- Black border around the whole board
+            .border(4.dp, Color.Black, RectangleShape)
+            .onGloballyPositioned { coordinates ->
+                // Give the parent the board offset and the cell size in px
+                val position = coordinates.positionInRoot()
+                val offset = Offset(position.x, position.y)
+                val cellPx = with(density) { cellSize.toPx() }
+                onBoardPositioned?.invoke(offset, cellPx)
+            }
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -457,6 +733,7 @@ fun BoardGrid(
             for (row in 0 until gridSize) {
                 Row {
                     for (col in 0 until gridSize) {
+                        val cell = Cell(row, col)
                         Box(
                             modifier = Modifier
                                 .size(cellSize)
@@ -483,17 +760,41 @@ fun BoardGrid(
                                         .background(Color(0xFF4B8B1D))
                                 )
                             }
-                            attacks[Cell(row, col)]?.let { res ->
-                                @DrawableRes val img =
-                                    if (res == AttackResult.Hit)
-                                        com.example.gamehub.R.drawable.hit_circle
-                                    else
-                                        com.example.gamehub.R.drawable.miss_circle
-                                Image(
-                                    painter            = painterResource(img),
-                                    contentDescription = null,
-                                    modifier           = Modifier.size(cellSize / 2)
-                                )
+                            // --- MINES AND HITS/MISSES ---
+                            // Show (in order of priority!):
+                            // 1. Triggered mine (this is a mine that has been hit -- always show the mine/explosion PNG, never the hit dot!)
+                            // 2. Untriggered mine (your own board only)
+                            // 3. Hit (only if not a mine cell)
+                            // 4. Miss (only if not a mine cell)
+                            when {
+                                triggeredMines.any { it.row == cell.row && it.col == cell.col } -> {
+                                    Image(
+                                        painter = painterResource(com.example.gamehub.R.drawable.mine), // Or an explosion drawable if you want
+                                        contentDescription = "Triggered Mine",
+                                        modifier = Modifier.size(cellSize * 2f)
+                                    )
+                                }
+                                mineCells.any { it.row == cell.row && it.col == cell.col } -> {
+                                    Image(
+                                        painter = painterResource(com.example.gamehub.R.drawable.mine),
+                                        contentDescription = "Mine",
+                                        modifier = Modifier.size(cellSize * 2f)
+                                    )
+                                }
+                                attacks[cell] == AttackResult.Hit -> {
+                                    Image(
+                                        painter = painterResource(com.example.gamehub.R.drawable.hit_circle),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(cellSize / 2)
+                                    )
+                                }
+                                attacks[cell] == AttackResult.Miss -> {
+                                    Image(
+                                        painter = painterResource(com.example.gamehub.R.drawable.miss_circle),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(cellSize / 2)
+                                    )
+                                }
                             }
                         }
                     }
@@ -501,7 +802,7 @@ fun BoardGrid(
             }
         }
 
-        // --- Outline all ships with a black rectangle (unless destroyed, which will get red) ---
+        // --- Ship outlines and grid lines, as before ---
         ships.forEach { ship ->
             if (!destroyedShips.contains(ship)) {
                 val top = cellSize * ship.startRow
@@ -517,7 +818,6 @@ fun BoardGrid(
             }
         }
 
-        // --- Outline destroyed ships with a thick red rectangle ---
         destroyedShips.forEach { ship ->
             val top = cellSize * ship.startRow
             val left = cellSize * ship.startCol
@@ -531,10 +831,8 @@ fun BoardGrid(
             )
         }
 
-        // Grid lines
         Box(modifier = Modifier.matchParentSize()) {
             for (i in 1 until gridSize) {
-                // Vertical
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -542,7 +840,6 @@ fun BoardGrid(
                         .absoluteOffset(x = cellSize * i, y = 0.dp)
                         .background(Color.Gray)
                 )
-                // Horizontal
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -554,5 +851,6 @@ fun BoardGrid(
         }
     }
 }
+
 
 enum class AttackResult { Hit, Miss }

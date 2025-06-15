@@ -21,8 +21,8 @@ fun HostLobbyScreen(
     gameId: String,
     roomId: String
 ) {
-    val auth = Firebase.auth
     val db = Firebase.firestore
+    val auth = Firebase.auth
     val scope = rememberCoroutineScope()
 
     var roomName by remember { mutableStateOf<String?>(null) }
@@ -110,7 +110,7 @@ fun HostLobbyScreen(
                                 "currentTurn" to startingPlayerUid,
                                 "moves" to emptyList<String>(),
                                 "powerUps" to players.associate { it["uid"] as String to listOf("RADAR", "BOMB") },
-                                "energy" to players.associate { it["uid"] as String to 5 },
+                                "energy" to players.associate { it["uid"] as String to 3 },
                                 "gameResult" to null,
                                 "mapVotes" to emptyMap<String, Int>(),
                                 "chosenMap" to null,
@@ -161,9 +161,9 @@ fun HostLobbyScreen(
                         }
                     }
                 },
-                enabled = players.size >= 2 // Only when lobby is full
+                enabled = players.size >= maxPlayers // Only when lobby is full
             ) {
-                Text(if (players.size >= 2) "Start Game" else "Waiting for players…")
+                Text(if (players.size >= maxPlayers) "Start Game" else "Waiting for players…")
             }
 
             Spacer(Modifier.height(16.dp))

@@ -49,8 +49,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -62,10 +60,6 @@ import com.example.gamehub.features.MemoryMatching.model.GameDifficulty
 import com.example.gamehub.features.MemoryMatching.model.GameScreen
 import com.example.gamehub.features.MemoryMatching.model.MemoryCard
 import com.example.gamehub.features.MemoryMatching.model.MemoryMatchingViewModel
-
-val arcadeFontFamily = FontFamily(
-    Font(R.font.arcade_classic, FontWeight.Normal)
-)
 
 private val STATS_FONT_SIZE = 26.sp
 private val BUTTON_TEXT_SIZE = 18.sp
@@ -167,21 +161,18 @@ fun MemoryMatchingScreen(viewModel: MemoryMatchingViewModel = viewModel()) {
                     ) {
                         Text(
                             text = "Time: ${gameState.timeLeftInSeconds}s",
-                            fontFamily = arcadeFontFamily,
                             fontSize = STATS_FONT_SIZE,
                             color = textColor,
                             textAlign = TextAlign.Center
                         )
                         Text(
                             text = "Flips: ${gameState.attemptCount}",
-                            fontFamily = arcadeFontFamily,
                             fontSize = STATS_FONT_SIZE,
                             color = textColor,
                             textAlign = TextAlign.Center
                         )
                         Text(
                             text = "Mistakes: ${gameState.currentTurnIncorrectAttempts}/${difficulty.maxAttempts}",
-                            fontFamily = arcadeFontFamily,
                             fontSize = STATS_FONT_SIZE,
                             color = if (gameState.currentTurnIncorrectAttempts >= difficulty.maxAttempts - 1) loseTitleColor else textColor,
                             textAlign = TextAlign.Center
@@ -243,7 +234,7 @@ fun MemoryMatchingScreen(viewModel: MemoryMatchingViewModel = viewModel()) {
                                 contentPadding = gameButtonPadding,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Restart", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
+                                Text("Restart", fontSize = BUTTON_TEXT_SIZE)
                             }
                             Button(
                                 onClick = changeDifficultyAction,
@@ -254,7 +245,7 @@ fun MemoryMatchingScreen(viewModel: MemoryMatchingViewModel = viewModel()) {
                                 contentPadding = gameButtonPadding,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Difficulty", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE, textAlign = TextAlign.Center)
+                                Text("Difficulty", fontSize = BUTTON_TEXT_SIZE, textAlign = TextAlign.Center)
                             }
                         }
                     } else {
@@ -275,21 +266,21 @@ fun MemoryMatchingScreen(viewModel: MemoryMatchingViewModel = viewModel()) {
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("YOU WIN!", fontSize = 60.sp, fontWeight = FontWeight.Bold, color = congratsTitleColor, fontFamily = arcadeFontFamily, textAlign = TextAlign.Center)
-                            Text("Flips: ${gameState.attemptCount}", fontSize = 28.sp, color = detailColor, fontFamily = arcadeFontFamily)
-                            Text("Time Left: ${gameState.timeLeftInSeconds}s", fontSize = 24.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                            Text("YOU WIN!", fontSize = 60.sp, fontWeight = FontWeight.Bold, color = congratsTitleColor, textAlign = TextAlign.Center)
+                            Text("Flips: ${gameState.attemptCount}", fontSize = 28.sp, color = detailColor)
+                            Text("Time Left: ${gameState.timeLeftInSeconds}s", fontSize = 24.sp, color = detailColor)
                             Spacer(modifier = Modifier.height(12.dp))
                             Button(
                                 onClick = restartCurrentGameAction,
                                 shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Play Again", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
+                                Text("Play Again", fontSize = BUTTON_TEXT_SIZE)
                             }
                             Button(
                                 onClick = changeDifficultyAction,
                                 shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Change Difficulty", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
+                                Text("Change Difficulty", fontSize = BUTTON_TEXT_SIZE)
                             }
                         }
                     }
@@ -308,25 +299,25 @@ fun MemoryMatchingScreen(viewModel: MemoryMatchingViewModel = viewModel()) {
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(gameState.loseReason ?: "GAME OVER", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = loseTitleColor, fontFamily = arcadeFontFamily, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 16.dp))
-                            Text("Flips: ${gameState.attemptCount}", fontSize = 26.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                            Text(gameState.loseReason ?: "GAME OVER", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = loseTitleColor, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 16.dp))
+                            Text("Flips: ${gameState.attemptCount}", fontSize = 26.sp, color = detailColor)
                             if (gameState.loseReason == "Time's Up!") {
-                                Text("You ran out of time!", fontSize = 22.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                                Text("You ran out of time!", fontSize = 22.sp, color = detailColor)
                             } else if (gameState.loseReason == "Too many mistakes!") {
-                                Text("Exceeded max mistakes!", fontSize = 22.sp, color = detailColor, fontFamily = arcadeFontFamily)
+                                Text("Exceeded max mistakes!", fontSize = 22.sp, color = detailColor)
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                             Button(
                                 onClick = restartCurrentGameAction,
                                 shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Try Again", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
+                                Text("Try Again", fontSize = BUTTON_TEXT_SIZE)
                             }
                             Button(
                                 onClick = changeDifficultyAction,
                                 shape = RectangleShape, colors = gameButtonColors, border = gameButtonBorder, elevation = gameButtonElevation, contentPadding = gameButtonPadding
                             ) {
-                                Text("Change Difficulty", fontFamily = arcadeFontFamily, fontSize = BUTTON_TEXT_SIZE)
+                                Text("Change Difficulty", fontSize = BUTTON_TEXT_SIZE)
                             }
                         }
                     }
@@ -363,7 +354,6 @@ fun DifficultySelectionContent(
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor,
-                fontFamily = arcadeFontFamily,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 28.dp)
             )
@@ -379,7 +369,6 @@ fun DifficultySelectionContent(
                 ) {
                     Text(
                         text = difficulty.displayName,
-                        fontFamily = arcadeFontFamily,
                         fontSize = BUTTON_TEXT_SIZE,
                         textAlign = TextAlign.Center
                     )

@@ -410,7 +410,6 @@ private fun GameContent() {
         Text(
             text = "Score: $score",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
             color = scoreTextColor
         )
         Box(
@@ -554,17 +553,26 @@ private fun GameContent() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("ROAR to make the dinosaur jump!", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = scoreTextColor)
+                        Text("ROAR to make the dinosaur jump!", fontSize = 18.sp, color = scoreTextColor)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = {
-                            coroutineScope.launch { jumpAnim.snapTo(0f) }
-                            isJumping = false
-                            score = 0
-                            obstacles = emptyList()
-                            gameSpeed = 5f
-                            initialDelayHasOccurred = false
-                            gameState = GameState.PLAYING
-                        }) { Text("Start Game") }
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch { jumpAnim.snapTo(0f) }
+                                isJumping = false
+                                score = 0
+                                obstacles = emptyList()
+                                gameSpeed = 5f
+                                initialDelayHasOccurred = false
+                                gameState = GameState.PLAYING
+                            },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            Text(
+                                text = "Start Game",
+                                fontSize = 20.sp,
+                                color = scoreTextColor
+                            )
+                        }
                     }
                 }
                 GameState.GAME_OVER -> {
@@ -573,7 +581,7 @@ private fun GameContent() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Game Over!", fontSize = 24.sp, color = Color.Red, fontWeight = FontWeight.Bold)
+                        Text("Game Over!", fontSize = 24.sp, color = Color.Red)
                         Text("Score: $score", fontSize = 20.sp, color = scoreTextColor)
                         Spacer(modifier = Modifier.height(16.dp))
                         TextButton(
@@ -591,7 +599,6 @@ private fun GameContent() {
                             Text(
                                 text = "Play Again",
                                 fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
                                 color = scoreTextColor
                             )
                         }
@@ -602,7 +609,7 @@ private fun GameContent() {
                         modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("PAUSED", fontSize = 30.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("PAUSED", fontSize = 30.sp, color = Color.White)
                     }
                 }
                 GameState.PLAYING -> { /* Playing state - no overlay */ }
@@ -632,7 +639,6 @@ private fun GameContent() {
                 Text(
                     text = if (gameState == GameState.PLAYING) "Pause" else "Resume",
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
                     color = scoreTextColor
                 )
             }

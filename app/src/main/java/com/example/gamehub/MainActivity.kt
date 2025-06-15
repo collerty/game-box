@@ -1,5 +1,7 @@
 package com.example.gamehub
 
+import HostLobbyScreen
+import MainMenu
 import TriviatoeIntroAnimScreen
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,7 +24,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.GamesListScreen
-import com.example.gamehub.ui.MainMenu
 import com.example.gamehub.ui.SettingsScreen
 import com.example.gamehub.ui.TestSensorsScreen
 import com.example.gamehub.features.battleships.ui.BattleshipsPlayScreen
@@ -37,7 +39,7 @@ import com.example.gamehub.features.triviatoe.FirestoreTriviatoeSession
 import com.example.gamehub.features.triviatoe.ui.TriviatoePlayScreen
 import com.example.gamehub.features.codenames.ui.CodenamesScreen
 import com.example.gamehub.ui.GuestGameScreen
-import com.example.gamehub.ui.HostLobbyScreen
+
 import com.example.gamehub.ui.LobbyMenuScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -45,6 +47,15 @@ import com.example.gamehub.features.whereandwhe.ui.WhereAndWhenScreen
 import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
+import com.example.gamehub.ui.SplashScreen
+import com.example.gamehub.ui.AccelerometerTestScreen
+import com.example.gamehub.ui.CameraTestScreen
+import com.example.gamehub.ui.GameInfoScreen
+import com.example.gamehub.ui.GyroscopeTestScreen
+import com.example.gamehub.ui.MicrophoneTestScreen
+import com.example.gamehub.ui.ProximityTestScreen
+import com.example.gamehub.ui.VibrationTestScreen
+import com.example.gamehub.ui.theme.GameHubTheme
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -56,7 +67,11 @@ class MainActivity : ComponentActivity() {
             .addOnSuccessListener { Log.d("Auth", "Signed in anonymously") }
             .addOnFailureListener { Log.e("Auth", "Anonymous sign-in failed", it) }
 
-        setContent { GameHubApp() }
+        setContent {
+            GameHubTheme {  // <--- YOUR THEME!
+                GameHubApp()
+            }
+        }
     }
 }
 
@@ -71,13 +86,21 @@ fun GameHubApp() {
     Scaffold { innerPadding ->
         NavHost(
             navController    = navController,
-            startDestination = NavRoutes.MAIN_MENU,
+            startDestination = "splash",
             modifier         = Modifier.padding(innerPadding)
         ) {
+            composable("splash") { SplashScreen(navController) }
             composable(NavRoutes.MAIN_MENU)    { MainMenu(navController) }
             composable(NavRoutes.GAMES_LIST)   { GamesListScreen(navController) }
-            composable(NavRoutes.SETTINGS)     { SettingsScreen() }
+            composable(NavRoutes.SETTINGS)     { SettingsScreen(navController) }
             composable(NavRoutes.TEST_SENSORS) { TestSensorsScreen(navController) }
+
+            composable(NavRoutes.ACCEL_TEST) { AccelerometerTestScreen(navController) }
+            composable(NavRoutes.GYRO_TEST) { GyroscopeTestScreen(navController) }
+            composable(NavRoutes.PROXIMITY_TEST) { ProximityTestScreen(navController) }
+            composable(NavRoutes.VIBRATION_TEST) { VibrationTestScreen(navController) }
+            composable(NavRoutes.MIC_TEST) { MicrophoneTestScreen(navController) }
+            composable(NavRoutes.CAMERA_TEST) { CameraTestScreen(navController) }
 
             composable(
                 NavRoutes.LOBBY_MENU,
@@ -338,6 +361,14 @@ fun GameHubApp() {
             }
 
             composable(NavRoutes.MEMORY_MATCHING_GAME) { MemoryMatchingScreen() }
+
+            composable(
+                NavRoutes.GAME_INFO,
+                arguments = listOf(navArgument("gameId") { type = NavType.StringType })
+            ) { backStack ->
+                val gameId = backStack.arguments?.getString("gameId") ?: return@composable
+                GameInfoScreen(navController, gameId)
+            }
         }
     }
 }

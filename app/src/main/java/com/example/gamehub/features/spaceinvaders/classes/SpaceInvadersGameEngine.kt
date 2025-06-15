@@ -148,19 +148,18 @@ class SpaceInvadersGameEngine {
                 bullet.y + bulletHeight > player.y
     }
 
+    var bunkersInitialized = false
+
     fun initializeBunkers() {
-        if (screenWidthPx == 0f || screenHeightPx == 0f) return // screen not ready
+        if (bunkersInitialized) return
 
-        //if(!bunkers.isEmpty()) return
-
-        bunkers.clear() // Always clear and re-initialize
-
+        bunkers.clear()
         val bunkerCount = 3
         val spacing = screenWidthPx / (bunkerCount + 1)
         val y = screenHeightPx - 400f
 
         for (i in 0 until bunkerCount) {
-            val x = spacing * (i + 1) - 40f // Centered spacing
+            val x = spacing * (i + 1) - 40f
             bunkers.add(
                 Bunker(
                     id = i, x = x, y = y,
@@ -169,7 +168,10 @@ class SpaceInvadersGameEngine {
                     health = 15
                 )
             )
+            Log.d("bunker id", "Bunker ID: ${i}, X: $x, Y: $y")
         }
+
+        bunkersInitialized = true
     }
 
 

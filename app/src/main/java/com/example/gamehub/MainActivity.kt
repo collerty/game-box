@@ -47,13 +47,13 @@ import com.example.gamehub.features.whereandwhe.ui.WhereAndWhenScreen
 import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
+import com.example.gamehub.ui.SplashScreen
 import com.example.gamehub.ui.AccelerometerTestScreen
 import com.example.gamehub.ui.CameraTestScreen
 import com.example.gamehub.ui.GameInfoScreen
 import com.example.gamehub.ui.GyroscopeTestScreen
 import com.example.gamehub.ui.MicrophoneTestScreen
 import com.example.gamehub.ui.ProximityTestScreen
-import com.example.gamehub.ui.SplashScreen
 import com.example.gamehub.ui.VibrationTestScreen
 import com.example.gamehub.ui.theme.GameHubTheme
 
@@ -212,29 +212,29 @@ fun GameHubApp() {
                 val code = backStack.arguments?.getString("code") ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
                 WhereAndWhenScreen(navController = navController, roomCode = code, currentUserName = userName)
-            }
+        }
 
-            composable(
-                NavRoutes.CODENAMES_GAME,
+                composable(
+                  NavRoutes.CODENAMES_GAME,
                 arguments = listOf(
                     navArgument("code")     { type = NavType.StringType },
                     navArgument("userName") { type = NavType.StringType }
                 )
-            ) { backStack ->
-                    val code = backStack.arguments?.getString("code") ?: return@composable
-                    val userName = backStack.arguments?.getString("userName") ?: return@composable
-                    val isMaster = userName.contains("master", ignoreCase = true)
-                    val masterTeam = if (isMaster) {
-                        if (userName.contains("red", ignoreCase = true)) "RED" else "BLUE"
-                    } else null
-                    CodenamesScreen(
-                        navController = navController,
-                        roomId = code,
-                        isMaster = isMaster,
-                        masterTeam = masterTeam
-                    )
-                }
-            composable(
+            )
+                { backStack ->
+                val code     = backStack.arguments?.getString("code")     ?: return@composable
+                val userName = backStack.arguments?.getString("userName") ?: return@composable
+                val isMaster = userName.contains("master", ignoreCase = true)
+                val masterTeam = if (isMaster) {
+                    if (userName.contains("red", ignoreCase = true)) "RED" else "BLUE"
+                } else null
+                CodenamesScreen(
+                    navController = navController,
+                    roomId = code,
+                    isMaster = isMaster,
+                    masterTeam = masterTeam
+                ) }
+                  composable(
                 "${NavRoutes.SPACE_INVADERS_GAME}/{name}",
                 arguments = listOf(
                     navArgument("name") { type = NavType.StringType }

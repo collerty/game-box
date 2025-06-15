@@ -28,6 +28,8 @@ import com.example.gamehub.model.Game
 import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.components.NinePatchBorder
 import androidx.compose.ui.Alignment
+import com.example.gamehub.R
+import com.example.gamehub.audio.SoundManager
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -114,6 +116,7 @@ fun GameCard(
     game: Game,
     navController: NavController
 ) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -146,6 +149,7 @@ fun GameCard(
                 .height(64.dp)
                 .padding(horizontal = 18.dp) // Moves everything a bit to center
                 .clickable {
+                    SoundManager.playEffect(context, R.raw.menu_button_press)
                     if (game.online) {
                         navController.navigate(NavRoutes.LOBBY_MENU.replace("{gameId}", game.id))
                     } else {
@@ -212,6 +216,7 @@ fun GameCard(
                     modifier = Modifier
                         .fillMaxSize()
                         .clickable {
+                            SoundManager.playEffect(context, R.raw.menu_button_press)
                             navController.navigate(
                                 NavRoutes.GAME_INFO.replace("{gameId}", game.id)
                             )

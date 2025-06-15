@@ -1,90 +1,176 @@
 package com.example.gamehub.ui
 
+import GameBoxFontFamily
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.gamehub.model.Game
+import com.example.gamehub.ui.components.NinePatchBorder
+import com.example.gamehub.R
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 
-@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun GameInfoScreen(navController: NavController, gameId: String) {
     val game = Game.all.find { it.id == gameId }
+    val gameTitle = game?.title ?: "Game Info"
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = game?.title ?: "Game Info") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            painter = painterResource(id = android.R.drawable.ic_media_previous),
-                            contentDescription = "Back"
-                        )
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        Box(
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        // Background image
+        Image(
+            painter = painterResource(id = R.drawable.game_box_bg1),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+        )
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = Alignment.Center
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.Top
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(24.dp)
+            // Game name at the top
+            Text(
+                text = gameTitle,
+                fontFamily = GameBoxFontFamily,
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = Color(0xFFc08cdc)
+            )
+
+            // Border with per-game info inside
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .weight(1f),
+                contentAlignment = Alignment.Center
             ) {
-                // Show game icon if available
-                game?.let {
-                    Image(
-                        painter = painterResource(id = it.iconRes),
-                        contentDescription = it.title,
-                        modifier = Modifier
-                            .size(80.dp)
-                            .padding(bottom = 16.dp)
-                    )
-                }
-
-                Text(
-                    text = "Info about ${game?.title ?: "Unknown Game"}",
-                    style = MaterialTheme.typography.headlineSmall
+                NinePatchBorder(
+                    modifier = Modifier.matchParentSize(),
+                    drawableRes = R.drawable.game_list_border
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Placeholder info for each game
-                Text(
-                    text = when (gameId) {
-                        "battleships" -> "Sink the enemy fleet. Classic naval strategy!"
-                        "ohpardon" -> "A fast-paced party game of wit and humor."
-                        "spy" -> "Can you uncover the spy among the players?"
-                        "jorisjump" -> "Jump your way to a new high score!"
-                        "screamosaur" -> "Roar as loud as you can to win!"
-                        "memoryMatching" -> "Match all the pairs to win."
-                        "triviatoe" -> "Answer trivia to conquer the board."
-                        "codenames" -> "Guess words with the help of clever clues."
-                        "whereandwhen" -> "A social deduction game about time and place."
-                        "spaceinvaders" -> "Classic arcade action. Shoot down invaders!"
-                        else -> "No info available yet."
-                    },
-                    style = MaterialTheme.typography.bodyLarge
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                Button(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(18.dp),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    Text("Back")
+                    GameDetailsContent(gameId)
                 }
             }
+
+            Spacer(Modifier.height(16.dp))
+            // Styled back button, outside border
+            SpriteMenuButton(
+                text = "Back",
+                onClick = { navController.popBackStack() },
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .height(70.dp),
+                normalRes = R.drawable.menu_button_long,
+                pressedRes = R.drawable.menu_button_long_pressed,
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = GameBoxFontFamily,
+                    fontSize = 24.sp
+                )
+            )
         }
+    }
+}
+
+// ====== GAME-SPECIFIC INFO COMPOSABLES ======
+
+@Composable
+fun BattleshipsInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Sink the enemy fleet. Classic naval strategy!",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Text("Players: 2", style = MaterialTheme.typography.bodyMedium ,
+            textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+fun OhPardonInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "A fast-paced party game of wit and humor.",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Text("Great for groups. Laughter guaranteed!", style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+fun SpyInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Can you uncover the spy among the players?",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Text("Social deduction. Bluff and guess!", style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+fun JorisJumpInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Jump your way to a new high score!",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Text("Fast reflexes needed. Compete for the top!", style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center)
+    }
+}
+
+// Add more per-game info as needed...
+
+// ====== GAME INFO DISPATCHER ======
+
+@Composable
+fun GameDetailsContent(gameId: String) {
+    when (gameId) {
+        "battleships" -> BattleshipsInfo()
+        "ohpardon" -> OhPardonInfo()
+        "spy" -> SpyInfo()
+        "jorisjump" -> JorisJumpInfo()
+        // Add further games here...
+        else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }
 }

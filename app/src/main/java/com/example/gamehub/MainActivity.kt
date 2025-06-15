@@ -1,5 +1,6 @@
 package com.example.gamehub
 
+import HostLobbyScreen
 import MainMenu
 import TriviatoeIntroAnimScreen
 import android.os.Build
@@ -38,7 +39,7 @@ import com.example.gamehub.features.triviatoe.FirestoreTriviatoeSession
 import com.example.gamehub.features.triviatoe.ui.TriviatoePlayScreen
 import com.example.gamehub.features.codenames.ui.CodenamesScreen
 import com.example.gamehub.ui.GuestGameScreen
-import com.example.gamehub.ui.HostLobbyScreen
+
 import com.example.gamehub.ui.LobbyMenuScreen
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth

@@ -86,7 +86,7 @@ fun ProximityTestScreen(navController: NavController) {
                 // 9-patch border (replace with your correct resource name)
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border // your 9-patch border resource
+                    drawableRes = R.drawable.game_list_border // your 9-patch border resource
                 )
                 // Inside: green/red background + content
                 Column(

@@ -82,7 +82,7 @@ fun GyroscopeTestScreen(navController: NavController) {
             ) {
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border // 9-patch border resource
+                    drawableRes = R.drawable.game_list_border // 9-patch border resource
                 )
                 Column(
                     modifier = Modifier

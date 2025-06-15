@@ -91,7 +91,7 @@ fun MicrophoneTestScreen(navController: NavController) {
             ) {
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border
+                    drawableRes = R.drawable.game_list_border
                 )
                 Column(
                     modifier = Modifier

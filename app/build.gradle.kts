@@ -105,4 +105,6 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("io.coil-kt:coil-gif:2.5.0")
     implementation ("androidx.core:core-ktx:1.13.1")
+    implementation ("androidx.compose.material3:material3:1.3.2")
+
 }

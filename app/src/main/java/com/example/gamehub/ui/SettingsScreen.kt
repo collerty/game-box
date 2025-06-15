@@ -61,7 +61,7 @@ fun SettingsScreen(
             ) {
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border // use your border resource
+                    drawableRes = R.drawable.game_list_border // use your border resource
                 )
                 Column(
                     modifier = Modifier

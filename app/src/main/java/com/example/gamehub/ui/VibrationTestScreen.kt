@@ -65,7 +65,7 @@ fun VibrationTestScreen(navController: NavController) {
             ) {
                 NinePatchBorder(
                     modifier = Modifier.matchParentSize(),
-                    drawableRes = R.drawable.border // your 9-patch border
+                    drawableRes = R.drawable.game_list_border // your 9-patch border
                 )
                 Column(
                     modifier = Modifier

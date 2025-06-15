@@ -5,23 +5,30 @@ import android.content.Intent
 import android.os.Build
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
+import androidx.compose.material3.Text
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -31,9 +38,110 @@ import com.example.gamehub.ui.components.NinePatchBorder
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Icon
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 
 private enum class Mode { HOST, JOIN }
 
+// --- Custom Floating Label Outlined TextField ---
+@Composable
+fun PixelOutlinedTextField(
+    restingLabelYOffset: Dp = 14.dp,
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    isPassword: Boolean = false,
+    textColor: Color = Color(0xFFc08cdc),
+    bgColor: Color = Color(0xFF2A1536),
+    borderColor: Color = Color(0xFFc08cdc),
+    labelShape: RoundedCornerShape = RoundedCornerShape(4.dp),
+    fontFamily: FontFamily = GameBoxFontFamily
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val floatLabel by animateFloatAsState(
+        targetValue = if (isFocused || value.isNotBlank()) 1f else 0f, label = ""
+    )
+    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+
+    // Label offset & scaling
+    val labelXRest = 18.dp     // When not floating: right
+    val labelYRest = 14.dp     // When not floating: down
+    val labelXFloating = 2.dp  // When floating: more left
+    val labelYFloating = (-10).dp // When floating: up
+
+    val labelScaleRest = 1.10f
+    val labelScaleFloating = 0.82f
+
+    val labelX = lerp(labelXRest, labelXFloating, floatLabel)
+    val labelY = lerp(restingLabelYOffset, labelYFloating, floatLabel)
+    val labelScale = lerp(labelScaleRest, labelScaleFloating, floatLabel)
+    val labelPaddingH = lerp(12.dp, 6.dp, floatLabel)
+    val labelPaddingV = lerp(4.dp, 5.dp, floatLabel)
+
+    Box(
+        modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.isFocused }
+    ) {
+        // Always show border for field
+        Box(
+            Modifier
+                .background(bgColor, labelShape)
+                .border(2.dp, borderColor, labelShape)
+                .padding(top = 18.dp)
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(
+                    color = textColor,
+                    fontFamily = fontFamily,
+                    fontSize = 20.sp
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            )
+        }
+
+        // Floating label: border only when floating
+        Box(
+            Modifier
+                .offset(y = labelY, x = labelX)
+                .scale(labelScale)
+                .background(bgColor, labelShape)
+                .then(
+                    if (floatLabel > 0.5f)
+                        Modifier.border(2.dp, borderColor, labelShape)
+                    else
+                        Modifier
+                )
+                .padding(horizontal = labelPaddingH, vertical = labelPaddingV)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { focusRequester.requestFocus() } // This line does the trick!
+        ) {
+            Text(
+                label,
+                color = borderColor,
+                fontFamily = fontFamily,
+                fontSize = 15.sp
+            )
+        }
+    }
+}
+
+// Helper lerp functions
+fun lerp(start: Dp, stop: Dp, fraction: Float): Dp = start + (stop - start) * fraction
+fun lerp(start: Float, stop: Float, fraction: Float): Float = start + (stop - start) * fraction
+
+// -- Main Screen --
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun LobbyMenuScreen(
@@ -41,10 +149,13 @@ fun LobbyMenuScreen(
     gameId: String
 ) {
     val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
+    val sharedTextColor = Color(0xFFc08cdc)
+    val labelShape = RoundedCornerShape(4.dp)
+    val textFieldBgColor = Color(0xFF2A1536)
 
     // form state
-    var mode     by remember { mutableStateOf(Mode.HOST) }
+    var mode by remember { mutableStateOf(Mode.HOST) }
     var username by remember { mutableStateOf("") }
     var roomName by remember { mutableStateOf("") }
     var roomCode by remember { mutableStateOf("") }
@@ -56,7 +167,6 @@ fun LobbyMenuScreen(
         context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
     }
 
-    // live list of waiting rooms for this game
     val rooms by LobbyService
         .publicRoomsFlow(gameId)
         .collectAsState(initial = emptyList())
@@ -70,10 +180,8 @@ fun LobbyMenuScreen(
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
-            // All form & rooms content is scrollable together!
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -101,7 +209,7 @@ fun LobbyMenuScreen(
                             text = "${gameId.replaceFirstChar { it.uppercaseChar() }}",
                             fontFamily = GameBoxFontFamily,
                             fontSize = 28.sp,
-                            color = Color(0xFFc08cdc)
+                            color = sharedTextColor
                         )
                         Spacer(Modifier.height(12.dp))
                         // Host / Join Toggle
@@ -110,44 +218,57 @@ fun LobbyMenuScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             PixelCheckbox(selected = (mode == Mode.HOST), onClick = { mode = Mode.HOST })
-                            Text("Host", fontFamily = GameBoxFontFamily, fontSize = 18.sp, modifier = Modifier.padding(end = 20.dp))
+                            Text("Host", fontFamily = GameBoxFontFamily, fontSize = 18.sp, modifier = Modifier.padding(end = 20.dp), color = Color(0xFFC08CDC))
                             PixelCheckbox(selected = (mode == Mode.JOIN), onClick = { mode = Mode.JOIN })
-                            Text("Join", fontFamily = GameBoxFontFamily, fontSize = 18.sp)
+                            Text("Join", fontFamily = GameBoxFontFamily, fontSize = 18.sp , color = Color(0xFFC08CDC))
                         }
                         Spacer(Modifier.height(12.dp))
                         // Username
-                        OutlinedTextField(
+                        PixelOutlinedTextField(
                             value = username,
                             onValueChange = { username = it },
-                            label = { Text("Your username") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(0.96f)
+                            label = "Your username",
+                            restingLabelYOffset = 18.dp,
+                            modifier = Modifier.fillMaxWidth(0.96f),
+                            textColor = sharedTextColor,
+                            bgColor = textFieldBgColor,
+                            borderColor = sharedTextColor,
+                            fontFamily = GameBoxFontFamily
                         )
                         Spacer(Modifier.height(10.dp))
                         if (mode == Mode.HOST) {
-                            OutlinedTextField(
+                            PixelOutlinedTextField(
                                 value = roomName,
                                 onValueChange = { roomName = it },
-                                label = { Text("Room name (required)") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(0.96f)
+                                label = "Room name (required)",
+                                modifier = Modifier.fillMaxWidth(0.96f),
+                                textColor = sharedTextColor,
+                                bgColor = textFieldBgColor,
+                                borderColor = sharedTextColor,
+                                fontFamily = GameBoxFontFamily
                             )
                         } else {
-                            OutlinedTextField(
+                            PixelOutlinedTextField(
                                 value = roomCode,
                                 onValueChange = { roomCode = it },
-                                label = { Text("Room code") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(0.96f)
+                                label = "Room code",
+                                modifier = Modifier.fillMaxWidth(0.96f),
+                                textColor = sharedTextColor,
+                                bgColor = textFieldBgColor,
+                                borderColor = sharedTextColor,
+                                fontFamily = GameBoxFontFamily
                             )
                         }
                         Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(
+                        PixelOutlinedTextField(
                             value = password,
                             onValueChange = { password = it },
-                            label = { Text("Password (optional)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(0.96f)
+                            label = "Password (optional)",
+                            modifier = Modifier.fillMaxWidth(0.96f),
+                            textColor = sharedTextColor,
+                            bgColor = textFieldBgColor,
+                            borderColor = sharedTextColor,
+                            fontFamily = GameBoxFontFamily
                         )
                         Spacer(Modifier.height(10.dp))
                         // Color Picker (centered squares, NO text)
@@ -186,7 +307,7 @@ fun LobbyMenuScreen(
                                             }
 
                                             val code = LobbyService.host(
-                                                gameId   = gameId,
+                                                gameId = gameId,
                                                 roomName = roomName,
                                                 hostName = username,
                                                 password = password.takeIf { it.isNotBlank() },
@@ -274,7 +395,7 @@ fun LobbyMenuScreen(
                             .padding(18.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Available rooms:", fontFamily = GameBoxFontFamily, fontSize = 20.sp, color = Color(0xFFc08cdc))
+                        Text("Available rooms:", fontFamily = GameBoxFontFamily, fontSize = 20.sp, color = sharedTextColor)
                         Spacer(Modifier.height(8.dp))
                         rooms.forEach { room ->
                             Row(
@@ -290,6 +411,7 @@ fun LobbyMenuScreen(
                                 Text(
                                     text = "${room.name}  (${room.currentPlayers}/${room.maxPlayers})",
                                     fontFamily = GameBoxFontFamily,
+                                    color = sharedTextColor,
                                     modifier = Modifier.weight(1f)
                                 )
                                 if (room.hasPassword) {
@@ -305,7 +427,6 @@ fun LobbyMenuScreen(
                 }
             }
 
-            // The BACK BUTTON always at the end of the screen!
             Spacer(Modifier.height(18.dp))
             SpriteMenuButton(
                 text = "Back",
@@ -330,9 +451,9 @@ fun LobbyMenuScreen(
 fun PixelCheckbox(
     selected: Boolean,
     onClick: () -> Unit,
-    color: String? = null // can use for custom coloring if needed
+    color: String? = null
 ) {
-    val borderRes = com.example.gamehub.R.drawable.border_game_icon // Your pixel border
+    val borderRes = com.example.gamehub.R.drawable.border_game_icon
     Box(
         modifier = Modifier
             .size(32.dp)

@@ -174,7 +174,7 @@ fun OhPardonScreen(
     }
 
 
-    val pixelFont = FontFamily(Font(R.font.arcade_classic)) // Replace with your actual font
+    val pixelFont = FontFamily(Font(R.font.gamebox_font)) // Replace with your actual font
 
     Scaffold { padding ->
         val isTablet = screenWidthDp > 600

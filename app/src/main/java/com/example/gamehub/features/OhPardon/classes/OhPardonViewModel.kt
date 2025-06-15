@@ -9,15 +9,19 @@ import android.hardware.SensorManager
 import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.gamehub.features.ohpardon.ui.BoardCell
 import com.example.gamehub.features.ohpardon.ui.CellType
 import com.example.gamehub.features.ohpardon.ui.PawnForUI
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 data class GameRoom(
@@ -82,6 +86,15 @@ val colorConfigs = mapOf(
     )
 )
 
+sealed class UiEvent {
+    object PlayMoveSound : UiEvent()
+    object PlayDiceRollSound: UiEvent()
+    object PlayCaptureSound: UiEvent()
+    object PlayIllegalMoveSound: UiEvent()
+    object Vibrate : UiEvent()
+}
+
+
 // Define shared path
 val nonColoredPath = listOf(
     Pair(1, 4), Pair(2, 4), Pair(3, 4), Pair(4, 4),
@@ -101,6 +114,9 @@ class OhPardonViewModel(
     private val currentUserName: String
 ) : AndroidViewModel(application), SensorEventListener {
 
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
+    val uiEvent = _uiEvent.asSharedFlow()
+
     private val _gameRoom = MutableStateFlow<GameRoom?>(null)
     val gameRoom: StateFlow<GameRoom?> = _gameRoom.asStateFlow()
 
@@ -116,6 +132,10 @@ class OhPardonViewModel(
     private val SHAKE_SLOP_TIME_MS = 500
 
     fun rollDice(): Int {
+        viewModelScope.launch {
+            _uiEvent.emit(UiEvent.PlayDiceRollSound)
+            _uiEvent.emit(UiEvent.Vibrate)
+        }
         return (1..6).random()
     }
 
@@ -137,7 +157,6 @@ class OhPardonViewModel(
                 val now = System.currentTimeMillis()
                 if (now - lastShakeTime > SHAKE_SLOP_TIME_MS) {
                     lastShakeTime = now
-                    val result = rollDice()
                     attemptRollDice(currentUserName)
                 }
             }
@@ -252,6 +271,12 @@ class OhPardonViewModel(
         )
     }
 
+    private fun getNextPlayerUid(game: GameRoom, currentUid: String): String {
+        val index = game.players.indexOfFirst { it.uid == currentUid }
+        val nextIndex = (index + 1) % game.players.size
+        return game.players[nextIndex].uid
+    }
+
 
     fun parseGameRoom(data: Map<String, Any?>): GameRoom {
         val playersList = (data["players"] as? List<Map<String, Any?>>)?.map { playerData ->
@@ -298,6 +323,14 @@ class OhPardonViewModel(
         }
     }
 
+    fun getBoardOffsetForPlayer(color: Color): Int = when (color) {
+        Color.Red -> 0
+        Color.Green -> 20
+        Color.Yellow -> 30
+        Color.Blue -> 10
+        else -> 0
+    }
+
     fun attemptMovePawn(currentUserUid: String, pawnId: String) {
         val currentGame = _gameRoom.value ?: return
         val gameState = currentGame.gameState
@@ -313,8 +346,7 @@ class OhPardonViewModel(
             return
         }
 
-        val playerIndex = currentGame.players.indexOfFirst { it.uid == currentUserUid }
-        val player = currentGame.players.getOrNull(playerIndex)
+        val player = currentGame.players.find { it.uid == currentUserUid }
         val pawn = player?.pawns?.find { it.id == "pawn$pawnId" }
 
         if (player == null || pawn == null) {
@@ -322,116 +354,114 @@ class OhPardonViewModel(
             return
         }
 
-        fun isOwnPawnBlocking(
-            newPosition: Int,
-            pawnId: String,
-            player: Player
-        ): Boolean {
-            return player.pawns.any { it.id != "pawn$pawnId" && it.position == newPosition }
-        }
-
-        fun getBoardOffsetForPlayer(color: Color): Int = when (color) {
+        fun getBoardOffset(color: Color): Int = when (color) {
             Color.Red -> 0
+            Color.Blue -> 10
             Color.Green -> 20
             Color.Yellow -> 30
-            Color.Blue -> 10
             else -> 0
         }
 
-        val playerOffset = getBoardOffsetForPlayer(player.color)
+        val offset = getBoardOffset(player.color)
         val currentPos = pawn.position
 
-        val victoryRange = 40..43
-
-        fun isProtectedStartCellBlocked(
-            targetPosition: Int,
-            currentUserUid: String,
-            game: GameRoom
-        ): Boolean {
-            return game.players.any { opponent ->
-                if (opponent.uid == currentUserUid) return@any false
-                val opponentStartCell = getBoardOffsetForPlayer(opponent.color)
-                val isProtected = targetPosition == opponentStartCell
-                val hasPawnThere = opponent.pawns.any { it.position == targetPosition }
-                isProtected && hasPawnThere && targetPosition < 40
+        fun emitInvalidMove(msg: String) {
+            _toastMessage.value = msg
+            viewModelScope.launch {
+                _uiEvent.emit(UiEvent.PlayIllegalMoveSound)
+                _uiEvent.emit(UiEvent.Vibrate)
             }
         }
 
-        //Move logic
-        val newPosition = when {
-            currentPos == -1 && diceRoll == 6 -> playerOffset
-
-            currentPos in 0 until 40 -> {
-                val stepsTaken = (currentPos - playerOffset + 40) % 40
-                val totalSteps = stepsTaken + diceRoll
-
-                if (totalSteps >= 40) {
-                    val victoryCell = 40 + (totalSteps - 40)
-                    if (victoryCell > 43) {
-                        _toastMessage.value = "Invalid move!"
-                        return
-                    }
-                    victoryCell
-                } else {
-                    (playerOffset + totalSteps) % 40
-                }
-            }
-
-            currentPos in victoryRange -> {
-                val newVictoryPos = currentPos + diceRoll
-                if (newVictoryPos > 43) {
-                    _toastMessage.value = "Invalid move!"
-                    return
-                }
-                newVictoryPos
-            }
-
-            else -> {
-                _toastMessage.value = "Invalid move!"
-                return
+        fun relativeToAbsolute(pos: Int, playerColor: Color): Int {
+            return when {
+                pos in 0 until 40 -> (getBoardOffset(playerColor) + pos) % 40
+                pos >= 40 -> pos // victory
+                else -> -1 // home
             }
         }
 
-
-        val isBlockedByOpponent =
-            isProtectedStartCellBlocked(newPosition, currentUserUid, currentGame)
-        val isBlockedBySelf = isOwnPawnBlocking(newPosition, pawnId, player)
-
-        val isMoveBlocked = isBlockedByOpponent || isBlockedBySelf
-
-
-        if (isMoveBlocked) {
-            val message = when {
-                isBlockedByOpponent -> "Can't move to opponent's protected start cell."
-                isBlockedBySelf -> "Can't move to a tile occupied by your own pawn."
-                else -> "Invalid move."
+        fun getNewPosition(): Int? {
+            return when {
+                currentPos == -1 && diceRoll == 6 -> 0 // Starting point relative
+                currentPos in 0 until 40 -> {
+                    val stepsTaken = currentPos
+                    val newSteps = stepsTaken + diceRoll
+                    if (newSteps > 43) null
+                    else if (newSteps >= 40) 40 + (newSteps - 40)
+                    else newSteps
+                }
+                currentPos in 40..43 -> {
+                    val newVictoryPos = currentPos + diceRoll
+                    if (newVictoryPos > 43) null else newVictoryPos
+                }
+                else -> null
             }
-            _toastMessage.value = message
+        }
+
+        val newPos = getNewPosition()
+        if (newPos == null) {
+            emitInvalidMove("Invalid move!")
             return
         }
 
+        val newAbsPos = relativeToAbsolute(newPos, player.color)
 
-        //Capture logic
+        // Check own pawn blocking
+        val isBlockedByOwn = player.pawns.any {
+            it.id != pawn.id && it.position == newPos
+        }
+
+        // Check if enemy pawn is in their own start cell (relative 0)
+        val isBlockedByProtectedEnemy = currentGame.players.any { enemy ->
+            if (enemy.uid == currentUserUid) return@any false
+            val enemyStartAbs = getBoardOffset(enemy.color)
+            val hasProtectedPawn = enemy.pawns.any { it.position == 0 }
+            newAbsPos == enemyStartAbs && hasProtectedPawn
+        }
+
+        if (isBlockedByOwn || isBlockedByProtectedEnemy) {
+            val message = when {
+                isBlockedByProtectedEnemy -> "Can't move to opponent's protected start cell."
+                isBlockedByOwn -> "Can't move to a tile occupied by your own pawn."
+                else -> "Invalid move."
+            }
+            emitInvalidMove(message)
+            return
+        }
+
+        // Handle move and possible capture
         val updatedPlayers = currentGame.players.map { p ->
             if (p.uid == currentUserUid) {
                 val updatedPawns = p.pawns.map {
-                    if (it.id == "pawn$pawnId") {
-                        if (newPosition == getBoardOffsetForPlayer(p.color)) it.copy(position = newPosition - getBoardOffsetForPlayer(p.color)) else it.copy(position = newPosition)
-                    } else it
+                    if (it.id == pawn.id) it.copy(position = newPos) else it
                 }
                 p.copy(pawns = updatedPawns)
             } else {
+                val enemyOffset = getBoardOffset(p.color)
                 val updatedPawns = p.pawns.map {
-                    val opponentStartCell = getBoardOffsetForPlayer(p.color)
-                    val isProtected = it.position == opponentStartCell
-                    if (it.position == newPosition && !isProtected && newPosition < 40) {
+                    val absEnemyPos = relativeToAbsolute(it.position, p.color)
+                    if (absEnemyPos == newAbsPos && it.position != 0 && newAbsPos < 40) {
                         Log.d("OhPardonVM", "Captured pawn ${it.id} from ${p.uid}")
+                        viewModelScope.launch {
+                            _uiEvent.emit(UiEvent.PlayCaptureSound)
+                            _uiEvent.emit(UiEvent.Vibrate)
+                        }
                         it.copy(position = -1)
                     } else it
                 }
-
                 p.copy(pawns = updatedPawns)
             }
+        }
+
+        viewModelScope.launch {
+            _uiEvent.emit(UiEvent.PlayMoveSound)
+            _uiEvent.emit(UiEvent.Vibrate)
+        }
+
+        // Check win condition
+        val winner = updatedPlayers.find { p ->
+            p.uid == currentUserUid && p.pawns.map { it.position }.toSet() == setOf(40, 41, 42, 43)
         }
 
         val updatedPlayerMaps = updatedPlayers.map { p ->
@@ -450,26 +480,13 @@ class OhPardonViewModel(
         }
 
         val nextPlayerUid = getNextPlayerUid(currentGame, currentUserUid)
-        _gameRoom.value = currentGame.copy(
-            gameState = currentGame.gameState.copy(
-                currentTurnUid = nextPlayerUid,
-                diceRoll = null
-            )
-        )
 
-        val winningPlayer = updatedPlayers.find { player ->
-            val victoryPositions = setOf(40, 41, 42, 43)
-            player.pawns.map { it.position }.toSet() == victoryPositions
-        }
-
-        if (winningPlayer != null) {
-
-            // Update game state to finished
+        if (winner != null) {
             val updates = mapOf(
                 "players" to updatedPlayerMaps,
                 "gameState.ohpardon.diceRoll" to null,
                 "gameState.ohpardon.currentPlayer" to nextPlayerUid,
-                "gameState.ohpardon.gameResult" to "${winningPlayer.name} wins!",
+                "gameState.ohpardon.gameResult" to "${winner.name} wins!",
                 "status" to "over"
             )
 
@@ -477,7 +494,7 @@ class OhPardonViewModel(
                 .document(roomCode)
                 .update(updates)
                 .addOnSuccessListener {
-                    Log.d("OhPardonVM", "Game over. ${winningPlayer.name} wins!")
+                    Log.d("OhPardonVM", "Game over. ${winner.name} wins!")
                 }
                 .addOnFailureListener {
                     Log.e("OhPardonVM", "Failed to update game over state", it)
@@ -485,15 +502,14 @@ class OhPardonViewModel(
 
             _gameRoom.value = currentGame.copy(
                 players = updatedPlayers,
-                gameState = currentGame.gameState.copy(
+                gameState = gameState.copy(
                     currentTurnUid = nextPlayerUid,
                     diceRoll = null,
-                    gameResult = "${winningPlayer.name} wins!"
+                    gameResult = "${winner.name} wins!"
                 ),
                 status = "over"
             )
-
-            return // Skip remaining update block
+            return
         }
 
         val updates = mapOf(
@@ -511,13 +527,14 @@ class OhPardonViewModel(
             .addOnFailureListener {
                 Log.e("OhPardonVM", "Failed to update DB", it)
             }
-    }
 
-
-    private fun getNextPlayerUid(game: GameRoom, currentUid: String): String {
-        val index = game.players.indexOfFirst { it.uid == currentUid }
-        val nextIndex = (index + 1) % game.players.size
-        return game.players[nextIndex].uid
+        _gameRoom.value = currentGame.copy(
+            players = updatedPlayers,
+            gameState = gameState.copy(
+                currentTurnUid = nextPlayerUid,
+                diceRoll = null
+            )
+        )
     }
 
     fun getCoordinatesFromPosition(

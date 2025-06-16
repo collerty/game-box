@@ -1,17 +1,19 @@
-package com.example.gamehub.features.screamosaur.ui
+package com.example.gamehub.features.ScreamOSaur.ui
 
 import android.Manifest
-import android.app.Activity // Added import
-import android.content.pm.ActivityInfo // Added import
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.drawable.Animatable // Added for Animatable
 import android.media.AudioFormat
 import android.media.AudioRecord
-import android.media.MediaPlayer // Added import
+import android.media.MediaPlayer
 import android.media.MediaRecorder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -25,15 +27,21 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType // Added import
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback // Added import
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.example.gamehub.R // Added import for resources
+import coil.compose.rememberAsyncImagePainter
+import coil.compose.AsyncImagePainter // Added for state type
+import coil.decode.ImageDecoderDecoder
+import coil.request.ImageRequest
+import com.example.gamehub.R
 import kotlinx.coroutines.*
 import kotlin.math.absoluteValue
 import kotlin.random.Random
@@ -59,14 +67,12 @@ fun ScreamosaurScreen() {
         }
     )
 
-    // Force landscape when this screen is active
     DisposableEffect(Unit) {
         val activity = context as? Activity
         val originalOrientation = activity?.requestedOrientation
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
         onDispose {
-            // Reset to original or unspecified when leaving the screen
             activity?.requestedOrientation = originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
@@ -75,16 +81,10 @@ fun ScreamosaurScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding) // Apply scaffold's padding
-                .padding(horizontal = 16.dp, vertical = 0.dp), // Reduced vertical padding to 0.dp
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 0.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Text(
-            //     text = "🦖 Scream-O-Saur",
-            //     style = MaterialTheme.typography.headlineSmall
-            // )
-            // Spacer(Modifier.height(8.dp))
-
             if (hasAudioPermission) {
                 GameContent()
             } else {
@@ -97,7 +97,7 @@ fun ScreamosaurScreen() {
         }
     }
 
-    if (showPermissionDialog && !hasAudioPermission) { // Only show if permission not granted
+    if (showPermissionDialog && !hasAudioPermission) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text("Microphone Access Needed") },
@@ -107,78 +107,80 @@ fun ScreamosaurScreen() {
                     onClick = {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     }
-                ) {
-                    Text("Grant Access")
-                }
+                ) { Text("Grant Access") }
             },
             dismissButton = {
                 TextButton(
                     onClick = { showPermissionDialog = false }
-                ) {
-                    Text("Not Now")
-                }
+                ) { Text("Not Now") }
             }
         )
     }
 }
 
-// Game state
 enum class GameState { READY, PLAYING, PAUSED, GAME_OVER }
 
-// Obstacle data class
 data class Obstacle(
-    var xPosition: Float, // Pixel value
-    val height: Float,    // Pixel value
-    val width: Float,     // Pixel value
-    var passed: Boolean = false
+    var xPosition: Float,
+    val height: Float,
+    val width: Float,
+    var passed: Boolean = false,
+    val id: Long = Random.nextLong()
 )
 
-private const val MIN_AMPLITUDE_THRESHOLD = 1800 // Sounds below this won't show on meter
-private const val JUMP_AMPLITUDE_THRESHOLD = 12000 // Sounds above this trigger a jump (was 8000)
+private const val MIN_AMPLITUDE_THRESHOLD = 1800
+private const val JUMP_AMPLITUDE_THRESHOLD = 12000
 
 @Composable
 private fun GameContent() {
     var gameState by remember { mutableStateOf(GameState.READY) }
     var score by remember { mutableStateOf(0) }
     var obstacles by remember { mutableStateOf(listOf<Obstacle>()) }
-    var gameSpeed by remember { mutableStateOf(5f) } // Pixels per frame
+    var gameSpeed by remember { mutableStateOf(5f) }
     var gameStartTime by remember { mutableStateOf(0L) }
     var timeAtPause by remember { mutableStateOf(0L) }
     var initialDelayHasOccurred by remember { mutableStateOf(false) }
 
-
     val jumpAnim = remember { Animatable(0f) }
     var isJumping by remember { mutableStateOf(false) }
 
-    // Dp values for layout modifiers
-    val dinosaurSizeDp = 50.dp // Slightly smaller dinosaur for smaller screen
-    val gameHeightDp = 200.dp // Reduced height for landscape
-    val groundHeightDp = 15.dp // Proportionally smaller ground
+    val dinosaurSizeDp = 70.dp // Increased from 50.dp to 70.dp
+    val gameHeightDp = 200.dp
+    val groundHeightDp = 15.dp
     val dinosaurVisualXOffsetDp = 40.dp
-    val jumpMagnitudeDp = 120.dp // Proportionally smaller jump
+    val jumpMagnitudeDp = 120.dp
 
-    val density = LocalDensity.current
+    val density = LocalDensity.current // Capture density once
+    val configuration = LocalConfiguration.current
 
-    // Pixel values for game logic and drawing
+    val actualScreenWidthPx: Float = with(density) {
+        configuration.screenWidthDp.dp.toPx()
+    }
+
     val gameHeightPx = with(density) { gameHeightDp.toPx() }
     val groundHeightPx = with(density) { groundHeightDp.toPx() }
     val dinosaurSizePx = with(density) { dinosaurSizeDp.toPx() }
     val dinosaurVisualXPositionPx = with(density) { dinosaurVisualXOffsetDp.toPx() }
     val jumpMagnitudePx = with(density) { jumpMagnitudeDp.toPx() }
 
+    // Pre-calculate obstacle dimensions in Px using the captured density
+    val obstacleMinHeightPx = with(density) { 25.dp.toPx() }
+    val obstacleMaxHeightPx = with(density) { 55.dp.toPx() }
+    val obstacleMinWidthPx = with(density) { 15.dp.toPx() }
+    val obstacleMaxWidthPx = with(density) { 30.dp.toPx() }
+
     val dinoTopYOnGroundPx = gameHeightPx - groundHeightPx - dinosaurSizePx
 
     val runningAnimState = remember { mutableStateOf(0) }
-    val isRunningAnimating = remember { mutableStateOf(false) }
+    var isRunningAnimating by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current // Added for haptic feedback
+    val haptic = LocalHapticFeedback.current
 
-    // MediaPlayer for jump sound
     val jumpSoundPlayer = remember {
         MediaPlayer.create(context, R.raw.dino_jump_sound).apply {
-            setVolume(0.5f, 0.5f) // Adjust volume as needed
+            setVolume(0.5f, 0.5f)
         }
     }
 
@@ -192,34 +194,38 @@ private fun GameContent() {
         if (jumpSoundPlayer.isPlaying) {
             jumpSoundPlayer.seekTo(0)
         } else {
-            jumpSoundPlayer.start()
+            try {
+                jumpSoundPlayer.start()
+            } catch (e: IllegalStateException) {
+                android.util.Log.e("GameContent", "Error playing jump sound", e)
+            }
         }
     }
 
     var currentAmplitude by remember { mutableStateOf(0) }
 
-    LaunchedEffect(gameState) {
-        if (gameState == GameState.PLAYING) {
-            isRunningAnimating.value = true
-            while (isRunningAnimating.value && gameState == GameState.PLAYING && isActive) {
+    LaunchedEffect(gameState, isRunningAnimating) {
+        if (gameState == GameState.PLAYING && isRunningAnimating) {
+            while (isActive && gameState == GameState.PLAYING) {
                 runningAnimState.value = (runningAnimState.value + 1) % 4
                 delay(100)
             }
-        } else {
-            isRunningAnimating.value = false
+        } else if (gameState != GameState.PLAYING) {
+            runningAnimState.value = 0
         }
     }
 
     LaunchedEffect(gameState) {
         if (gameState == GameState.PLAYING) {
             if (!initialDelayHasOccurred) {
-                delay(1500) // Initial safe period before obstacles appear
-                gameStartTime = System.currentTimeMillis() // Set/reset gameStartTime after the initial delay
+                delay(1500)
+                gameStartTime = System.currentTimeMillis()
                 initialDelayHasOccurred = true
             }
+            isRunningAnimating = true
 
             withContext(Dispatchers.Default) {
-                while (gameState == GameState.PLAYING && isActive) {
+                while (isActive && gameState == GameState.PLAYING) {
                     val currentTime = System.currentTimeMillis()
                     val elapsedGameTime = currentTime - gameStartTime
 
@@ -227,45 +233,39 @@ private fun GameContent() {
                         it.copy(xPosition = it.xPosition - gameSpeed)
                     }.filter { it.xPosition + it.width > 0 }
 
-                    val canvasWidthPx = gameHeightPx * (16f/9f) // Assuming 16:9 aspect for game area if width is not fixed
-                    val spawnNewObstacleTriggerX = canvasWidthPx * 0.5f
-                    val newObstacleBaseX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
-                    val firstObstacleX = canvasWidthPx + Random.nextFloat() * (canvasWidthPx * 0.2f)
+                    val spawnNewObstacleTriggerX = actualScreenWidthPx * 0.5f
 
-
-                    val obstacleMinHeightPx = with(density) { 25.dp.toPx()}
-                    val obstacleMaxHeightPx = with(density) { 55.dp.toPx()}
-                    val obstacleMinWidthPx = with(density) { 15.dp.toPx()}
-                    val obstacleMaxWidthPx = with(density) { 30.dp.toPx()}
-
-                    if (obstacles.isEmpty() && elapsedGameTime > 0) { // Ensure some time passed after initial delay
-                        val newObstacle = Obstacle(
-                            xPosition = firstObstacleX,
-                            height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
-                            width = Random.nextFloat() * (obstacleMaxWidthPx - obstacleMinWidthPx) + obstacleMinWidthPx
+                    if (obstacles.isEmpty() && elapsedGameTime > 0) {
+                        obstacles = listOf(
+                            Obstacle(
+                                xPosition = actualScreenWidthPx + Random.nextFloat() * (actualScreenWidthPx * 0.2f),
+                                height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
+                                width = Random.nextFloat() * (obstacleMaxWidthPx - obstacleMinWidthPx) + obstacleMinWidthPx
+                            )
                         )
-                        obstacles = listOf(newObstacle)
                     } else if (obstacles.isNotEmpty() && obstacles.last().xPosition < spawnNewObstacleTriggerX && obstacles.size < 5) {
-                        val newObstacle = Obstacle(
-                            xPosition = newObstacleBaseX,
+                        obstacles = obstacles + Obstacle(
+                            xPosition = actualScreenWidthPx + Random.nextFloat() * (actualScreenWidthPx * 0.2f),
                             height = Random.nextFloat() * (obstacleMaxHeightPx - obstacleMinHeightPx) + obstacleMinHeightPx,
                             width = Random.nextFloat() * (obstacleMaxWidthPx - obstacleMinWidthPx) + obstacleMinWidthPx
                         )
-                        obstacles = obstacles + newObstacle
                     }
 
-                    obstacles.forEach { obstacle ->
-                        val obstacleRightEdgePx = obstacle.xPosition + obstacle.width
-                        if (!obstacle.passed && obstacleRightEdgePx < dinosaurVisualXPositionPx) {
-                            obstacle.passed = true
-                            score++
-                            // Increase game speed more significantly with score
-                            gameSpeed = (5f + (score / 5f)).coerceAtMost(20f) // Faster increase, max speed 20f
+                    var scoreChangedThisFrame = false
+                    obstacles = obstacles.map { obstacle ->
+                        if (!obstacle.passed && (obstacle.xPosition + obstacle.width) < dinosaurVisualXPositionPx) {
+                            scoreChangedThisFrame = true
+                            obstacle.copy(passed = true)
+                        } else {
+                            obstacle
                         }
                     }
+                    if (scoreChangedThisFrame) {
+                        score++
+                        gameSpeed = (5f + (score / 5f)).coerceAtMost(20f)
+                    }
 
-                    // Collision check delay is now relative to elapsedGameTime after initial 1.5s delay
-                    if (elapsedGameTime > 2000) { // Start collision checks a bit after obstacles can appear
+                    if (elapsedGameTime > 2000) {
                         val currentDinoTopYPx = dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)
                         val dinosaurVisualRect = Rect(
                             left = dinosaurVisualXPositionPx,
@@ -273,18 +273,14 @@ private fun GameContent() {
                             right = dinosaurVisualXPositionPx + dinosaurSizePx,
                             bottom = currentDinoTopYPx + dinosaurSizePx
                         )
-
-                        // Fine-tuned hitbox
-                        val horizontalHitboxReductionPx = dinosaurSizePx * 0.20f // Reduce 20% from each side
-                        val verticalHitboxReductionPx = dinosaurSizePx * 0.20f   // Reduce 20% from top/bottom
-
+                        val horizontalHitboxReductionPx = dinosaurSizePx * 0.20f
+                        val verticalHitboxReductionPx = dinosaurSizePx * 0.20f
                         val dinosaurHitbox = Rect(
                             left = dinosaurVisualRect.left + horizontalHitboxReductionPx,
                             top = dinosaurVisualRect.top + verticalHitboxReductionPx,
                             right = dinosaurVisualRect.right - horizontalHitboxReductionPx,
-                            bottom = dinosaurVisualRect.bottom - (verticalHitboxReductionPx * 0.3f) // Less reduction from bottom for feet
+                            bottom = dinosaurVisualRect.bottom - (verticalHitboxReductionPx * 0.3f)
                         )
-
 
                         val collision = obstacles.any { obstacle ->
                             val obstacleRect = Rect(
@@ -298,36 +294,33 @@ private fun GameContent() {
 
                         if (collision) {
                             withContext(Dispatchers.Main) {
-                                isRunningAnimating.value = false
+                                isRunningAnimating = false
                                 gameState = GameState.GAME_OVER
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress) // Strong vibration on game over
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
-                            break // Exit game loop
+                            break
                         }
                     }
-                    delay(16) // ~60fps
+                    delay(16)
                 }
             }
+        } else {
+            isRunningAnimating = false
         }
     }
 
-
-    LaunchedEffect(gameState) {
+    LaunchedEffect(gameState, context) {
         if (gameState == GameState.PLAYING) {
-            val bufferSize = AudioRecord.getMinBufferSize(
-                8000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
-            )
-            if (ContextCompat.checkSelfPermission(
-                    context, Manifest.permission.RECORD_AUDIO
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 withContext(Dispatchers.Main) { gameState = GameState.READY }
                 return@LaunchedEffect
             }
 
             var audioRecord: AudioRecord? = null
             try {
+                val bufferSize = AudioRecord.getMinBufferSize(8000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
                 if (bufferSize == AudioRecord.ERROR_BAD_VALUE || bufferSize == AudioRecord.ERROR) {
+                    android.util.Log.e("GameContent", "AudioRecord: Bad buffer size")
                     withContext(Dispatchers.Main) { gameState = GameState.READY }
                     return@LaunchedEffect
                 }
@@ -338,6 +331,7 @@ private fun GameContent() {
                 )
 
                 if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
+                    android.util.Log.e("GameContent", "AudioRecord not initialized")
                     audioRecord.release()
                     withContext(Dispatchers.Main) { gameState = GameState.READY }
                     return@LaunchedEffect
@@ -345,54 +339,69 @@ private fun GameContent() {
 
                 val buffer = ShortArray(bufferSize)
                 audioRecord.startRecording()
+                android.util.Log.d("GameContent", "AudioRecord started")
 
-                try {
-                    while (gameState == GameState.PLAYING && isActive) {
+                withContext(Dispatchers.IO) {
+                    while (isActive && gameState == GameState.PLAYING) {
                         val read = audioRecord.read(buffer, 0, buffer.size)
                         if (read > 0) {
                             val maxAmplitudeRaw = buffer.take(read).maxOfOrNull { it.toInt().absoluteValue } ?: 0
-                            currentAmplitude = if (maxAmplitudeRaw >= MIN_AMPLITUDE_THRESHOLD) {
-                                maxAmplitudeRaw
-                            } else {
-                                0
-                            }
+                            currentAmplitude = if (maxAmplitudeRaw >= MIN_AMPLITUDE_THRESHOLD) maxAmplitudeRaw else 0
 
                             if (maxAmplitudeRaw > JUMP_AMPLITUDE_THRESHOLD && !isJumping) {
-                                isJumping = true
-                                playJumpSound() // Play jump sound
-                                coroutineScope.launch {
-                                    jumpAnim.snapTo(0f)
-                                    jumpAnim.animateTo(
-                                        targetValue = 1f,
-                                        animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
-                                    )
-                                    jumpAnim.animateTo(
-                                        targetValue = 0f,
-                                        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
-                                    )
-                                    isJumping = false
+                                withContext(Dispatchers.Main) {
+                                    if (!isJumping) {
+                                        isJumping = true
+                                        playJumpSound()
+                                        coroutineScope.launch {
+                                            jumpAnim.snapTo(0f)
+                                            jumpAnim.animateTo(
+                                                targetValue = 1f,
+                                                animationSpec = tween(durationMillis = 500, easing = LinearOutSlowInEasing)
+                                            )
+                                            jumpAnim.animateTo(
+                                                targetValue = 0f,
+                                                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+                                            )
+                                            isJumping = false
+                                        }
+                                    }
                                 }
                             }
                         }
                         delay(50)
                     }
-                } finally {
-                    if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                        audioRecord.stop()
-                    }
-                    audioRecord.release()
                 }
             } catch (e: SecurityException) {
-                audioRecord?.release()
+                android.util.Log.e("GameContent", "AudioRecord SecurityException: ${e.message}", e)
                 withContext(Dispatchers.Main) { gameState = GameState.READY }
             } catch (e: IllegalStateException) {
-                audioRecord?.release()
+                android.util.Log.e("GameContent", "AudioRecord IllegalStateException: ${e.message}", e)
                 withContext(Dispatchers.Main) { gameState = GameState.READY }
+            } finally {
+                android.util.Log.d("GameContent", "AudioRecord stopping and releasing")
+                audioRecord?.apply {
+                    if (recordingState == AudioRecord.RECORDSTATE_RECORDING) stop()
+                    release()
+                }
+                currentAmplitude = 0
             }
         } else {
             currentAmplitude = 0
         }
     }
+
+    // Define grayscale colors
+    val gameBackgroundColor = Color.White
+    val dinoColor = Color(0xFF808080) // Gray
+    val dinoDarkerColor = Color(0xFF606060) // Darker Gray
+    val cactusColor = Color(0xFF808080) // Gray
+    val cactusDarkerColor = Color(0xFF606060) // Darker Gray
+    val groundColor = Color(0xFF808080) // Gray
+    val groundDetailColor = Color(0xFF606060) // Darker Gray
+    val sunColor = Color(0xFFD3D3D3) // Light Gray
+    val sunRayColor = Color(0xFFBEBEBE) // Slightly Darker Gray
+    val scoreTextColor = Color.Black // Or a dark gray like Color(0xFF333333)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -401,236 +410,142 @@ private fun GameContent() {
         Text(
             text = "Score: $score",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            color = scoreTextColor
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(gameHeightDp)
-                .background(Color(0xFFE0F7FA)) // Light blue background for the game (sky)
+                .background(gameBackgroundColor) // Use gameBackgroundColor
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                // Draw Sun
-                val sunRadius = 25.dp.toPx()
-                val sunCenter = Offset(size.width * 0.15f, size.height * 0.15f) // Top-left
-                drawCircle(
-                    color = Color(0xFFFFD54F), // Lighter Yellow
-                    radius = sunRadius,
-                    center = sunCenter
-                )
-                // Sun rays
+                // Sun
+                val sunRadius = with(density) { 25.dp.toPx() }
+                val sunCenter = Offset(size.width * 0.15f, size.height * 0.15f)
+                drawCircle(color = sunColor, radius = sunRadius, center = sunCenter)
                 val numRays = 8
                 for (i in 0 until numRays) {
-                    val angle = Math.toRadians((i * (360.0 / numRays)) + 15.0) // Offset angle
+                    val angle = Math.toRadians((i * (360.0 / numRays)) + 15.0)
                     val rayStartOffset = sunRadius * 1.1f
                     val rayEndOffset = sunRadius * 1.6f
                     drawLine(
-                        color = Color(0xFFFFB74D).copy(alpha = 0.7f), // Lighter Orange, semi-transparent
-                        start = Offset(
-                            sunCenter.x + kotlin.math.cos(angle).toFloat() * rayStartOffset,
-                            sunCenter.y + kotlin.math.sin(angle).toFloat() * rayStartOffset
-                        ),
-                        end = Offset(
-                            sunCenter.x + kotlin.math.cos(angle).toFloat() * rayEndOffset,
-                            sunCenter.y + kotlin.math.sin(angle).toFloat() * rayEndOffset
-                        ),
-                        strokeWidth = 2.dp.toPx()
+                        color = sunRayColor.copy(alpha = 0.7f),
+                        start = Offset(sunCenter.x + kotlin.math.cos(angle).toFloat() * rayStartOffset, sunCenter.y + kotlin.math.sin(angle).toFloat() * rayStartOffset),
+                        end = Offset(sunCenter.x + kotlin.math.cos(angle).toFloat() * rayEndOffset, sunCenter.y + kotlin.math.sin(angle).toFloat() * rayEndOffset),
+                        strokeWidth = with(density) { 2.dp.toPx() }
                     )
                 }
 
-                // Draw ground
-                val groundBaseColor = Color(0xFFBCAAA4) // A sandy brown
-                val groundDarkerColor = Color(0xFF8D6E63) // Darker shade for texture
-                val groundTopY = size.height - groundHeightPx
+                // Ground
+                val groundTopYCanvas = size.height - groundHeightPx
                 drawRect(
-                    color = groundBaseColor,
-                    topLeft = Offset(0f, groundTopY),
+                    color = groundColor,
+                    topLeft = Offset(0f, groundTopYCanvas),
                     size = Size(size.width, groundHeightPx)
                 )
-                // Add some texture to the ground (horizontal dashes)
                 val numGroundPatches = 30
                 for (i in 0..numGroundPatches) {
-                    val patchY = groundTopY + (Random.nextFloat() * (groundHeightPx - 4.dp.toPx())) + 2.dp.toPx()
+                    val patchY = groundTopYCanvas + (Random.nextFloat() * (groundHeightPx - with(density) { 4.dp.toPx() }) + with(density) { 2.dp.toPx() })
                     val patchX = Random.nextFloat() * size.width
-                    val patchWidth = Random.nextFloat() * 20.dp.toPx() + 10.dp.toPx()
-                    val patchHeight = Random.nextFloat() * 2.dp.toPx() + 1.dp.toPx()
+                    val patchWidth = Random.nextFloat() * with(density) { 20.dp.toPx() } + with(density) { 10.dp.toPx() }
+                    val patchHeight = Random.nextFloat() * with(density) { 2.dp.toPx() } + with(density) { 1.dp.toPx() }
                     drawRect(
-                        color = groundDarkerColor.copy(alpha = Random.nextFloat() * 0.3f + 0.2f), // Vary alpha
+                        color = groundDetailColor.copy(alpha = Random.nextFloat() * 0.3f + 0.2f),
                         topLeft = Offset(patchX, patchY),
                         size = Size(patchWidth, patchHeight)
                     )
                 }
 
-                // Draw obstacles (Cacti)
+                // Obstacles (Cactus)
                 obstacles.forEach { obstacle ->
-                    val cactusColor = Color(0xFF4CAF50) // Brighter green for cactus body
-                    val cactusDarkerColor = Color(0xFF388E3C) // Darker green for details
-
-                    // Obstacle properties (hitbox)
                     val obX = obstacle.xPosition
                     val obY = gameHeightPx - groundHeightPx - obstacle.height
                     val obW = obstacle.width
                     val obH = obstacle.height
-
-                    // Main Body of the cactus (centered within obstacle's width)
-                    val bodyW = obW * 0.4f // Cactus body is 40% of the hitbox width
-                    val bodyH = obH        // Cactus body is full height of the hitbox
-                    val bodyX = obX + (obW - bodyW) / 2 // Center the body horizontally
+                    val bodyW = obW * 0.4f
+                    val bodyH = obH
+                    val bodyX = obX + (obW - bodyW) / 2
                     val bodyBaseY = obY
-
-                    drawRoundRect(
-                        color = cactusColor,
-                        topLeft = Offset(bodyX, bodyBaseY),
-                        size = Size(bodyW, bodyH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(bodyW * 0.25f)
-                    )
-
-                    // Cactus Arms
-                    val armBaseHeight = bodyH * 0.4f // General height for arm segments
-                    val armBaseWidth = bodyW * 0.8f  // General width for arm segments
-
-                    // Right Arm (if cactus is tall enough)
-                    if (obH > 30.dp.toPx()) {
-                        val armAttachY = bodyBaseY + bodyH * 0.2f // Attach point on body
+                    drawRoundRect(color = cactusColor, topLeft = Offset(bodyX, bodyBaseY), size = Size(bodyW, bodyH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(bodyW * 0.25f))
+                    val armBaseHeight = bodyH * 0.4f
+                    val armBaseWidth = bodyW * 0.8f
+                    if (obH > with(density) { 30.dp.toPx() }) {
+                        val armAttachY = bodyBaseY + bodyH * 0.2f
                         val horizontalSegmentW = armBaseWidth * 0.5f
                         val horizontalSegmentH = armBaseHeight * 0.3f
                         val verticalSegmentW = armBaseWidth * 0.3f
                         val verticalSegmentH = armBaseHeight * 0.8f
-
-                        // Horizontal part of right arm
-                        val rArmHorizX = bodyX + bodyW - horizontalSegmentW * 0.2f // Start slightly inside body
-                        drawRoundRect(
-                            color = cactusColor,
-                            topLeft = Offset(rArmHorizX, armAttachY),
-                            size = Size(horizontalSegmentW, horizontalSegmentH),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f)
-                        )
-                        // Vertical part of right arm (pointing up)
-                        val rArmVertX = rArmHorizX + horizontalSegmentW - verticalSegmentW * 0.5f // Centered on end of horizontal
-                        val rArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH // Positioned above horizontal
-                        drawRoundRect(
-                            color = cactusColor,
-                            topLeft = Offset(rArmVertX, rArmVertY),
-                            size = Size(verticalSegmentW, verticalSegmentH),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f)
-                        )
+                        val rArmHorizX = bodyX + bodyW - horizontalSegmentW * 0.2f
+                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f))
+                        val rArmVertX = rArmHorizX + horizontalSegmentW - verticalSegmentW * 0.5f
+                        val rArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH
+                        drawRoundRect(color = cactusColor, topLeft = Offset(rArmVertX, rArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f))
                     }
-
-                    // Left Arm (if cactus is taller and wider)
-                    if (obH > 40.dp.toPx() && obW > 20.dp.toPx()) {
-                        val armAttachY = bodyBaseY + bodyH * 0.45f // Different attach point
+                    if (obH > with(density) { 40.dp.toPx() } && obW > with(density) { 20.dp.toPx() }) {
+                        val armAttachY = bodyBaseY + bodyH * 0.45f
                         val horizontalSegmentW = armBaseWidth * 0.5f
                         val horizontalSegmentH = armBaseHeight * 0.3f
                         val verticalSegmentW = armBaseWidth * 0.3f
                         val verticalSegmentH = armBaseHeight * 0.8f
-
-                        // Horizontal part of left arm
-                        val lArmHorizX = bodyX - horizontalSegmentW + horizontalSegmentW * 0.2f // Start from left, slightly inside
-                        drawRoundRect(
-                            color = cactusColor,
-                            topLeft = Offset(lArmHorizX, armAttachY),
-                            size = Size(horizontalSegmentW, horizontalSegmentH),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f)
-                        )
-                        // Vertical part of left arm (pointing up)
-                        val lArmVertX = lArmHorizX + horizontalSegmentW * 0.5f - verticalSegmentW * 0.5f // Centered on start of horizontal
-                        val lArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH // Positioned above horizontal
-                        drawRoundRect(
-                            color = cactusColor,
-                            topLeft = Offset(lArmVertX, lArmVertY),
-                            size = Size(verticalSegmentW, verticalSegmentH),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f)
-                        )
+                        val lArmHorizX = bodyX - horizontalSegmentW + horizontalSegmentW * 0.2f
+                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmHorizX, armAttachY), size = Size(horizontalSegmentW, horizontalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(horizontalSegmentH * 0.5f))
+                        val lArmVertX = lArmHorizX + horizontalSegmentW * 0.5f - verticalSegmentW * 0.5f
+                        val lArmVertY = armAttachY - verticalSegmentH + horizontalSegmentH
+                        drawRoundRect(color = cactusColor, topLeft = Offset(lArmVertX, lArmVertY), size = Size(verticalSegmentW, verticalSegmentH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(verticalSegmentW * 0.5f))
                     }
-
-                    // Texture on main body (vertical lines)
-                    val numLines = (bodyW / 6.dp.toPx()).toInt().coerceIn(2, 5)
+                    val numLines = (bodyW / with(density) { 6.dp.toPx() }).toInt().coerceIn(2, 5)
                     if (numLines > 1) {
                         for (i in 1 until numLines) {
                             val lineX = bodyX + (bodyW / numLines) * i
-                            drawLine(
-                                color = cactusDarkerColor,
-                                start = Offset(lineX, bodyBaseY + bodyH * 0.05f),
-                                end = Offset(lineX, bodyBaseY + bodyH * 0.95f),
-                                strokeWidth = 1.dp.toPx()
-                            )
+                            drawLine(color = cactusDarkerColor, start = Offset(lineX, bodyBaseY + bodyH * 0.05f), end = Offset(lineX, bodyBaseY + bodyH * 0.95f), strokeWidth = with(density) { 1.dp.toPx() })
                         }
                     }
                 }
             }
 
-            // Dinosaur (drawing logic unchanged)
-            val currentDinoTopYDp = with(density) { (dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)).toDp() }
+            // Dinosaur
+            // For toDp conversion, use with(density) { ... toDp() }
+            val currentDinoTopPx = dinoTopYOnGroundPx - (jumpAnim.value * jumpMagnitudePx)
+            val currentDinoTopYDp = with(density) { currentDinoTopPx.toDp() }
+
+            val dinoGifVerticalOffsetDp = 8.dp
             Box(
                 modifier = Modifier
                     .size(dinosaurSizeDp)
-                    .offset(x = dinosaurVisualXOffsetDp, y = currentDinoTopYDp)
+                    .offset(x = dinosaurVisualXOffsetDp, y = currentDinoTopYDp + dinoGifVerticalOffsetDp)
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    // Body
-                    drawRoundRect(
-                        color = Color(0xFFF44336), // Red
-                        topLeft = Offset(size.width * 0.15f, size.height * 0.2f),
-                        size = Size(size.width * 0.7f, size.height * 0.6f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f)
-                    )
-                    // Head
-                    drawRoundRect(
-                        color = Color(0xFFF44336), // Red
-                        topLeft = Offset(size.width * 0.55f, size.height * 0.05f),
-                        size = Size(size.width * 0.4f, size.height * 0.4f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.1f)
-                    )
-                    // Eye
-                    drawCircle(
-                        color = Color.White,
-                        center = Offset(size.width * 0.75f, size.height * 0.25f),
-                        radius = size.width * 0.1f
-                    )
-                    drawCircle(
-                        color = Color.Black,
-                        center = Offset(size.width * 0.78f, size.height * 0.27f),
-                        radius = size.width * 0.05f
-                    )
-                    // Legs
-                    val legWidth = size.width * 0.15f
-                    val legHeight = size.height * 0.35f
-                    val legYPos = size.height * 0.75f
+                val imageLoader = coil.ImageLoader.Builder(LocalContext.current)
+                    .components {
+                        add(ImageDecoderDecoder.Factory())
+                    }
+                    .build()
 
-                    val legOffsetFactor = when {
-                        isJumping -> 0.15f
-                        else -> when (runningAnimState.value) {
-                            0 -> 0.0f
-                            1 -> 0.05f
-                            2 -> 0.1f
-                            else -> 0.05f
+                val painter = rememberAsyncImagePainter(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data("file:///android_asset/dino_model.gif")
+                        .diskCacheKey(gameState.name)
+                        .build(),
+                    imageLoader = imageLoader,
+                    onState = { state ->
+                        if (state is AsyncImagePainter.State.Success) {
+                            val drawable = state.result.drawable
+                            if (drawable is Animatable) {
+                                if (gameState == GameState.PLAYING) {
+                                    drawable.start()
+                                } else {
+                                    drawable.stop()
+                                }
+                            }
                         }
                     }
-                    // Back Leg
-                    drawRoundRect(
-                        color = Color(0xFFD32F2F), // Darker Red
-                        topLeft = Offset(size.width * (0.3f - legOffsetFactor), legYPos),
-                        size = Size(legWidth, legHeight),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f)
-                    )
-                    // Front Leg
-                    drawRoundRect(
-                        color = Color(0xFFD32F2F), // Darker Red
-                        topLeft = Offset(size.width * (0.55f + legOffsetFactor), legYPos),
-                        size = Size(legWidth, legHeight),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(legWidth * 0.3f)
-                    )
-                    // Tail
-                    drawRoundRect(
-                        color = Color(0xFFF44336), // Red
-                        topLeft = Offset(size.width * 0.0f, size.height * 0.4f),
-                        size = Size(size.width * 0.3f, size.height * 0.2f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.05f)
-                    )
-                }
+                )
+                Image(
+                    painter = painter,
+                    contentDescription = "Dinosaur",
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
-            // Game State Overlays (logic unchanged)
             when (gameState) {
                 GameState.READY -> {
                     Column(
@@ -638,18 +553,26 @@ private fun GameContent() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("ROAR to make the dinosaur jump!", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("ROAR to make the dinosaur jump!", fontSize = 18.sp, color = scoreTextColor)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = {
-                            coroutineScope.launch { jumpAnim.snapTo(0f) }
-                            isJumping = false
-                            score = 0
-                            obstacles = emptyList()
-                            gameSpeed = 5f
-                            initialDelayHasOccurred = false
-                            gameStartTime = System.currentTimeMillis()
-                            gameState = GameState.PLAYING
-                        }) { Text("Start Game") }
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch { jumpAnim.snapTo(0f) }
+                                isJumping = false
+                                score = 0
+                                obstacles = emptyList()
+                                gameSpeed = 5f
+                                initialDelayHasOccurred = false
+                                gameState = GameState.PLAYING
+                            },
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        ) {
+                            Text(
+                                text = "Start Game",
+                                fontSize = 20.sp,
+                                color = scoreTextColor
+                            )
+                        }
                     }
                 }
                 GameState.GAME_OVER -> {
@@ -658,10 +581,10 @@ private fun GameContent() {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("Game Over!", fontSize = 24.sp, color = Color.Red, fontWeight = FontWeight.Bold)
-                        Text("Score: $score", fontSize = 20.sp)
+                        Text("Game Over!", fontSize = 24.sp, color = Color.Red)
+                        Text("Score: $score", fontSize = 20.sp, color = scoreTextColor)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(
+                        TextButton(
                             onClick = {
                                 coroutineScope.launch { jumpAnim.snapTo(0f) }
                                 isJumping = false
@@ -669,10 +592,16 @@ private fun GameContent() {
                                 obstacles = emptyList()
                                 gameSpeed = 5f
                                 initialDelayHasOccurred = false
-                                gameStartTime = System.currentTimeMillis()
                                 gameState = GameState.PLAYING
+                                isRunningAnimating = true
                             }
-                        ) { Text("Play Again") }
+                        ) {
+                            Text(
+                                text = "Play Again",
+                                fontSize = 20.sp,
+                                color = scoreTextColor
+                            )
+                        }
                     }
                 }
                 GameState.PAUSED -> {
@@ -680,32 +609,38 @@ private fun GameContent() {
                         modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("PAUSED", fontSize = 30.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("PAUSED", fontSize = 30.sp, color = Color.White)
                     }
                 }
                 GameState.PLAYING -> { /* Playing state - no overlay */ }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp)) // Was 16.dp
+        Spacer(modifier = Modifier.height(8.dp))
         SoundMeter(amplitude = currentAmplitude)
-        Spacer(modifier = Modifier.height(8.dp)) // Was 24.dp
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
-            Button(
+            TextButton(
                 onClick = {
                     if (gameState == GameState.PLAYING) {
                         timeAtPause = System.currentTimeMillis()
                         gameState = GameState.PAUSED
+                        isRunningAnimating = false
                     } else {
                         val pausedDuration = System.currentTimeMillis() - timeAtPause
                         gameStartTime += pausedDuration
                         gameState = GameState.PLAYING
+                        isRunningAnimating = true
                     }
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text(if (gameState == GameState.PLAYING) "Pause Game" else "Resume Game")
+                Text(
+                    text = if (gameState == GameState.PLAYING) "Pause" else "Resume",
+                    fontSize = 20.sp,
+                    color = scoreTextColor
+                )
             }
         }
     }
@@ -715,16 +650,16 @@ private fun GameContent() {
 private fun SoundMeter(
     modifier: Modifier = Modifier,
     amplitude: Int,
-    maxMeterAmplitude: Int = 7500
+    maxMeterAmplitude: Int = JUMP_AMPLITUDE_THRESHOLD
 ) {
     val displayAmplitude = amplitude.coerceAtMost(maxMeterAmplitude)
     val normalizedAmplitude = (displayAmplitude.toFloat() / maxMeterAmplitude).coerceIn(0f, 1f)
 
     val barColor = when {
-        amplitude == 0 -> MaterialTheme.colorScheme.surfaceVariant
-        normalizedAmplitude < 0.4f -> Color(0xFF4CAF50) // Green
-        normalizedAmplitude < 0.75f -> Color(0xFFFFEB3B) // Yellow
-        else -> Color(0xFFF44336) // Red
+        amplitude == 0 -> Color(0xFFE0E0E0)
+        normalizedAmplitude < 0.4f -> Color(0xFFA0A0A0)
+        normalizedAmplitude < 0.75f -> Color(0xFF808080)
+        else -> Color(0xFF606060)
     }
     val meterHeight = 20.dp
 
@@ -735,7 +670,7 @@ private fun SoundMeter(
         Text(
             text = "Sound Level",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            color = Color.DarkGray
         )
         Spacer(modifier = Modifier.height(4.dp))
         Box(
@@ -743,13 +678,13 @@ private fun SoundMeter(
                 .height(meterHeight)
                 .fillMaxWidth(0.8f)
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = Color(0xFFF0F0F0),
                     shape = RoundedCornerShape(meterHeight / 2)
                 )
                 .clip(RoundedCornerShape(meterHeight / 2))
                 .border(
                     1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    Color.Gray.copy(alpha = 0.5f),
                     RoundedCornerShape(meterHeight / 2)
                 )
         ) {
@@ -763,7 +698,6 @@ private fun SoundMeter(
     }
 }
 
-
 @Composable
 private fun PermissionRequest(onRequestPermission: () -> Unit) {
     Column(
@@ -774,11 +708,11 @@ private fun PermissionRequest(onRequestPermission: () -> Unit) {
         Text(
             "This game needs microphone access to hear your roar!",
             style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 16.dp),
+            color = Color.Black
         )
         Button(onClick = onRequestPermission) {
             Text("Grant Microphone Access")
         }
     }
 }
-

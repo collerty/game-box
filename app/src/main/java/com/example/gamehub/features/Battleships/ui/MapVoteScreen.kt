@@ -36,71 +36,140 @@ fun MapVoteScreen(
     code: String,
     userName: String
 ) {
-    val db      = FirebaseFirestore.getInstance()
+    val db = FirebaseFirestore.getInstance()
     val roomRef = remember { db.collection("rooms").document(code) }
-    val scope   = rememberCoroutineScope()
-    val meUid   = FirebaseAuth.getInstance().uid ?: return
+    val scope = rememberCoroutineScope()
+    val meUid = FirebaseAuth.getInstance().uid ?: return
 
-    // Live mapVotes listener
+    // State
     var mapVotes by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var chosenMap by remember { mutableStateOf<Int?>(null) }
+    var selectedMap by remember { mutableStateOf<Int?>(null) }
+    var hasVoted by remember { mutableStateOf(false) }
+    var votingStartTime by remember { mutableStateOf<Long?>(null) }
+    var timerMillisLeft by remember { mutableStateOf(20_000L) }
+
+    // ---- Listen for game state (mapVotes, chosenMap, votingStartTime) ----
     DisposableEffect(code) {
-        val lis: ListenerRegistration = roomRef.addSnapshotListener { snap, _ ->
+        val lis = roomRef.addSnapshotListener { snap, _ ->
             val gs = snap?.get("gameState") as? Map<*, *>
             val bm = gs?.get("battleships") as? Map<*, *>
             @Suppress("UNCHECKED_CAST")
-            val raw = bm?.get("mapVotes") as? Map<String, Number>
-            mapVotes = raw?.mapValues { it.value.toInt() } ?: emptyMap()
+            val rawVotes = bm?.get("mapVotes") as? Map<String, Number>
+            mapVotes = rawVotes?.mapValues { it.value.toInt() } ?: emptyMap()
+            chosenMap = (bm?.get("chosenMap") as? Number)?.toInt()
+            votingStartTime = (bm?.get("votingStartTime") as? Number)?.toLong()
         }
         onDispose { lis.remove() }
     }
 
-    // Local selection & lock state
-    var selectedMap by remember { mutableStateOf<Int?>(null) }
-    var hasVoted    by remember { mutableStateOf(false) }
-
-    fun doVote() {
-        selectedMap?.let { choice ->
-            hasVoted = true
-            scope.launch {
-                roomRef
-                    .update("gameState.battleships.mapVotes.$meUid", choice)
-                    .await()
+    // ---- On entry, ensure votingStartTime is set in Firestore (by one client only) ----
+    LaunchedEffect(code) {
+        scope.launch {
+            // Use Firestore server timestamp so all clients sync properly
+            val snap = roomRef.get().await()
+            val bm = ((snap.get("gameState") as? Map<*, *>)?.get("battleships") as? Map<*, *>)
+            if (bm?.get("votingStartTime") == null) {
+                // Only one client (host, or lowest uid) should do this
+                val players = snap.get("players") as? List<Map<*, *>>
+                val hostUid = players?.firstOrNull()?.get("uid") as? String
+                if (hostUid == meUid) {
+                    roomRef.update("gameState.battleships.votingStartTime", System.currentTimeMillis())
+                }
             }
         }
     }
 
-    // Determine votes
-    val opponentUid = mapVotes.keys.firstOrNull { it != meUid }
-    val myVote      = mapVotes[meUid]
-    val oppVote     = opponentUid?.let { mapVotes[it] }
-
-    // Once both have voted, navigate to placement using NavRoutes.BATTLE_PLACE
-    if (mapVotes.size == 2 && myVote != null && oppVote != null) {
-        val route = NavRoutes.BATTLE_PLACE
-            .replace("{code}", code)
-            .replace("{userName}", Uri.encode(userName))
-            .replace("{mapId}", myVote.toString())
-        navController.navigate(route)
-        return
+    // ---- Timer logic based on votingStartTime from Firestore ----
+    LaunchedEffect(votingStartTime, chosenMap) {
+        if (chosenMap == null && votingStartTime != null) {
+            while (timerMillisLeft > 0 && chosenMap == null) {
+                timerMillisLeft = 20_000L - (System.currentTimeMillis() - votingStartTime!!)
+                if (timerMillisLeft < 0) timerMillisLeft = 0
+                kotlinx.coroutines.delay(100)
+            }
+            // Timer ended, resolve if not already resolved
+            if (chosenMap == null) {
+                scope.launch {
+                    // Only resolve if you are host or lowest uid
+                    val isResolver = mapVotes.keys.minOrNull() == meUid || mapVotes.isEmpty()
+                    if (isResolver) {
+                        val allMaps = MapRepository.allMaps
+                        val myVote = mapVotes[meUid]
+                        val oppVote = mapVotes.keys.firstOrNull { it != meUid }?.let { mapVotes[it] }
+                        val selected = when {
+                            mapVotes.size == 2 && myVote != null && oppVote != null -> {
+                                if (myVote == oppVote) myVote
+                                else listOf(myVote, oppVote).random()
+                            }
+                            mapVotes.size == 1 && myVote != null -> myVote
+                            mapVotes.size == 1 && oppVote != null -> oppVote
+                            else -> allMaps.random().id
+                        }
+                        roomRef.update("gameState.battleships.chosenMap", selected)
+                    }
+                }
+            }
+        }
     }
 
+    // ---- Resolve instantly if both voted (no need to wait for timer) ----
+    LaunchedEffect(mapVotes, chosenMap) {
+        if (chosenMap == null && mapVotes.size == 2) {
+            // Only resolver client does this
+            val isResolver = mapVotes.keys.minOrNull() == meUid
+            if (isResolver) {
+                val myVote = mapVotes[meUid]
+                val oppVote = mapVotes.keys.firstOrNull { it != meUid }?.let { mapVotes[it] }
+                val selected = if (myVote == oppVote) myVote else listOf(myVote, oppVote).random()
+                roomRef.update("gameState.battleships.chosenMap", selected)
+            }
+        }
+    }
+
+    // ---- When chosenMap appears, navigate! ----
+    LaunchedEffect(chosenMap) {
+        if (chosenMap != null) {
+            val route = NavRoutes.BATTLE_PLACE
+                .replace("{code}", code)
+                .replace("{userName}", Uri.encode(userName))
+                .replace("{mapId}", chosenMap.toString())
+            navController.navigate(route) {
+                popUpTo(0)
+                launchSingleTop = true
+            }
+        }
+    }
+
+    // ---- Vote submission ----
+    fun doVote() {
+        selectedMap?.let { choice ->
+            hasVoted = true
+            scope.launch {
+                roomRef.update("gameState.battleships.mapVotes.$meUid", choice).await()
+            }
+        }
+    }
+
+    // ---- Vote states for UI ----
+    val opponentUid = mapVotes.keys.firstOrNull { it != meUid }
+    val myVote = mapVotes[meUid]
+    val oppVote = opponentUid?.let { mapVotes[it] }
+
+    // ---- UI ----
     Box(Modifier.fillMaxSize()) {
-        // --- Background Image ---
         Image(
             painter = painterResource(com.example.gamehub.R.drawable.bg_battleships),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
-
-        // --- Foreground content: transparent rounded card ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 18.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- Title ---
             Text(
                 text = "Map Voting",
                 color = Color.White,
@@ -114,19 +183,16 @@ fun MapVoteScreen(
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
             )
-
             Spacer(Modifier.height(12.dp))
 
-            // --- "Opponent voted..." text ---
+            // --- Status / Timer
             Text(
                 text = when {
-                    !hasVoted && oppVote != null ->
-                        "Opponent voted for ${
-                            MapRepository.allMaps.first { it.id == oppVote }.name
-                        }\nYour turn to pick"
+                    chosenMap != null -> "Map chosen! Loading…"
+                    !hasVoted && oppVote != null -> "Opponent voted for ${MapRepository.allMaps.firstOrNull { it.id == oppVote }?.name ?: "?"}\nYour turn to pick"
                     !hasVoted -> "Choose a map and press Vote"
                     else -> "Waiting for opponent to vote…"
-                },
+                } + if (chosenMap == null) "\nTime left: ${((timerMillisLeft/1000).coerceAtLeast(0))}s" else "",
                 fontSize = 18.sp,
                 color = Color.White,
                 textAlign = TextAlign.Center,
@@ -135,7 +201,6 @@ fun MapVoteScreen(
                     .padding(bottom = 8.dp)
             )
 
-            // --- Transparent voting box ---
             Box(
                 Modifier
                     .background(Color(0xCC222222), shape = MaterialTheme.shapes.medium)
@@ -147,7 +212,6 @@ fun MapVoteScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // --- The grid scrolls only, button stays visible ---
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         modifier = Modifier
@@ -158,17 +222,13 @@ fun MapVoteScreen(
                         content = {
                             items(MapRepository.allMaps) { mapDef ->
                                 val border = when {
-                                    !hasVoted && selectedMap == mapDef.id ->
-                                        BorderStroke(3.dp, Color.White)
-                                    hasVoted && myVote == mapDef.id ->
-                                        BorderStroke(3.dp, Color.White)
-                                    oppVote == mapDef.id ->
-                                        BorderStroke(3.dp, Color(0xFFBB86FC)) // Secondary
+                                    !hasVoted && selectedMap == mapDef.id -> BorderStroke(3.dp, Color.White)
+                                    hasVoted && myVote == mapDef.id -> BorderStroke(3.dp, Color.White)
+                                    oppVote == mapDef.id -> BorderStroke(3.dp, Color(0xFFBB86FC))
                                     else -> null
                                 }
-
                                 Card(
-                                    border   = border,
+                                    border = border,
                                     modifier = Modifier
                                         .aspectRatio(0.85f)
                                         .padding(4.dp)
@@ -186,7 +246,6 @@ fun MapVoteScreen(
                                             .padding(6.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        // Map preview image
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -199,7 +258,6 @@ fun MapVoteScreen(
                                                 modifier = Modifier.fillMaxSize()
                                             )
                                         }
-                                        // Map name
                                         Text(
                                             mapDef.name,
                                             color = Color.White,
@@ -217,9 +275,7 @@ fun MapVoteScreen(
                             }
                         }
                     )
-
                     Spacer(Modifier.height(20.dp))
-
                     if (!hasVoted && selectedMap != null) {
                         Button(
                             onClick = { doVote() },
@@ -239,3 +295,4 @@ fun MapVoteScreen(
         }
     }
 }
+

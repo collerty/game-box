@@ -20,7 +20,7 @@
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\collert\.android\avd\Small_Phone.avd" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\collert\.android\avd\Pixel_9_Pro_XL.avd" />
               </handle>
             </Target>
           </targets>

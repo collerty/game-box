@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +39,7 @@ import com.example.gamehub.features.whereandwhe.model.WhereAndWhenGameState
 import com.example.gamehub.ui.PixelCheckbox
 import com.example.gamehub.ui.SpriteMenuButton
 import kotlinx.coroutines.tasks.await
+import android.util.Log
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -175,21 +178,103 @@ fun HostLobbyScreen(
                                     val name = player["name"] as? String ?: ""
                                     Text("• $name", fontFamily = GameBoxFontFamily, modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
                                 }
+                                
+                                // Add team join buttons for spectators
+                                val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
+                                Log.d("CodenamesDebug", """
+                                    HostLobbyScreen Team Selection Debug:
+                                    Current Player: $currentPlayer
+                                    Current Player Team: ${currentPlayer?.get("team")}
+                                    Is Spectator: ${currentPlayer?.get("team") == "spectator"}
+                                    Is Null: ${currentPlayer == null}
+                                    All Players: $players
+                                    Red Team Size: ${redTeam.size}
+                                    Blue Team Size: ${blueTeam.size}
+                                """.trimIndent())
+                                
+                                // Show team join buttons if player is not on any team
+                                if (currentPlayer?.get("team") == null || currentPlayer?.get("team") == "spectator") {
+                                    Spacer(Modifier.height(10.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                Log.d("CodenamesDebug", "Host attempting to join Red Team")
+                                                val newPlayer = mapOf(
+                                                    "uid" to auth.currentUser?.uid,
+                                                    "name" to hostName,
+                                                    "team" to "red",
+                                                    "role" to "player"
+                                                )
+                                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                                    @Suppress("UNCHECKED_CAST")
+                                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                                        .addOnSuccessListener {
+                                                            Log.d("CodenamesDebug", "Host successfully joined Red Team")
+                                                        }
+                                                        .addOnFailureListener { e ->
+                                                            Log.e("CodenamesDebug", "Host failed to join Red Team", e)
+                                                        }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE84855))
+                                        ) {
+                                            Text("Join Red Team", fontFamily = GameBoxFontFamily)
+                                        }
+                                        
+                                        Button(
+                                            onClick = {
+                                                Log.d("CodenamesDebug", "Host attempting to join Blue Team")
+                                                val newPlayer = mapOf(
+                                                    "uid" to auth.currentUser?.uid,
+                                                    "name" to hostName,
+                                                    "team" to "blue",
+                                                    "role" to "player"
+                                                )
+                                                db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
+                                                    @Suppress("UNCHECKED_CAST")
+                                                    val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                                    val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
+                                                    db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
+                                                        .addOnSuccessListener {
+                                                            Log.d("CodenamesDebug", "Host successfully joined Blue Team")
+                                                        }
+                                                        .addOnFailureListener { e ->
+                                                            Log.e("CodenamesDebug", "Host failed to join Blue Team", e)
+                                                        }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3A86FF))
+                                        ) {
+                                            Text("Join Blue Team", fontFamily = GameBoxFontFamily)
+                                        }
+                                    }
+                                }
+                                
                                 Spacer(Modifier.height(20.dp))
 
                                 Text("Red Team", fontFamily = GameBoxFontFamily, color = Color(0xFFE84855), fontSize = 19.sp, modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
                                 redTeam.forEach { player ->
                                     val name = player["name"] as? String ?: ""
                                     val isMaster = player["role"] == "master"
-                                    Text("• $name ${if (isMaster) "(Master)" else "(Player)"}", fontFamily = GameBoxFontFamily, modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
-                                }
-                                if (redTeam.size < 2) {
-                                    val hasMaster = redTeam.any { it["role"] == "master" }
-                                    val hasPlayer = redTeam.any { it["role"] == "player" }
-                                    Row(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                                        if (!hasMaster) {
-                                            PixelCheckbox(
-                                                selected = false,
+                                    val isCurrentPlayer = player["uid"] == auth.currentUser?.uid
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("• $name ${if (isMaster) "(Master)" else "(Player)"}", 
+                                            fontFamily = GameBoxFontFamily, 
+                                            modifier = Modifier.align(Alignment.CenterVertically),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        if (isCurrentPlayer && !isMaster && redTeam.none { it["role"] == "master" }) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Button(
                                                 onClick = {
                                                     val newPlayer = mapOf(
                                                         "uid" to auth.currentUser?.uid,
@@ -204,49 +289,34 @@ fun HostLobbyScreen(
                                                         db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
                                                     }
                                                 },
-                                                color = "Red"
-                                            )
-                                            Text(" Master", fontFamily = GameBoxFontFamily, color = Color(0xFFE84855), modifier = Modifier.align(Alignment.CenterVertically), textAlign = TextAlign.Center)
-                                        }
-                                        Spacer(Modifier.width(14.dp))
-                                        if (!hasPlayer) {
-                                            PixelCheckbox(
-                                                selected = false,
-                                                onClick = {
-                                                    val newPlayer = mapOf(
-                                                        "uid" to auth.currentUser?.uid,
-                                                        "name" to hostName,
-                                                        "team" to "red",
-                                                        "role" to "player"
-                                                    )
-                                                    db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
-                                                        @Suppress("UNCHECKED_CAST")
-                                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-                                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                                        db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
-                                                    }
-                                                },
-                                                color = "Red"
-                                            )
-                                            Text(" Player", fontFamily = GameBoxFontFamily, color = Color(0xFFE84855), modifier = Modifier.align(Alignment.CenterVertically), textAlign = TextAlign.Center)
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE84855))
+                                            ) {
+                                                Text("Become Master", fontFamily = GameBoxFontFamily)
+                                            }
                                         }
                                     }
                                 }
+                                
                                 Spacer(Modifier.height(18.dp))
 
                                 Text("Blue Team", fontFamily = GameBoxFontFamily, color = Color(0xFF3A86FF), fontSize = 19.sp, modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
                                 blueTeam.forEach { player ->
                                     val name = player["name"] as? String ?: ""
                                     val isMaster = player["role"] == "master"
-                                    Text("• $name ${if (isMaster) "(Master)" else "(Player)"}", fontFamily = GameBoxFontFamily, modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
-                                }
-                                if (blueTeam.size < 2) {
-                                    val hasMaster = blueTeam.any { it["role"] == "master" }
-                                    val hasPlayer = blueTeam.any { it["role"] == "player" }
-                                    Row(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                                        if (!hasMaster) {
-                                            PixelCheckbox(
-                                                selected = false,
+                                    val isCurrentPlayer = player["uid"] == auth.currentUser?.uid
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("• $name ${if (isMaster) "(Master)" else "(Player)"}", 
+                                            fontFamily = GameBoxFontFamily, 
+                                            modifier = Modifier.align(Alignment.CenterVertically),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        if (isCurrentPlayer && !isMaster && blueTeam.none { it["role"] == "master" }) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Button(
                                                 onClick = {
                                                     val newPlayer = mapOf(
                                                         "uid" to auth.currentUser?.uid,
@@ -261,31 +331,10 @@ fun HostLobbyScreen(
                                                         db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
                                                     }
                                                 },
-                                                color = "Blue"
-                                            )
-                                            Text(" Master", fontFamily = GameBoxFontFamily, color = Color(0xFF3A86FF), modifier = Modifier.align(Alignment.CenterVertically), textAlign = TextAlign.Center)
-                                        }
-                                        Spacer(Modifier.width(14.dp))
-                                        if (!hasPlayer) {
-                                            PixelCheckbox(
-                                                selected = false,
-                                                onClick = {
-                                                    val newPlayer = mapOf(
-                                                        "uid" to auth.currentUser?.uid,
-                                                        "name" to hostName,
-                                                        "team" to "blue",
-                                                        "role" to "player"
-                                                    )
-                                                    db.collection("rooms").document(roomId).get().addOnSuccessListener { document ->
-                                                        @Suppress("UNCHECKED_CAST")
-                                                        val currentPlayers = document.get("players") as? List<Map<String, Any>> ?: emptyList()
-                                                        val updatedPlayers = currentPlayers.filter { it["uid"] != auth.currentUser?.uid }
-                                                        db.collection("rooms").document(roomId).update("players", updatedPlayers + newPlayer)
-                                                    }
-                                                },
-                                                color = "Blue"
-                                            )
-                                            Text(" Player", fontFamily = GameBoxFontFamily, color = Color(0xFF3A86FF), modifier = Modifier.align(Alignment.CenterVertically), textAlign = TextAlign.Center)
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3A86FF))
+                                            ) {
+                                                Text("Become Master", fontFamily = GameBoxFontFamily)
+                                            }
                                         }
                                     }
                                 }

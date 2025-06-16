@@ -344,10 +344,6 @@ fun SpaceInvadersScreen(
                             detectTapGestures(
                                 onTap = {
                                     engine.playerController.shootBullet()
-                                    viewModel.viewModelScope.launch {
-                                        soundManager.playSound("shoot")
-                                        vibrationManager.vibrate(50)
-                                    }
                                 }
                             )
                         },

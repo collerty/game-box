@@ -121,16 +121,19 @@ class SpaceInvadersGameEngine {
     }
 
     private fun checkPlayerHit() {
-        enemyController.enemyBullets.forEach { bullet ->
-            if (bullet.isActive && bulletHitsPlayer(bullet, player)) {
-                bullet.isActive = false
-                playerLives = (playerLives - 1).coerceAtLeast(0)
-                if (playerLives == 0) {
-                    gameState = GameState.GAME_OVER
-                }
-                GlobalScope.launch {
-                    EventBus.emit(UiEvent.PlayTakeDamageSound)
-                    EventBus.emit(UiEvent.Vibrate)
+
+        if (gameState == GameState.PLAYING) {
+            enemyController.enemyBullets.forEach { bullet ->
+                if (bullet.isActive && bulletHitsPlayer(bullet, player)) {
+                    bullet.isActive = false
+                    playerLives = (playerLives - 1).coerceAtLeast(0)
+                    if (playerLives == 0) {
+                        gameState = GameState.GAME_OVER
+                    }
+                    GlobalScope.launch {
+                        EventBus.emit(UiEvent.PlayTakeDamageSound)
+                        EventBus.emit(UiEvent.Vibrate)
+                    }
                 }
             }
         }

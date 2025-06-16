@@ -1,6 +1,10 @@
 package com.example.gamehub.features.spaceinvaders.classes
 
 import android.util.Log
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.EventBus
+import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 class PlayerController(
     private var player: Player,
@@ -24,6 +28,10 @@ class PlayerController(
             val bulletY = player.y - 10f
             playerBullets.add(Bullet(x = bulletX, y = bulletY))
             lastShotTime = currentTime
+            GlobalScope.launch {
+                EventBus.emit(UiEvent.PlayShootSound)
+                EventBus.emit(UiEvent.Vibrate)
+            }
         }
     }
 

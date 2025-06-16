@@ -4,6 +4,11 @@ import android.util.Log
 import android.widget.Toast
 import android.view.WindowManager
 import android.view.View
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +48,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.ktx.toObject
 import com.example.gamehub.ui.theme.ArcadeClassic
 import com.google.firebase.auth.FirebaseAuth
+import com.example.gamehub.audio.SoundManager
 
 data class Clue(
     val word: String,
@@ -59,6 +65,24 @@ fun CodenamesScreen(
     val view = LocalView.current
     val window = (view.context as? android.app.Activity)?.window
     val context = LocalContext.current
+
+    // Function to vibrate
+    fun vibrate(duration: Long) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(duration)
+        }
+    }
 
     // Hide system bars
     LaunchedEffect(Unit) {
@@ -114,6 +138,10 @@ fun CodenamesScreen(
         // Only run timer if there's no winner
         if (winner == null) {
             while (timerSeconds > 0) {
+                // Play ticking sound for last 5 seconds
+                if (timerSeconds <= 5) {
+                    SoundManager.playEffect(context, R.raw.ticking_sound)
+                }
                 delay(1000)
                 timerSeconds--
             }
@@ -401,6 +429,9 @@ fun CodenamesScreen(
                                                     updatedCards[cardIndex] = updatedCards[cardIndex].toMutableMap().apply {
                                                         put("isRevealed", true)
                                                     }
+
+                                                    // Vibrate when a card is revealed
+                                                    vibrate(500)
 
                                                     // Update remaining words count based on the revealed card's color
                                                     val updates = mutableMapOf<String, Any>(

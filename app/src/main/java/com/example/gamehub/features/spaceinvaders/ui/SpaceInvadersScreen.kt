@@ -3,14 +3,10 @@ package com.example.gamehub.features.spaceinvaders.ui
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Build
-import android.util.Log
-import android.view.WindowManager
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -25,7 +21,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -38,10 +33,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -49,7 +42,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.features.spaceinvaders.classes.EnemyType
@@ -59,7 +51,6 @@ import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel
 import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
 import com.example.gamehub.features.spaceinvaders.classes.VibrationManager
 import com.example.gamehub.navigation.NavRoutes
-import kotlinx.coroutines.launch
 
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -74,9 +65,6 @@ fun SpaceInvadersScreen(
         val density = LocalDensity.current
         val screenWidthPx = with(density) { boxWithConstraintsScope.maxWidth.toPx() }
         val screenHeightPx = with(density) { boxWithConstraintsScope.maxHeight.toPx() }
-
-
-
         val engine = viewModel.gameEngine
         val tick by viewModel.tick
         val context = LocalContext.current
@@ -87,13 +75,11 @@ fun SpaceInvadersScreen(
         val bottomImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_bottom)
         val ufoImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_ufo)
         val tiltToggleImage = ImageBitmap.imageResource(id = R.drawable.tilt_icon)
-        // Add player image
         val playerImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_player)
         val bunkerImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_bunker)
 
-        val retroFont = FontFamily(Font(R.font.space_invaders, FontWeight.Normal))
+        val gameBoxFont = FontFamily(Font(R.font.gamebox_font, FontWeight.Bold))
         val greenTextColor = Color(0xFF00FF00)
-
 
         val soundManager = remember { SoundManager(context) }
         val vibrationManager = remember { VibrationManager(context) }
@@ -190,14 +176,14 @@ fun SpaceInvadersScreen(
                         Text(
                             text = "Lives: ${engine.playerLives}",
                             color = greenTextColor,
-                            fontSize = 16.sp,
-                            fontFamily = retroFont,
+                            fontSize = 26.sp,
+                            fontFamily = gameBoxFont,
                         )
                         Text(
                             text = "Score: ${engine.score}",
                             color = greenTextColor,
-                            fontSize = 16.sp,
-                            fontFamily = retroFont,
+                            fontSize = 26.sp,
+                            fontFamily = gameBoxFont,
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
@@ -349,7 +335,7 @@ fun SpaceInvadersScreen(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Shoot", color = Color.Black, fontFamily = retroFont, fontSize = 14.sp)
+                    Text("Shoot", color = Color.Black, fontFamily = gameBoxFont, fontSize = 24.sp)
                 }
             }
         }

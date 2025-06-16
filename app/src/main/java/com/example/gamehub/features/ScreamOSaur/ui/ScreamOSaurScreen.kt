@@ -1,6 +1,8 @@
 package com.example.gamehub.features.screamosaur.ui
 
 import android.Manifest
+import android.app.Activity // Added import
+import android.content.pm.ActivityInfo // Added import
 import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
@@ -57,19 +59,31 @@ fun ScreamosaurScreen() {
         }
     )
 
-    Scaffold { padding ->
+    // Force landscape when this screen is active
+    DisposableEffect(Unit) {
+        val activity = context as? Activity
+        val originalOrientation = activity?.requestedOrientation
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+
+        onDispose {
+            // Reset to original or unspecified when leaving the screen
+            activity?.requestedOrientation = originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    Scaffold { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(innerPadding) // Apply scaffold's padding
+                .padding(horizontal = 16.dp, vertical = 0.dp), // Reduced vertical padding to 0.dp
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "🦖 Scream-O-Saur",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(Modifier.height(8.dp))
+            // Text(
+            //     text = "🦖 Scream-O-Saur",
+            //     style = MaterialTheme.typography.headlineSmall
+            // )
+            // Spacer(Modifier.height(8.dp))
 
             if (hasAudioPermission) {
                 GameContent()
@@ -120,7 +134,7 @@ data class Obstacle(
 )
 
 private const val MIN_AMPLITUDE_THRESHOLD = 1800 // Sounds below this won't show on meter
-private const val JUMP_AMPLITUDE_THRESHOLD = 4500 // Sounds above this trigger a jump
+private const val JUMP_AMPLITUDE_THRESHOLD = 12000 // Sounds above this trigger a jump (was 8000)
 
 @Composable
 private fun GameContent() {
@@ -137,11 +151,11 @@ private fun GameContent() {
     var isJumping by remember { mutableStateOf(false) }
 
     // Dp values for layout modifiers
-    val dinosaurSizeDp = 60.dp
-    val gameHeightDp = 300.dp
-    val groundHeightDp = 20.dp
-    val dinosaurVisualXOffsetDp = 60.dp
-    val jumpMagnitudeDp = 150.dp
+    val dinosaurSizeDp = 50.dp // Slightly smaller dinosaur for smaller screen
+    val gameHeightDp = 200.dp // Reduced height for landscape
+    val groundHeightDp = 15.dp // Proportionally smaller ground
+    val dinosaurVisualXOffsetDp = 40.dp
+    val jumpMagnitudeDp = 120.dp // Proportionally smaller jump
 
     val density = LocalDensity.current
 
@@ -673,9 +687,9 @@ private fun GameContent() {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp)) // Was 16.dp
         SoundMeter(amplitude = currentAmplitude)
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(8.dp)) // Was 24.dp
 
         if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
             Button(
@@ -694,7 +708,6 @@ private fun GameContent() {
                 Text(if (gameState == GameState.PLAYING) "Pause Game" else "Resume Game")
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -768,3 +781,4 @@ private fun PermissionRequest(onRequestPermission: () -> Unit) {
         }
     }
 }
+

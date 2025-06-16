@@ -117,10 +117,10 @@ fun MemoryMatchingScreen() {
 
     val gameDifficulties = remember {
         listOf(
-            GameDifficulty(pairs = 6, columns = 3, displayName = "Easy (3x4 - 12 Cards)", cardBackResId = R.drawable.old_card_back, timeLimitSeconds = 50, maxAttempts = 5),
-            GameDifficulty(pairs = 8, columns = 4, displayName = "Medium (4x4 - 16 Cards)", cardBackResId = R.drawable.card_back_red, timeLimitSeconds = 60, maxAttempts = 7),
-            GameDifficulty(pairs = 10, columns = 4, displayName = "Hard (4x5 - 20 Cards)", cardBackResId = R.drawable.cards_back_blue, timeLimitSeconds = 75, maxAttempts = 8),
-            GameDifficulty(pairs = 12, columns = 4, displayName = "Expert (4x6 - 24 Cards)", cardBackResId = R.drawable.back_card_brown, timeLimitSeconds = 90, maxAttempts = 10)
+            GameDifficulty(pairs = 6, columns = 3, displayName = "Easy (3x4 - 12 Cards)", cardBackResId = R.drawable.old_card_back, timeLimitSeconds = 50, maxAttempts = 4),
+            GameDifficulty(pairs = 8, columns = 4, displayName = "Medium (4x4 - 16 Cards)", cardBackResId = R.drawable.card_back_red, timeLimitSeconds = 60, maxAttempts = 5),
+            GameDifficulty(pairs = 10, columns = 4, displayName = "Hard (4x5 - 20 Cards)", cardBackResId = R.drawable.cards_back_blue, timeLimitSeconds = 75, maxAttempts = 6),
+            GameDifficulty(pairs = 12, columns = 4, displayName = "Expert (4x6 - 24 Cards)", cardBackResId = R.drawable.back_card_brown, timeLimitSeconds = 90, maxAttempts = 7)
         )
     }
 
@@ -709,8 +709,8 @@ fun DifficultySelectionPreview() {
             )
             DifficultySelectionContent(
                 difficulties = listOf(
-                    GameDifficulty(pairs = 6, columns = 3, displayName = "Easy (3x4 - 12 Cards)", cardBackResId = R.drawable.old_card_back, timeLimitSeconds = 50, maxAttempts = 5),
-                    GameDifficulty(pairs = 8, columns = 4, displayName = "Medium (4x4 - 16 Cards)", cardBackResId = R.drawable.card_back_red, timeLimitSeconds = 60, maxAttempts = 7)
+                    GameDifficulty(pairs = 6, columns = 3, displayName = "Easy (3x4 - 12 Cards)", cardBackResId = R.drawable.old_card_back, timeLimitSeconds = 50, maxAttempts = 4),
+                    GameDifficulty(pairs = 8, columns = 4, displayName = "Medium (4x4 - 16 Cards)", cardBackResId = R.drawable.card_back_red, timeLimitSeconds = 60, maxAttempts = 5)
                 ),
                 onDifficultySelected = {},
                 backgroundColor = Color.Black.copy(alpha = 0.7f),
@@ -723,3 +723,4 @@ fun DifficultySelectionPreview() {
         }
     }
 }
+

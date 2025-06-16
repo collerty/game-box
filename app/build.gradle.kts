@@ -82,6 +82,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.cardview:cardview:1.0.0")
+    implementation(libs.androidx.core.splashscreen)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -95,13 +96,20 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
     implementation ("com.google.firebase:firebase-auth-ktx:21.1.0")
     implementation ("com.google.firebase:firebase-firestore-ktx:24.1.0")
-    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation ("io.coil-kt:coil-compose:2.5.0")
     implementation("io.coil-kt:coil-svg:2.4.0")
     implementation("com.google.android.material:material:1.11.0")
+    implementation("com.google.maps.android:maps-compose:2.11.4")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.maps.android:maps-compose:2.11.4") // Check for the latest version
     implementation("com.google.android.gms:play-services-maps:18.2.0") // Core Maps SDK
     implementation("io.agora.rtc:full-sdk:4.2.6")
     implementation("com.airbnb.android:lottie-compose:6.0.0")
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("io.coil-kt:coil-gif:2.5.0")
+    implementation ("androidx.core:core-ktx:1.13.1")
+    implementation ("androidx.compose.material3:material3:1.3.2")
+
     implementation("androidx.compose.material:material-icons-extended") // For Icons.Default.Mic and MicOff
     implementation("io.coil-kt:coil-compose:2.4.0")
     implementation("io.coil-kt:coil-gif:2.4.0")

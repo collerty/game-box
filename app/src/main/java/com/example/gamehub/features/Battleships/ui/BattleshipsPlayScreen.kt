@@ -4,14 +4,11 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,13 +19,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.example.gamehub.features.battleships.model.Cell
+import com.example.gamehub.features.battleships.model.MapRepository
 import com.example.gamehub.features.battleships.ui.Ship as UiShip
 import com.example.gamehub.lobby.FirestoreSession
 import com.example.gamehub.lobby.model.GameSession
@@ -43,20 +37,30 @@ import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import kotlinx.coroutines.tasks.await
-import com.example.gamehub.features.battleships.ui.CannonAttackAnimation
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import androidx.compose.runtime.Composable
 import android.content.Context
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalContext
-
 
 private fun UiShip.coveredCells(): List<Cell> = if (orientation == Orientation.Horizontal) {
     (0 until size).map { offset -> Cell(startRow, startCol + offset) }
 } else {
     (0 until size).map { offset -> Cell(startRow + offset, startCol) }
+}
+
+@Composable
+fun ShipBox(size: Int, destroyed: Boolean) {
+    Row {
+        repeat(size) {
+            Box(
+                Modifier
+                    .size(18.dp, 18.dp)
+                    .background(if (destroyed) Color.Red else Color(0xFF4B8B1D), shape = MaterialTheme.shapes.small)
+                    .border(1.dp, Color.Black, MaterialTheme.shapes.small)
+            )
+            if (it != size - 1) Spacer(Modifier.width(2.dp))
+        }
+    }
 }
 
 @Composable
@@ -73,7 +77,7 @@ fun ShipsStatusPanel(
 
     Box(
         modifier = modifier
-            .background(Color(0xCC222222), shape = MaterialTheme.shapes.medium) // semi-transparent grey
+            .background(Color(0xCC222222), shape = MaterialTheme.shapes.medium)
             .padding(12.dp)
     ) {
         Column(Modifier.fillMaxWidth()) {
@@ -99,21 +103,6 @@ fun ShipsStatusPanel(
     }
 }
 
-@Composable
-fun ShipBox(size: Int, destroyed: Boolean) {
-    Row {
-        repeat(size) {
-            Box(
-                Modifier
-                    .size(18.dp, 18.dp)
-                    .background(if (destroyed) Color.Red else Color(0xFF4B8B1D), shape = MaterialTheme.shapes.small)
-                    .border(1.dp, Color.Black, MaterialTheme.shapes.small)
-            )
-            if (it != size - 1) Spacer(Modifier.width(2.dp))
-        }
-    }
-}
-
 fun areAllShipsSunk(ships: List<UiShip>, moves: List<Move>): Boolean {
     return ships.all { ship ->
         ship.coveredCells().all { cell ->
@@ -121,6 +110,22 @@ fun areAllShipsSunk(ships: List<UiShip>, moves: List<Move>): Boolean {
         }
     }
 }
+
+enum class AttackResult { Hit, Miss }
+
+private fun buildAttackMap(
+    ships: List<UiShip>,
+    moves: List<Move>
+): Map<Cell, AttackResult> =
+    moves
+        .map { mv -> Cell(mv.y, mv.x) }
+        .distinct()
+        .associateWith { cell ->
+            if (ships.any { it.covers(cell.row, cell.col) })
+                AttackResult.Hit
+            else
+                AttackResult.Miss
+        }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,6 +143,11 @@ fun BattleshipsPlayScreen(
     val session = remember { FirestoreSession(roomCode, BattleshipsCodec) }
     val state by session.stateFlow.collectAsState(initial = GameSession.empty(roomCode))
     val isMyTurn = state.currentTurn == uid
+
+    // Selected map and shape
+    val chosenMapId = state.chosenMap ?: 0
+    val mapDef = remember(chosenMapId) { MapRepository.allMaps.first { it.id == chosenMapId } }
+    val mapCells = mapDef.validCells
 
     var placingMine by remember { mutableStateOf(false) }
     var selectedPowerUp by remember { mutableStateOf<PowerUp?>(null) }
@@ -271,7 +281,7 @@ fun BattleshipsPlayScreen(
                         .replace("{userName}", java.net.URLEncoder.encode(userName, "UTF-8"))
                 ) {
                     popUpTo(NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")) {
-                        inclusive = true // or false if you want to keep lobby menu below
+                        inclusive = true
                     }
                 }
             }
@@ -341,18 +351,20 @@ fun BattleshipsPlayScreen(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    // --- KEY PART: SINGLE BOX HOLDS GRID & OVERLAYS ---
-                    Box(modifier = Modifier.size(32.dp * 10)) {
+                    // --- Board with correct shape, attack animation logic ---
+                    Box(
+                        modifier = Modifier.size(32.dp * 10)
+                    ) {
                         if (placingMine) {
-                            BoardGrid(
+                            BattleshipMap(
                                 gridSize = 10,
                                 cellSize = 32.dp,
                                 ships = myShips,
-                                attacks = buildAttackMap(myShips, oppMoves),
-                                enabled = true,
                                 destroyedShips = myDestroyedShips,
                                 mineCells = myMines,
                                 triggeredMines = myTriggeredMines,
+                                attacks = buildAttackMap(myShips, oppMoves),
+                                validCells = mapCells,
                                 onCellClick = { row, col ->
                                     val isMineHere = myMines.any { it.row == row && it.col == col }
                                     val alreadyHit = oppMoves.any { it.x == col && it.y == row }
@@ -372,23 +384,22 @@ fun BattleshipsPlayScreen(
                                             }
                                         }
                                     }
-                                },
-                                onBoardPositioned = null // Not needed
+                                }
                             )
                         } else {
                             if (isMyTurn) {
                                 val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
-                                BoardGrid(
+                                BattleshipMap(
                                     gridSize = 10,
                                     cellSize = 32.dp,
                                     ships = emptyList(),
-                                    attacks = buildAttackMap(oppShips, myMoves),
-                                    enabled = !isLocallyGameOver,
                                     destroyedShips = oppDestroyedShips,
                                     mineCells = emptyList(),
                                     triggeredMines = enemyTriggeredMines,
+                                    attacks = buildAttackMap(oppShips, myMoves),
+                                    validCells = mapCells,
                                     onCellClick = { row, col ->
-                                        if (!isMyTurn || isLocallyGameOver) return@BoardGrid
+                                        if (!isMyTurn || isLocallyGameOver) return@BattleshipMap
                                         val cell = Cell(row, col)
                                         val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
 
@@ -423,7 +434,6 @@ fun BattleshipsPlayScreen(
                                             }
                                             else -> {
                                                 if (cell !in myHitCells && animatingMove == null) {
-                                                    val isHit = oppShips.any { it.covers(row, col) }
                                                     val startedAt = System.currentTimeMillis()
                                                     scope.launch {
                                                         roomRef.update(
@@ -438,37 +448,29 @@ fun BattleshipsPlayScreen(
                                                 }
                                             }
                                         }
-                                    },
-                                    onBoardPositioned = null
+                                    }
                                 )
                             } else {
-                                BoardGrid(
+                                BattleshipMap(
                                     gridSize = 10,
                                     cellSize = 32.dp,
                                     ships = myShips,
-                                    attacks = buildAttackMap(myShips, oppMoves),
-                                    enabled = false,
                                     destroyedShips = myDestroyedShips,
                                     mineCells = myMines,
                                     triggeredMines = myTriggeredMines,
-                                    onCellClick = { _, _ -> },
-                                    onBoardPositioned = null
+                                    attacks = buildAttackMap(myShips, oppMoves),
+                                    validCells = mapCells,
+                                    onCellClick = { _, _ -> }
                                 )
                             }
                         }
 
-                        // --- OVERLAY: Debug/Animation ---
-                        DebugCellCentersOverlay(
-                            boardOffset = Offset.Zero,
-                            cellSizePx = with(LocalDensity.current) { 32.dp.toPx() },
-                            gridSize = 10
-                        )
-
+                        // --- Cannon Attack Animation ---
                         if (animatingMove != null) {
                             CannonAttackAnimation(
-                                boardOffset = Offset.Zero,
+                                boardOffset = androidx.compose.ui.geometry.Offset.Zero,
                                 cell = animatingMove!!,
-                                cellSizePx = with(LocalDensity.current) { 32.dp.toPx() },
+                                cellSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { 32.dp.toPx() },
                                 isHit = animIsHit,
                                 onFinished = {
                                     scope.launch {
@@ -479,8 +481,7 @@ fun BattleshipsPlayScreen(
                                                 currentAttack.y,
                                                 currentAttack.playerId
                                             )
-                                            roomRef.update(mapOf("gameState.battleships.currentAttack" to FieldValue.delete()))
-                                                .await()
+                                            roomRef.update(mapOf("gameState.battleships.currentAttack" to FieldValue.delete())).await()
                                         }
                                     }
                                     animatingMove = null
@@ -492,55 +493,8 @@ fun BattleshipsPlayScreen(
                     }
                 }
 
-                if (placingMine) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "Select a square on your board to place the mine.",
-                            color = Color.White,
-                            modifier = Modifier
-                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
-                                .padding(horizontal = 24.dp, vertical = 10.dp)
-                        )
-                    }
-                }
-                else if (selectedPowerUp is PowerUp.Bomb2x2) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "Select a 2x2 zone on your opponent's board to drop the bomb. The cell you click will be the top-left corner of the bomb.",
-                            color = Color.White,
-                            modifier = Modifier
-                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
-                                .padding(horizontal = 24.dp, vertical = 10.dp)
-                        )
-                    }
-                }
-                else if (selectedPowerUp is PowerUp.Laser) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "Select a row or column to fire the laser. The laser will hit all cells in that row/column. Press the button below to toggle between row and column.",
-                            color = Color.White,
-                            modifier = Modifier
-                                .background(Color(0xAA222222), shape = MaterialTheme.shapes.medium)
-                                .padding(horizontal = 24.dp, vertical = 10.dp)
-                        )
-                    }
-                }
-
+                Spacer(Modifier.height(8.dp))
+                // --- PowerUp Cancel Button ---
                 if (selectedPowerUp != null || placingMine) {
                     Box(
                         modifier = Modifier
@@ -548,9 +502,7 @@ fun BattleshipsPlayScreen(
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Button(
                                 onClick = {
                                     selectedPowerUp = null
@@ -591,7 +543,6 @@ fun BattleshipsPlayScreen(
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
                 ShipsStatusPanel(
                     opponentShips = oppShips,
                     yourMoves = myMoves,
@@ -626,20 +577,6 @@ fun BattleshipsPlayScreen(
                                 else -> {
                                     selectedPowerUp = pu
                                 }
-                            }
-                        }
-                        if (selectedPowerUp == PowerUp.Laser) {
-                            Button(
-                                onClick = {
-                                    laserOrientation =
-                                        if (laserOrientation == Orientation.Horizontal)
-                                            Orientation.Vertical
-                                        else
-                                            Orientation.Horizontal
-                                },
-                                modifier = Modifier.padding(top = 8.dp)
-                            ) {
-                                Text("Laser: ${if (laserOrientation == Orientation.Horizontal) "Row" else "Column"}")
                             }
                         }
                     }
@@ -714,182 +651,3 @@ fun BattleshipsPlayScreen(
         }
     }
 }
-
-
-// BoardGrid & helpers
-private fun buildAttackMap(
-    ships: List<UiShip>,
-    moves: List<Move>
-): Map<Cell, AttackResult> =
-    moves
-        .map { mv -> Cell(mv.y, mv.x) }
-        .distinct()
-        .associateWith { cell ->
-            if (ships.any { it.covers(cell.row, cell.col) })
-                AttackResult.Hit
-            else
-                AttackResult.Miss
-        }
-
-@Composable
-fun BoardGrid(
-    gridSize: Int,
-    cellSize: Dp,
-    ships: List<UiShip>,
-    attacks: Map<Cell, AttackResult>,
-    enabled: Boolean,
-    destroyedShips: List<UiShip> = emptyList(),
-    mineCells: List<Cell> = emptyList(),
-    triggeredMines: List<Cell> = emptyList(),
-    onCellClick: (row: Int, col: Int) -> Unit,
-    onBoardPositioned: ((Offset, Float) -> Unit)? = null
-) {
-    val density = LocalDensity.current
-
-    val frame = rememberWaterFrame(
-        spriteRes    = com.example.gamehub.R.drawable.ocean_spritesheet,
-        framesPerRow = 8,
-        totalFrames  = 16,
-        fps          = 8
-    )
-
-    Box(
-        modifier = Modifier
-            .size(cellSize * gridSize)
-            .clipToBounds()
-            .border(4.dp, Color.Black, RectangleShape)
-            .onGloballyPositioned { coordinates ->
-                // Give the parent the board offset and the cell size in px
-                val position = coordinates.positionInWindow()
-                val offset = Offset(position.x, position.y)
-                val cellPx = with(density) { cellSize.toPx() }
-                onBoardPositioned?.invoke(offset, cellPx)
-            }
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            for (row in 0 until gridSize) {
-                Row {
-                    for (col in 0 until gridSize) {
-                        val cell = Cell(row, col)
-                        Box(
-                            modifier = Modifier
-                                .size(cellSize)
-                                .then(
-                                    if (enabled)
-                                        Modifier.clickable { onCellClick(row, col) }
-                                    else
-                                        Modifier
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AnimatedWaterCell(
-                                frame        = frame,
-                                spriteRes    = com.example.gamehub.R.drawable.ocean_spritesheet,
-                                framesPerRow = 8,
-                                totalFrames  = 16,
-                                size         = cellSize
-                            )
-                            // Ships (no border here, just fill)
-                            if (ships.any { it.covers(row, col) }) {
-                                Box(
-                                    Modifier
-                                        .matchParentSize()
-                                        .background(Color(0xFF4B8B1D))
-                                )
-                            }
-                            // --- MINES AND HITS/MISSES ---
-                            // Show (in order of priority!):
-                            // 1. Triggered mine (this is a mine that has been hit -- always show the mine/explosion PNG, never the hit dot!)
-                            // 2. Untriggered mine (your own board only)
-                            // 3. Hit (only if not a mine cell)
-                            // 4. Miss (only if not a mine cell)
-                            when {
-                                triggeredMines.any { it.row == cell.row && it.col == cell.col } -> {
-                                    Image(
-                                        painter = painterResource(com.example.gamehub.R.drawable.mine), // Or an explosion drawable if you want
-                                        contentDescription = "Triggered Mine",
-                                        modifier = Modifier.size(cellSize * 2f)
-                                    )
-                                }
-                                mineCells.any { it.row == cell.row && it.col == cell.col } -> {
-                                    Image(
-                                        painter = painterResource(com.example.gamehub.R.drawable.mine),
-                                        contentDescription = "Mine",
-                                        modifier = Modifier.size(cellSize * 2f)
-                                    )
-                                }
-                                attacks[cell] == AttackResult.Hit -> {
-                                    Image(
-                                        painter = painterResource(com.example.gamehub.R.drawable.hit_circle),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(cellSize / 2)
-                                    )
-                                }
-                                attacks[cell] == AttackResult.Miss -> {
-                                    Image(
-                                        painter = painterResource(com.example.gamehub.R.drawable.miss_circle),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(cellSize / 2)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- Ship outlines and grid lines, as before ---
-        ships.forEach { ship ->
-            if (!destroyedShips.contains(ship)) {
-                val top = cellSize * ship.startRow
-                val left = cellSize * ship.startCol
-                val width = if (ship.orientation == Orientation.Horizontal) cellSize * ship.size else cellSize
-                val height = if (ship.orientation == Orientation.Horizontal) cellSize else cellSize * ship.size
-                Box(
-                    Modifier
-                        .absoluteOffset(x = left, y = top)
-                        .size(width, height)
-                        .border(2.dp, Color.Black, RectangleShape)
-                )
-            }
-        }
-
-        destroyedShips.forEach { ship ->
-            val top = cellSize * ship.startRow
-            val left = cellSize * ship.startCol
-            val width = if (ship.orientation == Orientation.Horizontal) cellSize * ship.size else cellSize
-            val height = if (ship.orientation == Orientation.Horizontal) cellSize else cellSize * ship.size
-            Box(
-                Modifier
-                    .absoluteOffset(x = left, y = top)
-                    .size(width, height)
-                    .border(3.dp, Color.Red, RectangleShape)
-            )
-        }
-
-        Box(modifier = Modifier.matchParentSize()) {
-            for (i in 1 until gridSize) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(1.dp)
-                        .absoluteOffset(x = cellSize * i, y = 0.dp)
-                        .background(Color.Gray)
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .absoluteOffset(x = 0.dp, y = cellSize * i)
-                        .background(Color.Gray)
-                )
-            }
-        }
-    }
-}
-
-
-enum class AttackResult { Hit, Miss }

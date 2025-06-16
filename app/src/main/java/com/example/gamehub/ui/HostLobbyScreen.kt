@@ -565,7 +565,7 @@ private fun minPlayersRequired(gameId: String) = when (gameId) {
     "battleships" -> 2
     "ohpardon" -> 2
     "triviatoe" -> 2
-    "codenames" -> 1
+    "codenames" -> 4
     else -> 2
 }
 private fun canStartGame(gameId: String, players: List<Map<String, Any>>, maxPlayers: Int): Boolean = when (gameId) {

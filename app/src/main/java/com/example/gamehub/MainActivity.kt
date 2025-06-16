@@ -31,7 +31,7 @@ import com.example.gamehub.features.battleships.ui.ShipPlacementRoute
 import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
 import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
-import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
+import com.example.gamehub.features.ScreamOSaur.ui.ScreamosaurScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersPreGameScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersScreen
 import com.example.gamehub.features.triviatoe.FirestoreTriviatoeSession

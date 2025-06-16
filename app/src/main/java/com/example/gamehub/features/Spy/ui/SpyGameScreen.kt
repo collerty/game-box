@@ -1,5 +1,10 @@
 package com.example.gamehub.features.spy.ui
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -11,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -24,6 +30,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SpyGameScreen(navController: NavController) {
+    val context = LocalContext.current
     var gameState by remember { mutableStateOf("settings") } // "settings" or "game"
     var currentPlayer by remember { mutableStateOf(0) }
     var numPlayers by remember { mutableStateOf(4) }
@@ -38,6 +45,24 @@ fun SpyGameScreen(navController: NavController) {
     var currentLocation by remember { mutableStateOf("") }
     var allRolesRevealed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // Function to vibrate
+    fun vibrate(duration: Long) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(duration)
+        }
+    }
 
     // Background image
     Box(modifier = Modifier.fillMaxSize()) {
@@ -168,6 +193,8 @@ fun SpyGameScreen(navController: NavController) {
                         playerRoles = roles
                         timeRemaining = timerMinutes * 60
                         gameState = "game"
+                        // Vibrate when game starts
+                        vibrate(500)
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -224,7 +251,11 @@ fun SpyGameScreen(navController: NavController) {
 
                     SpriteMenuButton(
                         text = "Start Timer",
-                        onClick = { isTimerRunning = true },
+                        onClick = { 
+                            isTimerRunning = true
+                            // Vibrate when timer starts
+                            vibrate(500)
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {
@@ -247,6 +278,8 @@ fun SpyGameScreen(navController: NavController) {
                             delay(1000)
                             timeRemaining--
                         }
+                        // Vibrate when timer runs out
+                        vibrate(1000)
                         // Game over when timer reaches 0
                         // TODO: Show game over dialog
                     }
@@ -281,6 +314,22 @@ fun SpyGameScreen(navController: NavController) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        // Role image
+                        Image(
+                            painter = painterResource(
+                                id = if (currentRole == "Spy") {
+                                    R.drawable.spy_reveal
+                                } else {
+                                    R.drawable.civilian_reveal
+                                }
+                            ),
+                            contentDescription = "Role Image",
+                            modifier = Modifier
+                                .size(200.dp)
+                                .padding(bottom = 16.dp),
+                            contentScale = ContentScale.Fit
+                        )
+
                         Text(
                             text = if (currentRole == "Spy") {
                                 "You are a Spy! Try to blend in and figure out the location."

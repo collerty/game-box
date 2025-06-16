@@ -1,6 +1,5 @@
 package com.example.gamehub.features.spy.ui
 
-import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -16,11 +15,12 @@ import androidx.compose.ui.unit.sp
 import com.example.gamehub.R
 import com.example.gamehub.ui.SpriteMenuButton
 import GameBoxFontFamily
+import androidx.navigation.NavController
 
 @Composable
-fun SpyScreen() {
-    val context = LocalContext.current
-    
+fun SpyScreen(
+    navController: NavController
+) {
     Box(modifier = Modifier.fillMaxSize()) {
         // Background image
         Image(
@@ -64,8 +64,7 @@ fun SpyScreen() {
             SpriteMenuButton(
                 text = "Start Spy Game",
                 onClick = {
-                    val intent = Intent(context, SpyGameActivity::class.java)
-                    context.startActivity(intent)
+                    navController.navigate("spy_game")
                 },
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
@@ -76,7 +75,7 @@ fun SpyScreen() {
 
             SpriteMenuButton(
                 text = "Back",
-                onClick = { /* TODO: Add navigation back */ },
+                onClick = { navController.popBackStack() },
                 modifier = Modifier
                     .fillMaxWidth(0.95f)
                     .height(70.dp)

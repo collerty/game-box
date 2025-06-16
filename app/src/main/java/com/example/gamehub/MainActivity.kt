@@ -30,6 +30,7 @@ import com.example.gamehub.features.battleships.ui.MapVoteScreen
 import com.example.gamehub.features.battleships.ui.ShipPlacementRoute
 import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
+import com.example.gamehub.features.spy.ui.SpyGameScreen
 import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
 import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersPreGameScreen
@@ -244,7 +245,8 @@ fun GameHubApp() {
             }
 
 
-            composable(NavRoutes.SPY_GAME)       { SpyScreen() }
+            composable(NavRoutes.SPY_GAME)       { SpyScreen(navController) }
+            composable("spy_game") { SpyGameScreen(navController) }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
             composable(NavRoutes.SPACE_INVADERS_PREGAME) { SpaceInvadersPreGameScreen(navController = navController) }

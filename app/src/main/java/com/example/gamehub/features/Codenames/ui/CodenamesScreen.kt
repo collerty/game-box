@@ -34,6 +34,7 @@ import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.navigation.NavRoutes
+import com.example.gamehub.ui.SpriteMenuButton
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
@@ -598,11 +599,21 @@ fun CodenamesScreen(
                             onValueChange = {
                                 if (currentTeam == "RED") redMasterClue = it else blueMasterClue = it
                             },
-                            label = { Text("Enter clue and number (e.g., 'APPLE 3')", fontFamily = ArcadeClassic) },
-                            modifier = Modifier.fillMaxWidth()
+                            label = { Text("Enter clue and number (e.g., 'APPLE 3')", fontFamily = ArcadeClassic, color = Color.White) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color.White,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                focusedLabelColor = Color.White,
+                                unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                                cursorColor = Color.White
+                            )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Button(
+                        SpriteMenuButton(
+                            text = "Submit Clue",
                             onClick = {
                                 val clueText = if (currentTeam == "RED") redMasterClue else blueMasterClue
                                 // Basic validation for clue format (e.g., "WORD X")
@@ -614,7 +625,7 @@ fun CodenamesScreen(
                                     if (count < 0 || count > 9) { // Example constraint for count
                                         Toast.makeText(context, "Clue number must be between 0 and 9", Toast.LENGTH_SHORT).show()
                                         Log.e("Codenames", "Invalid clue number: $count")
-                                        return@Button // Exit onClick if invalid
+                                        return@SpriteMenuButton // Exit onClick if invalid
                                     }
 
                                     if (word.isNotEmpty()) {
@@ -665,9 +676,7 @@ fun CodenamesScreen(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Submit Clue", fontFamily = ArcadeClassic)
-                        }
+                        )
                     }
                 } else {
                     // Display Current Turn/Phase for non-masters or for the other master's turn

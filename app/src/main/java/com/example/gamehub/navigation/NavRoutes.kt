@@ -44,6 +44,6 @@ object NavRoutes {
 
     const val GAME_INFO = "gameInfo/{gameId}"
 
-
+    const val VOICE_CHAT_TEST = "voice_chat_test"
 
 }

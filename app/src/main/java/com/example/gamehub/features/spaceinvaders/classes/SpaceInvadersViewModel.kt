@@ -112,8 +112,9 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
     fun setScreenSize(width: Float, height: Float) {
         if (!screenSizeSet) {
             Log.d("SpaceInvaders", "Setting screen size: width=$width, height=$height")
-            _gameEngine.screenWidthPx = width
-            _gameEngine.screenHeightPx = height
+            //YES, this has to be like this, due to going from portrait to landscape, otherwise the bunkers wont work correctly
+            _gameEngine.screenWidthPx = height
+            _gameEngine.screenHeightPx = width
             // Set player Y position to bottom of screen
             _gameEngine.playerController.setPlayer(
                 _gameEngine.player.copy(y = height - 100f)

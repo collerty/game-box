@@ -6,40 +6,128 @@ object MapRepository {
     private fun fullSquare(n: Int): Set<Cell> =
         (0 until n).flatMap { r -> (0 until n).map { c -> Cell(r, c) } }.toSet()
 
-    private fun diamond(n: Int): Set<Cell> {
-        val mid = (n - 1) / 2
-        return (0 until n).flatMap { r ->
-            (0 until n).mapNotNull { c ->
-                if (kotlin.math.abs(r - mid) + kotlin.math.abs(c - mid) <= mid)
-                    Cell(r, c)
-                else null
-            }
-        }.toSet()
-    }
-
-    private fun cutCorners(n: Int): Set<Cell> {
-        val corners = mutableSetOf<Cell>().apply {
-            addAll((0 until 2).flatMap { r -> (0 until 2).map { c -> Cell(r, c) } })
-            addAll((0 until 2).flatMap { r -> ((n - 2) until n).map { c -> Cell(r, c) } })
-            addAll(((n - 2) until n).flatMap { r -> (0 until 2).map { c -> Cell(r, c) } })
-            addAll(((n - 2) until n).flatMap { r -> ((n - 2) until n).map { c -> Cell(r, c) } })
+    private fun diamondMap(): Set<Cell> {
+        val pattern = listOf(
+            "....XX....",
+            "...XXXX...",
+            "..XXXXXX..",
+            ".XXXXXXXX.",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            ".XXXXXXXX.",
+            "..XXXXXX..",
+            "...XXXX...",
+            "....XX....",
+        )
+        // Optionally pad all lines to length 10 if not already
+        val padded = pattern.map {
+            if (it.length < 10) ".".repeat((10 - it.length) / 2) + it + ".".repeat((10 - it.length + 1) / 2) else it
         }
-        return fullSquare(n) - corners
+        val cells = mutableSetOf<Cell>()
+        for ((row, line) in padded.withIndex()) {
+            for ((col, char) in line.withIndex()) {
+                if (char == 'X') {
+                    cells.add(Cell(row, col))
+                }
+            }
+        }
+        return cells
     }
 
-    private fun plusSign(n: Int): Set<Cell> {
-        val mid = n / 2
-        val horizontal = (0 until n).map { c -> Cell(mid, c) }
-        val vertical   = (0 until n).map { r -> Cell(r, mid) }
-        return (horizontal + vertical).toSet()
+    private fun cutCornersMap(): Set<Cell> {
+        val pattern = listOf(
+            "..XXXXXX..",
+            "..XXXXXX..",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "..XXXXXX..",
+            "..XXXXXX.."
+        )
+        val cells = mutableSetOf<Cell>()
+        for ((row, line) in pattern.withIndex()) {
+            for ((col, char) in line.withIndex()) {
+                if (char == 'X') {
+                    cells.add(Cell(row, col))
+                }
+            }
+        }
+        return cells
     }
 
-    private fun ring(n: Int): Set<Cell> {
-        val top    = (0 until n).map    { c -> Cell(0, c) }
-        val bottom = (0 until n).map    { c -> Cell(n - 1, c) }
-        val left   = (1 until n - 1).map{ r -> Cell(r, 0) }
-        val right  = (1 until n - 1).map{ r -> Cell(r, n - 1) }
-        return (top + bottom + left + right).toSet()
+    private fun crossroadsMap(): Set<Cell> {
+        val pattern = listOf(
+            "...XXXX...",
+            ".XXXXXXXX.",
+            ".X.XXXX.X.",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            ".X.XXXX.X.",
+            ".XXXXXXXX.",
+            "...XXXX..."
+        )
+        val cells = mutableSetOf<Cell>()
+        for ((row, line) in pattern.withIndex()) {
+            for ((col, char) in line.withIndex()) {
+                if (char == 'X') {
+                    cells.add(Cell(row, col))
+                }
+            }
+        }
+        return cells
+    }
+
+    private fun plusMap(): Set<Cell> {
+        val pattern = listOf(
+            "...XXXX...",
+            "...XXXX...",
+            "...XXXX...",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            "...XXXX...",
+            "...XXXX...",
+            "...XXXX..."
+        )
+        val cells = mutableSetOf<Cell>()
+        for ((row, line) in pattern.withIndex()) {
+            for ((col, char) in line.withIndex()) {
+                if (char == 'X') {
+                    cells.add(Cell(row, col))
+                }
+            }
+        }
+        return cells
+    }
+
+    private fun CircleMap(): Set<Cell> {
+        val pattern = listOf(
+            "..........",
+            "..XXXXXX..",
+            ".XXXXXXXX.",
+            ".XXXXXXXX.",
+            "XXXXXXXXXX",
+            "XXXXXXXXXX",
+            ".XXXXXXXX.",
+            ".XXXXXXXX.",
+            "..XXXXXX..",
+            "..........."
+        )
+        val cells = mutableSetOf<Cell>()
+        for ((row, line) in pattern.withIndex()) {
+            for ((col, char) in line.withIndex()) {
+                if (char == 'X') {
+                    cells.add(Cell(row, col))
+                }
+            }
+        }
+        return cells
     }
 
     // --- All available maps in a 10×10 grid ---
@@ -47,7 +135,7 @@ object MapRepository {
         MapDefinition(
             id         = 0,
             name       = "Square Sea",
-            previewRes = R.drawable.map_square_thumb, // <-- Place your PNG here
+            previewRes = R.drawable.map_square,
             rows       = 10,
             cols       = 10,
             validCells = fullSquare(10)
@@ -55,34 +143,42 @@ object MapRepository {
         MapDefinition(
             id         = 1,
             name       = "Diamond Bay",
-            previewRes = R.drawable.map_diamond_thumb,
+            previewRes = R.drawable.map_diamond,
             rows       = 10,
             cols       = 10,
-            validCells = diamond(10)
+            validCells = diamondMap()
         ),
         MapDefinition(
             id         = 2,
-            name       = "Cut-Corner Cove",
-            previewRes = R.drawable.map_cutcorners_thumb,
+            name       = "Cut-Corner",
+            previewRes = R.drawable.map_cutcorner,
             rows       = 10,
             cols       = 10,
-            validCells = cutCorners(10)
+            validCells = cutCornersMap()
         ),
         MapDefinition(
             id         = 3,
             name       = "Crossroads",
-            previewRes = R.drawable.map_plus_thumb,
+            previewRes = R.drawable.map_crossroads,
             rows       = 10,
             cols       = 10,
-            validCells = plusSign(10)
+            validCells = crossroadsMap()
         ),
         MapDefinition(
-            id         = 4,
-            name       = "Border Run",
-            previewRes = R.drawable.map_ring_thumb,
+            id         = 5,
+            name       = "Plus",
+            previewRes = R.drawable.map_plus,
             rows       = 10,
             cols       = 10,
-            validCells = ring(10)
-        )
+            validCells = plusMap()
+        ),
+        MapDefinition(
+            id         = 7,
+            name       = "Circle",
+            previewRes = R.drawable.map_circle, // use your thumb image
+            rows       = 10,
+            cols       = 10,
+            validCells = CircleMap()
+        ),
     )
 }

@@ -41,14 +41,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.ktx.toObject
 import com.example.gamehub.ui.theme.ArcadeClassic
-import com.example.gamehub.agora.AgoraVoiceChatManager
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
+import com.google.firebase.auth.FirebaseAuth
 
 data class Clue(
     val word: String,
@@ -66,96 +59,14 @@ fun CodenamesScreen(
     val window = (view.context as? android.app.Activity)?.window
     val context = LocalContext.current
 
-    val agoraAppId = "98c698ae05f4483fbd1526156480d930"
-    var agoraVoiceChatManager: AgoraVoiceChatManager? by remember { mutableStateOf(null) }
-    var isMicMuted by remember { mutableStateOf(false) }
-    var usersInVoiceChat by remember { mutableStateOf(mutableSetOf<Int>()) }
-
-    val requestPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val allGranted = permissions.entries.all { it.value }
-        if (allGranted) {
-            Toast.makeText(context, "Permissions granted", Toast.LENGTH_SHORT).show()
-            // Initialize Agora after permissions are granted
-            agoraVoiceChatManager = AgoraVoiceChatManager(
-                context = context,
-                appId = agoraAppId,
-                onJoinChannelSuccess = { channel, uid, elapsed ->
-                    Toast.makeText(context, "Joined channel $channel as $uid", Toast.LENGTH_SHORT).show()
-                },
-                onUserJoined = { uid, elapsed ->
-                    Toast.makeText(context, "User $uid joined", Toast.LENGTH_SHORT).show()
-                    usersInVoiceChat = usersInVoiceChat.toMutableSet().apply { add(uid) }
-                },
-                onUserOffline = { uid, reason ->
-                    Toast.makeText(context, "User $uid left", Toast.LENGTH_SHORT).show()
-                    usersInVoiceChat = usersInVoiceChat.toMutableSet().apply { remove(uid) }
-                },
-                onLeaveChannel = { stats ->
-                    Toast.makeText(context, "Left channel", Toast.LENGTH_SHORT).show()
-                    usersInVoiceChat = mutableSetOf()
-                }
-            )
-            // Use a fixed UID for simplicity in prototype, e.g., current timestamp or a hash of the username
-            val uid = (System.currentTimeMillis() % 100000).toInt() // Example UID
-            agoraVoiceChatManager?.initializeAndJoinChannel(roomId, null, uid)
-        } else {
-            Toast.makeText(context, "Permissions not granted", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // Request permissions when the screen is first composed
+    // Hide system bars
     LaunchedEffect(Unit) {
-        val permissionsToRequest = arrayOf(
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.MODIFY_AUDIO_SETTINGS
-        )
-        val permissionsNeeded = permissionsToRequest.filter { 
-            context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-        }.toTypedArray()
-
-        if (permissionsNeeded.isNotEmpty()) {
-            requestPermissionLauncher.launch(permissionsNeeded)
-        } else {
-            // Permissions already granted, initialize Agora
-            agoraVoiceChatManager = AgoraVoiceChatManager(
-                context = context,
-                appId = agoraAppId,
-                onJoinChannelSuccess = { channel, uid, elapsed ->
-                    Toast.makeText(context, "Joined channel $channel as $uid", Toast.LENGTH_SHORT).show()
-                },
-                onUserJoined = { uid, elapsed ->
-                    Toast.makeText(context, "User $uid joined", Toast.LENGTH_SHORT).show()
-                    usersInVoiceChat = usersInVoiceChat.toMutableSet().apply { add(uid) }
-                },
-                onUserOffline = { uid, reason ->
-                    Toast.makeText(context, "User $uid left", Toast.LENGTH_SHORT).show()
-                    usersInVoiceChat = usersInVoiceChat.toMutableSet().apply { remove(uid) }
-                },
-                onLeaveChannel = { stats ->
-                    Toast.makeText(context, "Left channel", Toast.LENGTH_SHORT).show()
-                    usersInVoiceChat = mutableSetOf()
-                }
-            )
-            val uid = (System.currentTimeMillis() % 100000).toInt() // Example UID
-            agoraVoiceChatManager?.initializeAndJoinChannel(roomId, null, uid)
-        }
-
-        // Hide system bars
         window?.let {
             WindowCompat.setDecorFitsSystemWindows(it, false)
             WindowInsetsControllerCompat(it, view).let { controller ->
                 controller.hide(WindowInsetsCompat.Type.systemBars())
                 controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
-        }
-    }
-
-    // Leave channel when the composable is disposed
-    DisposableEffect(Unit) {
-        onDispose {
-            agoraVoiceChatManager?.leaveChannel()
         }
     }
 
@@ -341,8 +252,8 @@ fun CodenamesScreen(
     ) {
         // Background image
         androidx.compose.foundation.Image(
-            painter = painterResource(id = R.drawable.plank_background),
-            contentDescription = "Plank Background",
+            painter = painterResource(id = R.drawable.stars_bg),
+            contentDescription = "Stars Background",
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.FillBounds
         )
@@ -766,27 +677,6 @@ fun CodenamesScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = if (currentTurn == "RED") Color.Red else Color.Blue,
                         fontFamily = ArcadeClassic
-                    )
-                }
-            }
-
-            // Voice chat control button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Voice Chat Users: ${usersInVoiceChat.size}", color = Color.White)
-                Spacer(modifier = Modifier.width(16.dp))
-                IconButton(onClick = {
-                    isMicMuted = !isMicMuted
-                    agoraVoiceChatManager?.muteLocalAudioStream(isMicMuted)
-                    Toast.makeText(context, "Microphone ${if (isMicMuted) "muted" else "unmuted"}", Toast.LENGTH_SHORT).show()
-                }) {
-                    Icon(
-                        imageVector = if (isMicMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                        contentDescription = if (isMicMuted) "Unmute Microphone" else "Mute Microphone",
-                        tint = Color.White
                     )
                 }
             }

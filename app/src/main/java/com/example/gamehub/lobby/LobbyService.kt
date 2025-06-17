@@ -1,7 +1,6 @@
 package com.example.gamehub.lobby
 
 import com.example.gamehub.features.whereandwhe.model.WhereAndWhenGameState
-import com.example.gamehub.features.whereandwhe.ui.gameChallenges
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -13,6 +12,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import android.util.Log
+import com.example.gamehub.features.whereandwhen.ui.gameChallenges
 
 object LobbyService {
     private val firestore = FirebaseFirestore.getInstance()

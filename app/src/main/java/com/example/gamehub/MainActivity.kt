@@ -21,13 +21,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.gamehub.navigation.NavRoutes
-import com.example.gamehub.ui.GamesListScreen
-import com.example.gamehub.ui.SettingsScreen
-import com.example.gamehub.ui.TestSensorsScreen
+import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
 import com.example.gamehub.features.battleships.ui.BattleshipsPlayScreen
 import com.example.gamehub.features.battleships.ui.MapVoteScreen
 import com.example.gamehub.features.battleships.ui.ShipPlacementRoute
+import com.example.gamehub.features.codenames.ui.CodenamesScreen
 import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
 import com.example.gamehub.features.spy.ui.SpyGameScreen
@@ -35,27 +33,29 @@ import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
 import com.example.gamehub.features.ScreamOSaur.ui.ScreamosaurScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersPreGameScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersScreen
+import com.example.gamehub.features.spy.ui.SpyScreen
 import com.example.gamehub.features.triviatoe.FirestoreTriviatoeSession
 import com.example.gamehub.features.triviatoe.ui.TriviatoePlayScreen
-import com.example.gamehub.features.codenames.ui.CodenamesScreen
-import com.example.gamehub.ui.GuestGameScreen
-
-import com.example.gamehub.ui.LobbyMenuScreen
-import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
-import com.example.gamehub.features.whereandwhe.ui.WhereAndWhenScreen
-import com.example.gamehub.features.MemoryMatching.ui.MemoryMatchingScreen
-import com.google.firebase.auth.auth
 import com.example.gamehub.features.triviatoe.ui.TriviatoeXOAssignScreen
-import com.example.gamehub.ui.SplashScreen
+import com.example.gamehub.features.whereandwhen.ui.WhereAndWhenScreen
+import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.AccelerometerTestScreen
 import com.example.gamehub.ui.CameraTestScreen
 import com.example.gamehub.ui.GameInfoScreen
+import com.example.gamehub.ui.GamesListScreen
+import com.example.gamehub.ui.GuestGameScreen
 import com.example.gamehub.ui.GyroscopeTestScreen
+import com.example.gamehub.ui.LobbyMenuScreen
 import com.example.gamehub.ui.MicrophoneTestScreen
 import com.example.gamehub.ui.ProximityTestScreen
+import com.example.gamehub.ui.SettingsScreen
+import com.example.gamehub.ui.SplashScreen
+import com.example.gamehub.ui.TestSensorsScreen
 import com.example.gamehub.ui.VibrationTestScreen
 import com.example.gamehub.ui.theme.GameHubTheme
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)

@@ -3,21 +3,16 @@
   <component name="deploymentTargetSelector">
     <selectionStates>
       <SelectionState runConfigName="app">
-        <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-06-17T15:28:52.459149Z">
+        <option name="selectionMode" value="DIALOG" />
+        <DropdownSelection timestamp="2025-06-17T16:46:37.588250600Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CR81SGYHE" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=mzaurobqscbi99qs" />
             </handle>
           </Target>
         </DropdownSelection>
         <DialogSelection>
           <targets>
-            <Target type="DEFAULT_BOOT">
-              <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\collert\.android\avd\Small_Phone.avd" />
-              </handle>
-            </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
                 <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\collert\.android\avd\Medium_Phone.avd" />
@@ -30,7 +25,7 @@
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=mzaurobqscbi99qs" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\collert\.android\avd\Small_Phone.avd" />
               </handle>
             </Target>
           </targets>

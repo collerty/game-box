@@ -87,7 +87,7 @@ private const val MIN_SLIDER_YEAR = 1850f
 private const val MAX_SLIDER_YEAR = 2024f
 private val TOTAL_ROUNDS = 5
 
-// Hardcoded list of challenges - REPLACE R.drawable.image_placeholder with actual drawables
+
 val gameChallenges = listOf(
     Challenge("jfk", R.drawable.kennedy_assassination, 1963, 32.7790, -96.8089, "Dealey Plaza, Dallas, TX, USA", "Assassination of JFK"),
     Challenge("moon", R.drawable.moon_landing_1969, 1969, 0.67316, 23.47314, "Tranquility Base, Moon", "Apollo 11 Moon Landing"),
@@ -218,23 +218,37 @@ fun WhereAndWhenScreen(
                                     challengeOrder = rawGameState["challengeOrder"] as? List<String> ?: emptyList()
                                 )
                                 Log.d("WW_Listener", "Successfully parsed newState for $myPlayerId: $newState")
-                                val previousChallengeId = wwGameState?.currentChallengeId
-                                val previousRoundStatus = wwGameState?.roundStatus
-                                wwGameState = newState
-                                Log.d("WW_Listener", "wwGameState updated. currentChallengeId: ${wwGameState?.currentChallengeId}, roundStatus: ${wwGameState?.roundStatus}")
+                                val previousWwGameState = wwGameState // Store the current wwGameState BEFORE updating it
+                                wwGameState = newState // Update the main state that Compose observes
 
-                                val isNewRoundStartCondition = (previousRoundStatus != WhereAndWhenGameState.STATUS_GUESSING && newState.roundStatus == WhereAndWhenGameState.STATUS_GUESSING) ||
-                                        (previousChallengeId != newState.currentChallengeId && newState.roundStatus == WhereAndWhenGameState.STATUS_GUESSING)
+                                // Determine if it's a transition to a new guessing round based on Firestore data
+                                val justStartedNewGuessingRound =
+                                    (newState.roundStatus == WhereAndWhenGameState.STATUS_GUESSING) &&
+                                            ( (previousWwGameState?.roundStatus != WhereAndWhenGameState.STATUS_GUESSING) || // Transitioned from non-guessing to guessing
+                                                    (previousWwGameState?.currentChallengeId != newState.currentChallengeId) )     // Or, still guessing but challenge changed
 
-                                if (isNewRoundStartCondition && !showMapReveal && !showDynamicLeaderboard) {
-                                    Log.d("WW_UI_Reset", "New round detected. Resetting local UI for $myPlayerId.")
+                                if (justStartedNewGuessingRound) {
+                                    Log.d("WW_UI_Reset", "Firestore indicates new guessing round. Resetting local UI for $myPlayerId. New Challenge ID: ${newState.currentChallengeId}")
                                     selectedYear = (MIN_SLIDER_YEAR + MAX_SLIDER_YEAR) / 2f
-                                    selectedLatLng = null; markerState.position = LatLng(0.0,0.0); markerState.hideInfoWindow()
+                                    selectedLatLng = null
+                                    // markerState.position = LatLng(0.0,0.0) // Can be removed if selectedLatLng = null handles marker
+                                    // markerState.hideInfoWindow() // Can be removed if selectedLatLng = null handles marker
                                     hasSubmittedGuess = false
-                                    cameraPositionState.move(CameraUpdateFactory.newCameraPosition(CameraPosition.fromLatLngZoom(LatLng(20.0, 0.0), 1.5f)))
+
+                                    // Only reset camera if map reveal is not active
+                                    if (!showMapReveal) {
+                                        cameraPositionState.move(CameraUpdateFactory.newCameraPosition(CameraPosition.fromLatLngZoom(LatLng(20.0, 0.0), 1.5f)))
+                                    }
                                 }
+
+                                // Handle showing/hiding round results dialog based on roundStatus
                                 if (newState.roundStatus == WhereAndWhenGameState.STATUS_RESULTS && !showMapReveal && !showDynamicLeaderboard) {
+                                    Log.d("WW_Flow", "Firestore indicates RESULTS state. Setting showRoundResultsDialog = true.")
                                     showRoundResultsDialog = true
+                                } else if (newState.roundStatus != WhereAndWhenGameState.STATUS_RESULTS) {
+                                    if (!showMapReveal && !showDynamicLeaderboard) {
+                                        showRoundResultsDialog = false
+                                    }
                                 }
 
                             } catch (e: Exception) { Log.e("WW_Listener", "Error PARSING game state for $roomCode", e) }
@@ -354,26 +368,44 @@ fun WhereAndWhenScreen(
             )
         }
     ) { paddingValues ->
-        if (wwGameState == null || (currentChallenge == null && wwGameState?.roundStatus == WhereAndWhenGameState.STATUS_GUESSING && !showMapReveal && !showDynamicLeaderboard)) {
-            Log.d("WW_Loading", "Main loading: wwGameState isNull: ${wwGameState == null}, currentChallenge isNull: ${currentChallenge == null} (id: ${wwGameState?.currentChallengeId}), status: ${wwGameState?.roundStatus}, showMapReveal: $showMapReveal, showDynamicLeaderboard: $showDynamicLeaderboard")
+        val currentChallengeObject = currentChallenge // Use this local variable in the condition
+        val isGuessingAndChallengeDataMissing =
+            wwGameState?.roundStatus == WhereAndWhenGameState.STATUS_GUESSING &&
+                    !showMapReveal &&
+                    !showDynamicLeaderboard &&
+                    (wwGameState?.currentChallengeId.isNullOrEmpty() || currentChallengeObject == null)
+
+        if (wwGameState == null || isGuessingAndChallengeDataMissing) {
+            Log.d("WW_Loading", "Showing Loading Screen: wwGameState isNull: ${wwGameState == null}, isGuessingAndChallengeDataMissing: $isGuessingAndChallengeDataMissing (Status: ${wwGameState?.roundStatus}, ChallengeID: ${wwGameState?.currentChallengeId}, currentChallengeObjIsNull: ${currentChallengeObject == null})")
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues).background(Color(0xFF2C3E50)), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Color.White); Spacer(Modifier.height(8.dp))
-                    Text("Loading Game...", color = Color.White, fontFamily = arcadeFontFamily_WhereAndWhen)
+                    Text("Loading Challenge...", color = Color.White, fontFamily = arcadeFontFamily_WhereAndWhen) // Changed text slightly
                 }
             }
-            return@Scaffold
+            return@Scaffold // Important: return early to only show loading screen
         }
 
-        val interactionDuringGuessing = wwGameState!!.roundStatus == WhereAndWhenGameState.STATUS_GUESSING && !hasSubmittedGuess && timeLeftInSeconds > 0 && !showMapReveal && !showDynamicLeaderboard
-
+        val interactionDuringGuessing = wwGameState!!.roundStatus == WhereAndWhenGameState.STATUS_GUESSING &&
+                !hasSubmittedGuess && timeLeftInSeconds > 0 &&
+                !showMapReveal && !showDynamicLeaderboard
         Column(
             modifier = Modifier.padding(paddingValues).fillMaxSize().background(Color(0xFF2C3E50)).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween
         ) {
             if (!showMapReveal && !showDynamicLeaderboard && currentChallenge != null) {
-                Box( modifier = Modifier.weight(2.5f).fillMaxWidth().background(Color.Black, RoundedCornerShape(12.dp)).padding(4.dp), contentAlignment = Alignment.Center ) {
-                    Image(painter = painterResource(id = currentChallenge.imageResId), contentDescription = "Event: ${currentChallenge.eventName}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                key(currentChallenge.id) { // Keying by challenge ID
+                    Box(
+                        modifier = Modifier.weight(2.5f).fillMaxWidth().background(Color.Black, RoundedCornerShape(12.dp)).padding(4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = currentChallenge.imageResId),
+                            contentDescription = "Event: ${currentChallenge.eventName}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {

@@ -93,7 +93,7 @@ private const val LEADERBOARD_DURATION_MS = 5000L // 5 seconds for leaderboard d
 
 private const val MIN_SLIDER_YEAR = 1850f
 private const val MAX_SLIDER_YEAR = 2024f
-private val TOTAL_ROUNDS = 5
+private val TOTAL_ROUNDS = 5 // Should match the number of challenges for now
 
 val gameChallenges = listOf(
     Challenge("jfk", R.drawable.kennedy_assassination, 1963, 32.7790, -96.8089, "Dealey Plaza, Dallas, TX, USA", "Assassination of JFK"),
@@ -101,7 +101,7 @@ val gameChallenges = listOf(
     Challenge("berlinwall", R.drawable.berlin_wall_fall_1989, 1989, 52.5160, 13.3777, "Brandenburg Gate, Berlin, Germany", "Fall of the Berlin Wall"),
     Challenge("titanic", R.drawable.titanic_sinking_1912, 1912, 41.726931, -49.948253, "North Atlantic Ocean (Titanic Wreck)", "Sinking of the Titanic"),
     Challenge("wright", R.drawable.wright_brothers_flight_1903, 1903, 36.0156, -75.6674, "Kitty Hawk, North Carolina, USA", "Wright Brothers' First Flight")
-    // ... Add more challenges
+    // ... Add more challenges if TOTAL_ROUNDS is increased
 )
 
 // --- Helper Functions ---
@@ -115,29 +115,43 @@ private fun calculateDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: 
 private fun calculatePlayerScoreForRound(playerGuess: WWPlayerGuess?, challenge: Challenge, timeRanOutForThisPlayer: Boolean): WWPlayerRoundResult {
     val actualYear = challenge.correctYear
     val actualLocation = LatLng(challenge.correctLatitude, challenge.correctLongitude)
-    val guessedYearValue = playerGuess?.year ?: actualYear
+    val guessedYearValue = playerGuess?.year ?: actualYear // Default to actual year if no guess (0 points)
     val guessedLatLngValue = if (playerGuess?.lat != null && playerGuess.lng != null) LatLng(playerGuess.lat, playerGuess.lng) else null
 
-    if (timeRanOutForThisPlayer || playerGuess == null || (!playerGuess.submitted && !timeRanOutForThisPlayer)) {
+    // If player ran out of time, or somehow didn't submit a guess (which timeout should prevent for playerGuesses map)
+    if (timeRanOutForThisPlayer || playerGuess == null || (!playerGuess.submitted && !timeRanOutForThisPlayer) ) {
         val distanceForNoGuess = guessedLatLngValue?.let { calculateDistanceKm(it.latitude, it.longitude, actualLocation.latitude, actualLocation.longitude) }
         return WWPlayerRoundResult(guessedYearValue, 0, guessedLatLngValue?.latitude, guessedLatLngValue?.longitude, distanceForNoGuess, 0, 0, true)
     }
+
     val yearDifference = abs(guessedYearValue - actualYear)
     val yearScore = if (yearDifference > MAX_YEAR_DIFFERENCE_FOR_POINTS) 0 else (MAX_YEAR_SCORE * (1.0 - (yearDifference.toDouble() / MAX_YEAR_DIFFERENCE_FOR_POINTS))).toInt()
-    var locationScore = 0; var distanceInKm: Double? = null
+
+    var locationScore = 0
+    var distanceInKm: Double? = null
     if (guessedLatLngValue != null) {
         distanceInKm = calculateDistanceKm(guessedLatLngValue.latitude, guessedLatLngValue.longitude, actualLocation.latitude, actualLocation.longitude)
         locationScore = if (distanceInKm > MAX_DISTANCE_KM_FOR_POINTS) 0 else (MAX_LOCATION_SCORE * (1.0 - (distanceInKm / MAX_DISTANCE_KM_FOR_POINTS))).toInt()
     }
-    return WWPlayerRoundResult(guessedYearValue, yearScore.coerceIn(0, MAX_YEAR_SCORE), guessedLatLngValue?.latitude, guessedLatLngValue?.longitude, distanceInKm, locationScore.coerceIn(0, MAX_LOCATION_SCORE), (yearScore + locationScore).coerceIn(0, MAX_YEAR_SCORE + MAX_LOCATION_SCORE), false)
+
+    return WWPlayerRoundResult(
+        guessedYear = guessedYearValue,
+        yearScore = yearScore.coerceIn(0, MAX_YEAR_SCORE),
+        guessedLat = guessedLatLngValue?.latitude,
+        guessedLng = guessedLatLngValue?.longitude,
+        distanceKm = distanceInKm,
+        locationScore = locationScore.coerceIn(0, MAX_LOCATION_SCORE),
+        roundScore = (yearScore + locationScore).coerceIn(0, MAX_YEAR_SCORE + MAX_LOCATION_SCORE),
+        timeRanOut = false // If we reached here, it means a guess was submitted (not due to global timeout forcing a zero score)
+    )
 }
 
 private suspend fun proceedToNextRoundOrEndGame(
     db: FirebaseFirestore,
     roomCode: String,
-    currentWwGameState: WhereAndWhenGameState?, // Make nullable for safety
+    currentWwGameState: WhereAndWhenGameState?,
     totalRounds: Int,
-    myPlayerIdForLog: String // For logging context
+    myPlayerIdForLog: String
 ) {
     Log.i("WW_Host_Proc_Entry", "[HOST $myPlayerIdForLog] Entering proceedToNextRoundOrEndGame. CurrentRound: ${currentWwGameState?.currentRoundIndex}")
     if (currentWwGameState == null) {
@@ -148,10 +162,15 @@ private suspend fun proceedToNextRoundOrEndGame(
     if (currentRoundIdx + 1 < totalRounds) {
         val nextRoundIdx = currentRoundIdx + 1
         Log.i("WW_Host_Proc_NextRound", "[HOST $myPlayerIdForLog] Starting next round: ${nextRoundIdx + 1}")
+
+        // Use the existing challengeOrder from the game state
         val currentChallengeOrder = currentWwGameState.challengeOrder
         val nextChallengeId = currentChallengeOrder.getOrNull(nextRoundIdx)
-            ?: gameChallenges.map { it.id }.filterNot { it == currentWwGameState.currentChallengeId }.shuffled().firstOrNull()
-            ?: gameChallenges.first().id
+            ?: run { // Fallback if order is too short or empty (shouldn't happen if initialized correctly)
+                Log.e("WW_Host_Proc_Error", "[HOST $myPlayerIdForLog] Challenge order issue! Order size: ${currentChallengeOrder.size}, next index: $nextRoundIdx. Falling back.")
+                gameChallenges.map { it.id }.filterNot { it == currentWwGameState.currentChallengeId }.shuffled().firstOrNull()
+                    ?: gameChallenges.first().id // Absolute fallback
+            }
 
         val updates = mapOf(
             "gameState.whereandwhen.currentRoundIndex" to nextRoundIdx,
@@ -159,13 +178,14 @@ private suspend fun proceedToNextRoundOrEndGame(
             "gameState.whereandwhen.roundStartTimeMillis" to System.currentTimeMillis(),
             "gameState.whereandwhen.roundStatus" to WhereAndWhenGameState.STATUS_GUESSING,
             "gameState.whereandwhen.playerGuesses" to emptyMap<String, Any>(),
-            "gameState.whereandwhen.roundResults" to WWRoundResultsContainer(), // Reset results
-            "gameState.whereandwhen.mapRevealStartTimeMillis" to 0L, // Reset timestamp
-            "gameState.whereandwhen.resultsDialogStartTimeMillis" to 0L, // Reset timestamp
-            "gameState.whereandwhen.leaderboardStartTimeMillis" to 0L, // Reset timestamp
+            "gameState.whereandwhen.roundResults" to WWRoundResultsContainer(),
+            "gameState.whereandwhen.mapRevealStartTimeMillis" to 0L,
+            "gameState.whereandwhen.resultsDialogStartTimeMillis" to 0L,
+            "gameState.whereandwhen.leaderboardStartTimeMillis" to 0L,
             "gameState.whereandwhen.playersReadyForResultsDialog" to emptyMap<String, Boolean>(),
             "gameState.whereandwhen.playersReadyForLeaderboard" to emptyMap<String, Boolean>(),
             "gameState.whereandwhen.playersReadyForNextRound" to emptyMap<String, Boolean>()
+            // challengeOrder remains the same
         )
         Log.d("WW_Host_Proc_Update", "[HOST $myPlayerIdForLog] Firestore update for next round: $updates")
         db.collection("rooms").document(roomCode).update(updates)
@@ -212,7 +232,7 @@ fun WhereAndWhenScreen(
     val cameraPositionState = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(20.0, 0.0), 1.5f) }
     var mapReady by remember { mutableStateOf(false) }
     var hasSubmittedGuessThisRound by remember { mutableStateOf(false) }
-    var newRoundSignalId by remember { mutableStateOf<String?>(null) } // Stores new challenge ID as signal
+    var newRoundSignalId by remember { mutableStateOf<String?>(null) }
 
     var timeLeftInSeconds by remember { mutableStateOf(GUESSING_PHASE_DURATION_SECONDS) }
     val showGuessingUI by remember(wwGameState, hasSubmittedGuessThisRound) { derivedStateOf { wwGameState?.roundStatus == WhereAndWhenGameState.STATUS_GUESSING && !hasSubmittedGuessThisRound } }
@@ -224,6 +244,7 @@ fun WhereAndWhenScreen(
 
     var revealedGuessedLatLngMap by remember { mutableStateOf<Map<String, LatLng?>>(emptyMap()) }
     var revealedActualLatLng by remember { mutableStateOf<LatLng?>(null) }
+
     val currentChallenge = remember(wwGameState?.currentChallengeId) {
         Log.d("WW_Debug_Challenge_Memo", "[Player $myPlayerId] Re-evaluating currentChallenge. wwGameState ChallengeId: ${wwGameState?.currentChallengeId}")
         gameChallenges.find { it.id == wwGameState?.currentChallengeId }
@@ -262,6 +283,7 @@ fun WhereAndWhenScreen(
                     if (error != null) { Log.e("WW_Listener_Error", "Room listen error for $roomCode", error); return@addSnapshotListener }
                     if (snapshot != null && snapshot.exists()) {
                         roomDocSnapshot = snapshot.data
+                        @Suppress("UNCHECKED_CAST")
                         val rawGameState = snapshot.get("gameState.whereandwhen") as? Map<String, Any>
                         if (rawGameState != null) {
                             try {
@@ -292,8 +314,8 @@ fun WhereAndWhenScreen(
 
                                 if (justStartedNewGuessingRound) {
                                     Log.i("WW_UI_Reset_Signal", "Firestore listener: New guessing round SIGNAL set for Challenge: ${newState.currentChallengeId}. Player: $myPlayerId")
-                                    newRoundSignalId = newState.currentChallengeId
-                                    hasSubmittedGuessThisRound = false
+                                    newRoundSignalId = newState.currentChallengeId // This triggers the UI reset effect
+                                    hasSubmittedGuessThisRound = false // Reset submission status for the new round
                                 }
                             } catch (e: Exception) { Log.e("WW_Listener_Error", "Error PARSING game state for $roomCode", e) }
                         }
@@ -324,7 +346,7 @@ fun WhereAndWhenScreen(
             Log.i("WW_UI_Reset_EFFECT", "[Player $myPlayerId] Effect: Processing new round signal for challenge $newRoundSignalId. Map IS ready.")
             selectedYear = (MIN_SLIDER_YEAR + MAX_SLIDER_YEAR) / 2f
             selectedLatLng = null
-            playerGuessMarkerState.position = LatLng(0.0,0.0)
+            playerGuessMarkerState.position = LatLng(0.0,0.0) // Reset marker to avoid stale display
             playerGuessMarkerState.hideInfoWindow()
             try {
                 Log.i("WW_Camera_EFFECT_Reset", "[Player $myPlayerId] Resetting camera for new round $newRoundSignalId. Current Cam Pos: ${cameraPositionState.position}")
@@ -333,15 +355,14 @@ fun WhereAndWhenScreen(
                         CameraPosition.fromLatLngZoom(LatLng(20.0, 0.0), 1.5f)
                     )
                 )
-            } catch (e: Exception) {
-                Log.e("WW_Camera_EFFECT_Reset", "[Player $myPlayerId] Error resetting camera for new round: ${e.message}")
-            }
+            } catch (e: Exception) { Log.e("WW_Camera_EFFECT_Reset", "[Player $myPlayerId] Error resetting camera for new round: ${e.message}") }
             newRoundSignalId = null // Consume the signal
         } else if (newRoundSignalId != null && !mapReady) {
             Log.w("WW_UI_Reset_EFFECT", "[Player $myPlayerId] Effect: New round signal $newRoundSignalId, but map is NOT ready. Will retry when mapReady.")
         }
     }
 
+    // Local timer for each client's guessing phase
     LaunchedEffect(wwGameState?.roundStartTimeMillis, wwGameState?.roundStatus, wwGameState?.currentRoundIndex, hasSubmittedGuessThisRound) {
         val startTime = wwGameState?.roundStartTimeMillis ?: 0L
         if (hasSubmittedGuessThisRound || startTime == 0L || wwGameState?.roundStatus != WhereAndWhenGameState.STATUS_GUESSING) {
@@ -354,28 +375,36 @@ fun WhereAndWhenScreen(
             val currentRemaining = GUESSING_PHASE_DURATION_SECONDS - (elapsedMillis / 1000).toInt()
             timeLeftInSeconds = currentRemaining.coerceAtLeast(0)
             if (timeLeftInSeconds == 0) {
-                if (!hasSubmittedGuessThisRound) {
+                if (!hasSubmittedGuessThisRound) { // Double check, might have submitted just before timer ticked to 0
                     playSound(timeUpSoundPlayer)
                     Log.i("WW_Timer", "[Player $myPlayerId] Local GUESSING timer ran out. Auto-submitting.")
-                    hasSubmittedGuessThisRound = true
+                    hasSubmittedGuessThisRound = true // Optimistically set, Firestore success will confirm
                     val guessToSubmit = WWPlayerGuess(selectedYear.toInt(), selectedLatLng?.latitude, selectedLatLng?.longitude, true, (GUESSING_PHASE_DURATION_SECONDS * 1000L))
                     db.collection("rooms").document(roomCode).update("gameState.whereandwhen.playerGuesses.$myPlayerId", guessToSubmit)
                         .addOnSuccessListener { Log.i("WW_Submit", "[Player $myPlayerId] Auto-submitted guess (timeout).") }
-                        .addOnFailureListener { e -> Log.e("WW_Submit", "[Player $myPlayerId] Error auto-submitting guess (timeout)", e); hasSubmittedGuessThisRound = false }
+                        .addOnFailureListener { e -> Log.e("WW_Submit", "[Player $myPlayerId] Error auto-submitting guess (timeout)", e); hasSubmittedGuessThisRound = false /* Rollback on failure */ }
                 }
                 break
             }
-            delay(500)
+            delay(500) // Check every half second
         }
     }
 
+    // --- HOST LOGIC FOR STATE TRANSITIONS ---
+    // 1. Guessing -> Map Reveal (Host only)
     LaunchedEffect(wwGameState?.playerGuesses, roomPlayers.size, amIHost, wwGameState?.roundStatus, wwGameState?.roundStartTimeMillis) {
         if (!amIHost || wwGameState?.roundStatus != WhereAndWhenGameState.STATUS_GUESSING) return@LaunchedEffect
-        val activePlayerIds = roomPlayers.mapNotNull { it["uid"] as? String }; if (activePlayerIds.isEmpty() || activePlayerIds.size != roomPlayers.size) { Log.d("WW_Host_Flow_GuessEnd", "[HOST $myPlayerId] Guessing: Waiting for all player UIDs. Found ${activePlayerIds.size}/${roomPlayers.size}."); return@LaunchedEffect }
+
+        val activePlayerIds = roomPlayers.mapNotNull { it["uid"] as? String }
+        if (activePlayerIds.isEmpty() || (roomPlayers.isNotEmpty() && activePlayerIds.size != roomPlayers.size)) {
+            Log.d("WW_Host_Flow_GuessEnd", "[HOST $myPlayerId] Guessing: Waiting for all player UIDs. Found ${activePlayerIds.size}/${roomPlayers.size}.")
+            return@LaunchedEffect
+        }
+
         val guesses = wwGameState?.playerGuesses ?: emptyMap()
         val allHaveSubmitted = activePlayerIds.all { guesses[it]?.submitted == true }
         val roundTimeMillis = wwGameState?.roundStartTimeMillis ?: 0L
-        val isTimeUpGlobally = roundTimeMillis > 0 && (System.currentTimeMillis() - roundTimeMillis) >= (GUESSING_PHASE_DURATION_SECONDS * 1000 + 2000L) // 2s buffer for safety
+        val isTimeUpGlobally = roundTimeMillis > 0 && (System.currentTimeMillis() - roundTimeMillis) >= (GUESSING_PHASE_DURATION_SECONDS * 1000 + 2000L) // 2s buffer
 
         if (allHaveSubmitted || isTimeUpGlobally) {
             Log.i("WW_Host_Flow_GuessEnd", "[HOST $myPlayerId] Guessing ended. Transitioning to Map Reveal. AllSubmitted=$allHaveSubmitted, TimeUpGlobal=$isTimeUpGlobally. Players: ${activePlayerIds.joinToString()}, Guesses: $guesses")
@@ -386,90 +415,185 @@ fun WhereAndWhenScreen(
         }
     }
 
-    LaunchedEffect(amIHost, wwGameState?.roundStatus, wwGameState?.mapRevealStartTimeMillis, currentChallenge?.id) {
+    // 2. Map Reveal -> Results (Host only)
+    LaunchedEffect(amIHost, wwGameState?.roundStatus, wwGameState?.mapRevealStartTimeMillis, wwGameState?.currentChallengeId) {
         val effectIsHost = amIHost
         val effectRoundStatus = wwGameState?.roundStatus
         val effectMapRevealStartTime = wwGameState?.mapRevealStartTimeMillis ?: 0L
-        val effectChallengeId = wwGameState?.currentChallengeId
-        val effectChallengeObject = currentChallenge
+        val initialEffectChallengeId = wwGameState?.currentChallengeId
 
-        Log.d("WW_Host_MR_Entry", "[Host $myPlayerId] Entering MapReveal->Results Effect. Host: $effectIsHost, Status: $effectRoundStatus, MapRevealStart: $effectMapRevealStartTime, ChallengeID: $effectChallengeId, ChallengeObj: ${effectChallengeObject?.eventName}")
+        val initialEffectChallengeObject = initialEffectChallengeId?.let { chalId -> gameChallenges.find { it.id == chalId } }
+
+        Log.d("WW_Host_MR_Entry", "[Host $myPlayerId] Entering MapReveal->Results Effect. Host: $effectIsHost, Status: $effectRoundStatus, MapRevealStart: $effectMapRevealStartTime, ChallengeID: $initialEffectChallengeId, ChallengeObj: ${initialEffectChallengeObject?.eventName}")
 
         if (!effectIsHost || effectRoundStatus != WhereAndWhenGameState.STATUS_SHOWING_MAP_REVEAL) {
             return@LaunchedEffect
         }
-        if (effectMapRevealStartTime == 0L) { Log.d("WW_Host_MR_Exit", "[Host $myPlayerId] Map Reveal: mapRevealStartTimeMillis is 0, waiting."); return@LaunchedEffect }
-        if (effectChallengeObject == null) { Log.e("WW_Host_MR_Error", "[Host $myPlayerId] Map Reveal: effectChallengeObject is null! ChallengeID was $effectChallengeId. Cannot proceed."); return@LaunchedEffect }
-
-        if (System.currentTimeMillis() - effectMapRevealStartTime >= MAP_REVEAL_DURATION_MS) {
-            Log.i("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Map Reveal DURATION ENDED for challenge: ${effectChallengeObject.id}. Preparing to calculate results.")
-            val guesses = wwGameState?.playerGuesses ?: emptyMap()
-            val activePlayerIds = roomPlayers.mapNotNull { it["uid"] as? String }
-            Log.d("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Map Reveal: Active players for score calc: $activePlayerIds")
-
-            val roundResultsMap = activePlayerIds.associateWith { playerId ->
-                val playerGuess = guesses[playerId]
-                val timeRanOutForPlayer = playerGuess?.timeTakenMs != null && playerGuess.timeTakenMs >= GUESSING_PHASE_DURATION_SECONDS * 1000L
-                Log.d("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Calculating score for $playerId, guess: $playerGuess, timeRanOut: $timeRanOutForPlayer using challenge ${effectChallengeObject.eventName}")
-                calculatePlayerScoreForRound(playerGuess, effectChallengeObject, timeRanOutForPlayer)
-            }
-            Log.d("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Map Reveal: Calculated roundResultsMap: $roundResultsMap")
-
-            val resultsContainer = WWRoundResultsContainer(effectChallengeObject.id, roundResultsMap)
-            val updatedRoomPlayersData = roomPlayers.map { playerMap ->
-                val uid = playerMap["uid"] as? String ?: ""
-                val currentTotalScore = (playerMap["totalScore"] as? Long)?.toInt() ?: 0
-                playerMap.toMutableMap().apply { this["totalScore"] = currentTotalScore + (roundResultsMap[uid]?.roundScore ?: 0) }
-            }
-            Log.d("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Map Reveal: Prepared updatedRoomPlayersData. Attempting Firestore update to RESULTS.")
-
-            db.collection("rooms").document(roomCode).update(mapOf(
-                "gameState.whereandwhen.roundResults" to resultsContainer,
-                "gameState.whereandwhen.roundStatus" to WhereAndWhenGameState.STATUS_RESULTS,
-                "gameState.whereandwhen.resultsDialogStartTimeMillis" to System.currentTimeMillis(),
-                "gameState.whereandwhen.playersReadyForLeaderboard" to emptyMap<String, Boolean>(),
-                "players" to updatedRoomPlayersData
-            )).addOnSuccessListener {
-                Log.i("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Successfully posted round results & updated state to RESULTS for challenge ${effectChallengeObject.id}")
-            }.addOnFailureListener { e -> Log.e("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Error posting round results by host for challenge ${effectChallengeObject.id}", e) }
-        } else {
-            Log.d("WW_Host_MR_Waiting", "[Host $myPlayerId] Map Reveal: Duration not yet ended for ${effectChallengeObject.id}. Time left: ${MAP_REVEAL_DURATION_MS - (System.currentTimeMillis() - effectMapRevealStartTime)}ms")
+        if (effectMapRevealStartTime == 0L) {
+            Log.d("WW_Host_MR_Exit", "[Host $myPlayerId] Map Reveal: mapRevealStartTimeMillis is 0, waiting.")
+            return@LaunchedEffect
         }
+        if (initialEffectChallengeObject == null) {
+            Log.e("WW_Host_MR_Error", "[Host $myPlayerId] Map Reveal: initialEffectChallengeObject is null! ChallengeID was $initialEffectChallengeId. Cannot proceed.")
+            return@LaunchedEffect
+        }
+
+        val timeSinceMapRevealStarted = System.currentTimeMillis() - effectMapRevealStartTime
+        val timeRemainingForMapReveal = MAP_REVEAL_DURATION_MS - timeSinceMapRevealStarted
+
+        if (timeRemainingForMapReveal > 0) {
+            Log.d("WW_Host_MR_Waiting", "[Host $myPlayerId] Map Reveal: Duration not yet ended for ${initialEffectChallengeObject.id}. Time left: ${timeRemainingForMapReveal}ms. Delaying...")
+            delay(timeRemainingForMapReveal)
+        }
+
+        val currentWwGameStateAfterDelay = wwGameState
+        if (currentWwGameStateAfterDelay?.roundStatus != WhereAndWhenGameState.STATUS_SHOWING_MAP_REVEAL ||
+            currentWwGameStateAfterDelay.mapRevealStartTimeMillis != effectMapRevealStartTime ||
+            currentWwGameStateAfterDelay.currentChallengeId != initialEffectChallengeId) {
+            Log.w("WW_Host_MR_Stale", "[Host $myPlayerId] Map Reveal: State changed during delay for challenge ${initialEffectChallengeObject.id}. Aborting. Status: ${currentWwGameStateAfterDelay?.roundStatus}, StartTime: ${currentWwGameStateAfterDelay?.mapRevealStartTimeMillis}, ChalId: ${currentWwGameStateAfterDelay?.currentChallengeId}")
+            return@LaunchedEffect
+        }
+
+        val currentChallengeAfterDelay = initialEffectChallengeId.let { chalId -> gameChallenges.find { it.id == chalId } }
+        if (currentChallengeAfterDelay == null) {
+            Log.e("WW_Host_MR_Error_PostDelay", "[Host $myPlayerId] Map Reveal: currentChallengeAfterDelay is null post-delay! ChallengeID was $initialEffectChallengeId.")
+            return@LaunchedEffect
+        }
+
+        Log.i("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Map Reveal DURATION ENDED for challenge: ${currentChallengeAfterDelay.id}. Preparing to calculate results.")
+        val guesses = currentWwGameStateAfterDelay.playerGuesses
+        val activePlayerIds = roomPlayers.mapNotNull { it["uid"] as? String }
+
+        val roundResultsMap = activePlayerIds.associateWith { playerId ->
+            val playerGuess = guesses[playerId]
+            val timeTaken = playerGuess?.timeTakenMs ?: (GUESSING_PHASE_DURATION_SECONDS * 1000L + 1000L)
+            val timeRanOutForPlayer = playerGuess?.submitted == false || timeTaken >= GUESSING_PHASE_DURATION_SECONDS * 1000L
+            calculatePlayerScoreForRound(playerGuess, currentChallengeAfterDelay, timeRanOutForPlayer)
+        }
+
+        val resultsContainer = WWRoundResultsContainer(currentChallengeAfterDelay.id, roundResultsMap)
+        val updatedRoomPlayersData = roomPlayers.map { playerMap ->
+            val uid = playerMap["uid"] as? String ?: ""
+            val currentTotalScore = (playerMap["totalScore"] as? Long)?.toInt() ?: 0
+            playerMap.toMutableMap().apply { this["totalScore"] = currentTotalScore + (roundResultsMap[uid]?.roundScore ?: 0) }
+        }
+
+        db.collection("rooms").document(roomCode).update(mapOf(
+            "gameState.whereandwhen.roundResults" to resultsContainer,
+            "gameState.whereandwhen.roundStatus" to WhereAndWhenGameState.STATUS_RESULTS,
+            "gameState.whereandwhen.resultsDialogStartTimeMillis" to System.currentTimeMillis(),
+            "gameState.whereandwhen.playersReadyForLeaderboard" to emptyMap<String, Boolean>(),
+            "players" to updatedRoomPlayersData
+        )).addOnSuccessListener {
+            Log.i("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Successfully posted round results & updated state to RESULTS for challenge ${currentChallengeAfterDelay.id}")
+        }.addOnFailureListener { e -> Log.e("WW_Host_Flow_MapRevealEnd", "[HOST $myPlayerId] Error posting round results for challenge ${currentChallengeAfterDelay.id}", e) }
     }
 
-    LaunchedEffect(wwGameState?.playersReadyForLeaderboard, roomPlayers.size, amIHost, wwGameState?.roundStatus, wwGameState?.resultsDialogStartTimeMillis) {
-        if (!amIHost || wwGameState?.roundStatus != WhereAndWhenGameState.STATUS_RESULTS) return@LaunchedEffect
-        val readyPlayers = wwGameState?.playersReadyForLeaderboard ?: emptyMap()
-        val activePlayerIds = roomPlayers.mapNotNull { it["uid"] as? String }; if (activePlayerIds.isEmpty() || activePlayerIds.size != roomPlayers.size) return@LaunchedEffect
-        val allReadyForLeaderboard = activePlayerIds.all { readyPlayers[it] == true }
-        val dialogStartTime = wwGameState?.resultsDialogStartTimeMillis ?: 0L
-        val timeoutReached = dialogStartTime > 0 && (System.currentTimeMillis() - dialogStartTime >= RESULTS_DIALOG_TIMEOUT_MS)
+    // 3. Results -> Leaderboard (Host only)
+    LaunchedEffect(amIHost, wwGameState?.roundStatus, wwGameState?.resultsDialogStartTimeMillis, wwGameState?.playersReadyForLeaderboard?.hashCode(), wwGameState?.currentChallengeId) {
+        val effectIsHost = amIHost
+        val effectRoundStatus = wwGameState?.roundStatus
+        val effectDialogStartTime = wwGameState?.resultsDialogStartTimeMillis ?: 0L
+        val effectReadyPlayers = wwGameState?.playersReadyForLeaderboard ?: emptyMap()
+        val effectChallengeId = wwGameState?.currentChallengeId
 
-        if (allReadyForLeaderboard || timeoutReached) {
-            Log.i("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] Results dialog phase ended. Transitioning to Leaderboard. AllReady=$allReadyForLeaderboard, Timeout=$timeoutReached")
+        if (!effectIsHost || effectRoundStatus != WhereAndWhenGameState.STATUS_RESULTS) {
+            return@LaunchedEffect
+        }
+
+        val activePlayerIds = roomPlayers.mapNotNull { it["uid"] as? String }
+        if (activePlayerIds.isEmpty() || (roomPlayers.isNotEmpty() && activePlayerIds.size != roomPlayers.size)) {
+            Log.d("WW_Host_ResToEnd", "[HOST $myPlayerId] Results: Waiting for all player UIDs. Found ${activePlayerIds.size}/${roomPlayers.size}.")
+            return@LaunchedEffect
+        }
+
+        val allReadyForLeaderboard = activePlayerIds.all { effectReadyPlayers[it] == true }
+
+        if (allReadyForLeaderboard) {
+            Log.i("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] All players ready for leaderboard. Transitioning.")
             db.collection("rooms").document(roomCode).update(mapOf(
                 "gameState.whereandwhen.roundStatus" to WhereAndWhenGameState.STATUS_SHOWING_LEADERBOARD,
                 "gameState.whereandwhen.leaderboardStartTimeMillis" to System.currentTimeMillis()
-            )).addOnFailureListener { e -> Log.e("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] Error setting status to SHOWING_LEADERBOARD", e) }
+            )).addOnFailureListener { e -> Log.e("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] Error setting status to SHOWING_LEADERBOARD (all ready)", e) }
+            return@LaunchedEffect
+        }
+
+        if (effectDialogStartTime > 0L) {
+            val timeSinceDialogStart = System.currentTimeMillis() - effectDialogStartTime
+            val timeRemainingForDialog = RESULTS_DIALOG_TIMEOUT_MS - timeSinceDialogStart
+
+            if (timeRemainingForDialog > 0) {
+                Log.d("WW_Host_ResToEnd_Wait", "[HOST $myPlayerId] Results: Not all ready. Waiting for dialog timeout or all ready. Time left: ${timeRemainingForDialog}ms.")
+                delay(timeRemainingForDialog)
+
+                val freshWwGameState = wwGameState
+                if (freshWwGameState?.roundStatus != WhereAndWhenGameState.STATUS_RESULTS ||
+                    freshWwGameState.resultsDialogStartTimeMillis != effectDialogStartTime ||
+                    freshWwGameState.currentChallengeId != effectChallengeId) {
+                    Log.w("WW_Host_ResToEnd_Stale", "[HOST $myPlayerId] Results: State changed during timeout. Aborting. Status: ${freshWwGameState?.roundStatus}, DialogStart: ${freshWwGameState?.resultsDialogStartTimeMillis}, ChalId: ${freshWwGameState?.currentChallengeId}")
+                    return@LaunchedEffect
+                }
+                val freshReadyPlayers = freshWwGameState.playersReadyForLeaderboard ?: emptyMap()
+                if (activePlayerIds.all { freshReadyPlayers[it] == true }) {
+                    Log.i("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] All players became ready during timeout delay. Transitioning.")
+                } else {
+                    Log.i("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] Results dialog TIMED OUT. Transitioning to Leaderboard.")
+                }
+            } else {
+                Log.i("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] Results dialog TIMEOUT condition met on effect entry. Transitioning.")
+            }
+            db.collection("rooms").document(roomCode).update(mapOf(
+                "gameState.whereandwhen.roundStatus" to WhereAndWhenGameState.STATUS_SHOWING_LEADERBOARD,
+                "gameState.whereandwhen.leaderboardStartTimeMillis" to System.currentTimeMillis()
+            )).addOnFailureListener { e -> Log.e("WW_Host_Flow_ResultsEnd", "[HOST $myPlayerId] Error setting status to SHOWING_LEADERBOARD (timeout/post-delay)", e) }
+        } else {
+            Log.d("WW_Host_ResToEnd_NoStart", "[HOST $myPlayerId] Results: Dialog start time not set, cannot proceed with timeout.")
         }
     }
 
-    LaunchedEffect(amIHost, wwGameState?.roundStatus, wwGameState?.leaderboardStartTimeMillis) {
-        if (!amIHost || wwGameState?.roundStatus != WhereAndWhenGameState.STATUS_SHOWING_LEADERBOARD) return@LaunchedEffect
-        val leaderboardStart = wwGameState?.leaderboardStartTimeMillis ?: 0L
-        if (leaderboardStart > 0 && (System.currentTimeMillis() - leaderboardStart >= LEADERBOARD_DURATION_MS)) {
-            Log.i("WW_Host_Flow_LeaderboardEnd", "[HOST $myPlayerId] Leaderboard duration ended. Proceeding to next round or ending game.")
-            scope.launch { proceedToNextRoundOrEndGame(db, roomCode, wwGameState, TOTAL_ROUNDS, myPlayerId) }
+
+    // 4. Leaderboard -> Next Round / End Game (Host only)
+    LaunchedEffect(amIHost, wwGameState?.roundStatus, wwGameState?.leaderboardStartTimeMillis, wwGameState?.currentChallengeId) {
+        val effectIsHost = amIHost
+        val effectRoundStatus = wwGameState?.roundStatus
+        val effectLeaderboardStartTime = wwGameState?.leaderboardStartTimeMillis ?: 0L
+        val effectChallengeId = wwGameState?.currentChallengeId
+
+        if (!effectIsHost || effectRoundStatus != WhereAndWhenGameState.STATUS_SHOWING_LEADERBOARD) {
+            return@LaunchedEffect
         }
+        if (effectLeaderboardStartTime == 0L) {
+            Log.d("WW_Host_LdrToEnd_NoStart", "[HOST $myPlayerId] Leaderboard: leaderboardStartTimeMillis is 0, waiting.")
+            return@LaunchedEffect
+        }
+
+        val timeSinceLeaderboardStart = System.currentTimeMillis() - effectLeaderboardStartTime
+        val timeRemainingForLeaderboard = LEADERBOARD_DURATION_MS - timeSinceLeaderboardStart
+
+        if (timeRemainingForLeaderboard > 0) {
+            Log.d("WW_Host_LdrToEnd_Wait", "[HOST $myPlayerId] Leaderboard: Duration not yet ended. Time left: ${timeRemainingForLeaderboard}ms. Delaying...")
+            delay(timeRemainingForLeaderboard)
+
+            val freshWwGameState = wwGameState
+            if (freshWwGameState?.roundStatus != WhereAndWhenGameState.STATUS_SHOWING_LEADERBOARD ||
+                freshWwGameState.leaderboardStartTimeMillis != effectLeaderboardStartTime ||
+                freshWwGameState.currentChallengeId != effectChallengeId) {
+                Log.w("WW_Host_LdrToEnd_Stale", "[HOST $myPlayerId] Leaderboard: State changed during delay. Aborting. Status: ${freshWwGameState?.roundStatus}, LdrStart: ${freshWwGameState?.leaderboardStartTimeMillis}, ChalId: ${freshWwGameState?.currentChallengeId}")
+                return@LaunchedEffect
+            }
+        }
+        Log.i("WW_Host_Flow_LeaderboardEnd", "[HOST $myPlayerId] Leaderboard duration ended. Proceeding to next round or ending game.")
+        val gameStateForProceed = wwGameState
+        scope.launch { proceedToNextRoundOrEndGame(db, roomCode, gameStateForProceed, TOTAL_ROUNDS, myPlayerId) }
     }
 
+    // Client side: Update camera for Map Reveal
     LaunchedEffect(showMapRevealUI, wwGameState?.playerGuesses, currentChallenge?.id, mapReady, cameraPositionState) {
         if (showMapRevealUI && currentChallenge != null && mapReady) {
-            // Ensure camera is not already moving from a previous (potentially interrupted) animation
             if (cameraPositionState.isMoving) {
                 Log.d("WW_Camera_EFFECT_Reveal", "[Player $myPlayerId] Map Reveal: Camera is already moving, delaying new animation attempt.")
-                delay(300) // A small delay to let ongoing animation potentially finish or be superseded
-                if (!isActive) return@LaunchedEffect // Check if coroutine was cancelled during delay
+                delay(300)
+                if (!isActive) return@LaunchedEffect
             }
             Log.i("WW_Camera_EFFECT_Reveal", "[Player $myPlayerId] Map Reveal: Map is ready. Preparing camera animation. Current Challenge: ${currentChallenge.eventName}")
             val guesses = wwGameState?.playerGuesses ?: emptyMap()
@@ -546,7 +670,7 @@ fun WhereAndWhenScreen(
             modifier = Modifier.padding(paddingValues).fillMaxSize().background(Color(0xFF2C3E50)).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween
         ) {
-            key(currentWwGameState.roundStatus, currentWwGameState.currentChallengeId) {
+            key(currentWwGameState.roundStatus, currentWwGameState.currentChallengeId) { // Recompose content when status or challenge changes
                 if (showGuessingUI && currentChallenge != null) {
                     Box( modifier = Modifier.weight(2.5f).fillMaxWidth().background(Color.Black, RoundedCornerShape(12.dp)).padding(4.dp), contentAlignment = Alignment.Center ) {
                         Image(painter = painterResource(id = currentChallenge.imageResId), contentDescription = "Event: ${currentChallenge.eventName}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
@@ -598,12 +722,12 @@ fun WhereAndWhenScreen(
                     Button(
                         onClick = {
                             if (selectedLatLng == null) { Toast.makeText(context, "Please select a location on the map.", Toast.LENGTH_SHORT).show(); return@Button }
-                            hasSubmittedGuessThisRound = true // Set this flag optimistically
+                            hasSubmittedGuessThisRound = true
                             val guessToSubmit = WWPlayerGuess(selectedYear.toInt(), selectedLatLng?.latitude, selectedLatLng?.longitude, true, (GUESSING_PHASE_DURATION_SECONDS - timeLeftInSeconds) * 1000L)
                             Log.i("WW_Submit_Attempt", "[Player $myPlayerId] Attempting to submit guess: $guessToSubmit")
                             db.collection("rooms").document(roomCode).update("gameState.whereandwhen.playerGuesses.$myPlayerId", guessToSubmit)
                                 .addOnSuccessListener { Log.i("WW_Submit_Success", "[Player $myPlayerId] Guess successfully submitted.") }
-                                .addOnFailureListener { e -> Log.e("WW_Submit_Fail", "[Player $myPlayerId] Error submitting guess.", e); hasSubmittedGuessThisRound = false /* Rollback on failure */ }
+                                .addOnFailureListener { e -> Log.e("WW_Submit_Fail", "[Player $myPlayerId] Error submitting guess.", e); hasSubmittedGuessThisRound = false }
                         },
                         modifier = Modifier.fillMaxWidth(0.8f).height(60.dp), shape = RoundedCornerShape(16.dp),
                         enabled = selectedLatLng != null,
@@ -616,7 +740,7 @@ fun WhereAndWhenScreen(
                         Text("WAITING FOR OTHER PLAYERS...", fontFamily = arcadeFontFamily_WhereAndWhen, color = Color.Yellow, fontSize = 18.sp)
                     }
                 }
-            } // End Keyed Block
+            }
         }
 
         if (showResultsDialogUI && currentWwGameState.roundStatus == WhereAndWhenGameState.STATUS_RESULTS && currentWwGameState.roundResults.results.isNotEmpty() && currentChallenge != null) {
@@ -684,7 +808,7 @@ fun WhereAndWhenScreen(
                 RoundLeaderboardScreen(
                     playerResults = resultsForLeaderboard,
                     roomPlayers = roomPlayers,
-                    onFinished = { // This onFinished is now just for local animation/display timing
+                    onFinished = {
                         Log.i("WW_Client_Sync_Ldrbrd_Finish", "[Player $myPlayerId] Leaderboard local animation/display time finished.")
                     }
                 )

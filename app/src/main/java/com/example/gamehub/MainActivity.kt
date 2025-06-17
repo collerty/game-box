@@ -26,9 +26,11 @@ import com.example.gamehub.features.battleships.ui.BattleshipsPlayScreen
 import com.example.gamehub.features.battleships.ui.MapVoteScreen
 import com.example.gamehub.features.battleships.ui.ShipPlacementRoute
 import com.example.gamehub.features.codenames.ui.CodenamesScreen
-import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
 import com.example.gamehub.features.ohpardon.ui.OhPardonScreen
-import com.example.gamehub.features.screamosaur.ui.ScreamosaurScreen
+import com.example.gamehub.features.spy.ui.SpyScreen
+import com.example.gamehub.features.spy.ui.SpyGameScreen
+import com.example.gamehub.features.jorisjump.ui.JorisJumpScreen
+import com.example.gamehub.features.ScreamOSaur.ui.ScreamosaurScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersPreGameScreen
 import com.example.gamehub.features.spaceinvaders.ui.SpaceInvadersScreen
 import com.example.gamehub.features.spy.ui.SpyScreen
@@ -243,7 +245,8 @@ fun GameHubApp() {
             }
 
 
-            composable(NavRoutes.SPY_GAME)       { SpyScreen() }
+            composable(NavRoutes.SPY_GAME)       { SpyScreen(navController) }
+            composable("spy_game") { SpyGameScreen(navController) }
             composable(NavRoutes.JORISJUMP_GAME) { JorisJumpScreen() }
             composable(NavRoutes.SCREAMOSAUR_GAME) { ScreamosaurScreen() }
             composable(NavRoutes.SPACE_INVADERS_PREGAME) { SpaceInvadersPreGameScreen(navController = navController) }
@@ -367,6 +370,8 @@ fun GameHubApp() {
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
                 GameInfoScreen(navController, gameId)
             }
+
+            composable(NavRoutes.VOICE_CHAT_TEST) { com.example.gamehub.features.test.VoiceChatTestPage() }
         }
     }
 }

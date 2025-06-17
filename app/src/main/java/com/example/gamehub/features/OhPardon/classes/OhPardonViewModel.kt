@@ -323,13 +323,6 @@ class OhPardonViewModel(
         }
     }
 
-    fun getBoardOffsetForPlayer(color: Color): Int = when (color) {
-        Color.Red -> 0
-        Color.Green -> 20
-        Color.Yellow -> 30
-        Color.Blue -> 10
-        else -> 0
-    }
 
     fun attemptMovePawn(currentUserUid: String, pawnId: String) {
         val currentGame = _gameRoom.value ?: return
@@ -362,7 +355,6 @@ class OhPardonViewModel(
             else -> 0
         }
 
-        val offset = getBoardOffset(player.color)
         val currentPos = pawn.position
 
         fun emitInvalidMove(msg: String) {

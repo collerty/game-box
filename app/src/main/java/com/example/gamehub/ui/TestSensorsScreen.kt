@@ -94,6 +94,14 @@ fun TestSensorsScreen(navController: NavController) {
                 normalRes = R.drawable.menu_button_extra_long,
                 pressedRes = R.drawable.menu_button_extra_long_pressed
             )
+            Spacer(Modifier.height(16.dp))
+            SpriteMenuButton(
+                text = "Go to Voice Chat Test",
+                onClick = { navController.navigate(NavRoutes.VOICE_CHAT_TEST) },
+                modifier = Modifier.fillMaxWidth(0.95f),
+                normalRes = R.drawable.menu_button_extra_long,
+                pressedRes = R.drawable.menu_button_extra_long_pressed
+            )
             Spacer(Modifier.height(32.dp))
             SpriteMenuButton(
                 text = "Back to Menu",

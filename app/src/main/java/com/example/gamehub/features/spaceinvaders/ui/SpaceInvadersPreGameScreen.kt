@@ -22,7 +22,6 @@ import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel
 import com.example.gamehub.navigation.NavRoutes
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.Alignment
@@ -44,8 +43,8 @@ fun SpaceInvadersPreGameScreen(
 
     val greenTextColor = Color(0xFF00FF00)
 
-    val retroFont = FontFamily(
-        Font(R.font.space_invaders, FontWeight.Normal)
+    val gameBoxFont = FontFamily(
+        Font(R.font.gamebox_font, FontWeight.Bold)
     )
 
     Column(
@@ -58,8 +57,8 @@ fun SpaceInvadersPreGameScreen(
         Text(
             "Enter your name:",
             color = greenTextColor,
-            fontFamily = retroFont,
-            fontSize = 14.sp
+            fontFamily = gameBoxFont,
+            fontSize = 24.sp
         )
 
         OutlinedTextField(
@@ -67,9 +66,9 @@ fun SpaceInvadersPreGameScreen(
             onValueChange = { viewModel.onPlayerNameChanged(it) },
             modifier = Modifier.fillMaxWidth(),
             label = {
-                Text("Name", color = greenTextColor, fontFamily = retroFont, fontSize = 12.sp)
+                Text("Name", color = greenTextColor, fontFamily = gameBoxFont, fontSize = 22.sp)
             },
-            textStyle = TextStyle(color = greenTextColor, fontFamily = retroFont, fontSize = 12.sp),
+            textStyle = TextStyle(color = greenTextColor, fontFamily = gameBoxFont, fontSize = 22.sp),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color.Black,
                 unfocusedContainerColor = Color.Black,
@@ -95,7 +94,7 @@ fun SpaceInvadersPreGameScreen(
                 contentColor = Color(0xFF00FF00) // Green
             )
         ) {
-            Text("Play", fontFamily = retroFont, fontSize = 14.sp)
+            Text("Play", fontFamily = gameBoxFont, fontSize = 24.sp)
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -103,8 +102,8 @@ fun SpaceInvadersPreGameScreen(
         Text(
             "High Scores",
             color = greenTextColor,
-            fontFamily = retroFont,
-            fontSize = 16.sp,
+            fontFamily = gameBoxFont,
+            fontSize = 26.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
 
@@ -117,8 +116,8 @@ fun SpaceInvadersPreGameScreen(
                 Text(
                     "${score.player}: ${score.score}",
                     color = greenTextColor,
-                    fontFamily = retroFont,
-                    fontSize = 12.sp,
+                    fontFamily = gameBoxFont,
+                    fontSize = 22.sp,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
             }

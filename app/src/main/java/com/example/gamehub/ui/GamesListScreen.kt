@@ -30,6 +30,7 @@ import com.example.gamehub.ui.components.NinePatchBorder
 import androidx.compose.ui.Alignment
 import com.example.gamehub.R
 import com.example.gamehub.audio.SoundManager
+import androidx.compose.foundation.background
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -174,6 +175,13 @@ fun GameCard(
                     .padding(end = 3.dp), // more padding to separate from text
                 contentAlignment = Alignment.Center
             ) {
+                if (game.id == "codenames" || game.id == "spy") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFE6E6FA)) // Light purple background
+                    )
+                }
                 Image(
                     painter = painterResource(id = game.iconRes),
                     contentDescription = "Game Icon",

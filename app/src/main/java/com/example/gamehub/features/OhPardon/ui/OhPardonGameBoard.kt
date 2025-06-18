@@ -52,8 +52,7 @@ fun GameBoard(
                         cell = cell,
                         currentPlayer = currentPlayer,
                         onPawnClick = onPawnClick,
-                        isSelected = cell.pawn?.id == selectedPawnId
-                    )
+                        isSelected = cell.pawn?.id == selectedPawnId && cell.pawn?.color == currentPlayer?.color                    )
                 }
             }
         }

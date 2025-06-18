@@ -34,13 +34,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
-import com.example.gamehub.features.ohpardon.Player
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.classes.SoundManager
 import com.example.gamehub.features.ohpardon.classes.VibrationManager
-import com.example.gamehub.features.ohpardon.UiEvent
+import com.example.gamehub.features.ohpardon.models.Player
+import com.example.gamehub.features.ohpardon.models.UiEvent
 
 enum class CellType {
     EMPTY, PATH, HOME, GOAL, ENTRY

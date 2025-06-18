@@ -196,7 +196,8 @@ fun OhPardonScreen(
                         GameBoard(
                             board = board,
                             onPawnClick = { selectedPawnId = it },
-                            currentPlayer = currentPlayer
+                            currentPlayer = currentPlayer,
+                            selectedPawnId = selectedPawnId
                         )
                     }
 

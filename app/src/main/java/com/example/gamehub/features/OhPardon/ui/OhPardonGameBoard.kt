@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.shadow
 import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.models.Player
 
@@ -40,13 +41,19 @@ data class PawnForUI(val color: Color, val id: Int)
 fun GameBoard(
     board: List<List<BoardCell>>,
     onPawnClick: (Int) -> Unit,
-    currentPlayer: Player?
+    currentPlayer: Player?,
+    selectedPawnId: Int? = null
 ) {
     Column {
         board.forEach { row ->
             Row {
                 row.forEach { cell ->
-                    BoardCellView(cell = cell, currentPlayer = currentPlayer, onPawnClick = onPawnClick)
+                    BoardCellView(
+                        cell = cell,
+                        currentPlayer = currentPlayer,
+                        onPawnClick = onPawnClick,
+                        isSelected = cell.pawn?.id == selectedPawnId
+                    )
                 }
             }
         }
@@ -57,7 +64,12 @@ fun GameBoard(
  * Renders a single cell on the game board
  */
 @Composable
-fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) -> Unit) {
+fun BoardCellView(
+    cell: BoardCell,
+    currentPlayer: Player?,
+    onPawnClick: (Int) -> Unit,
+    isSelected: Boolean = false
+) {
     val isMyPawn = cell.pawn?.color == currentPlayer?.color
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val cellSize = screenWidth / 12 // or dynamically based on board size
@@ -81,11 +93,21 @@ fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) ->
         contentAlignment = Alignment.Center
     ) {
         cell.pawn?.let {
-            Box(
-                modifier = Modifier
+            val pawnModifier = if (isSelected) {
+                Modifier
+                    .size(cellSize)
+                    .shadow(8.dp, CircleShape, spotColor = Color(0xFFF57C00))
+                    .background(Color.LightGray, shape = CircleShape)
+                    .border(4.dp, Color(0xFFF57C00), shape = CircleShape)
+            } else {
+                Modifier
                     .size(cellSize)
                     .background(Color.LightGray, shape = CircleShape)
-                    .border(1.dp, Color.DarkGray, shape = CircleShape),
+                    .border(1.dp, Color.DarkGray, shape = CircleShape)
+            }
+
+            Box(
+                modifier = pawnModifier,
                 contentAlignment = Alignment.Center
             ) {
                 Image(

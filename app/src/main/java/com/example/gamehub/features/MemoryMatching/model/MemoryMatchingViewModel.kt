@@ -6,8 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gamehub.R
 import com.example.gamehub.audio.SoundManager
-import com.example.gamehub.features.MemoryMatching.backend.GameLogic
-import com.example.gamehub.features.MemoryMatching.backend.GameTimer
+import com.example.gamehub.features.MemoryMatching.logic.GameLogic
+import com.example.gamehub.features.MemoryMatching.logic.GameTimer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -73,13 +73,12 @@ class MemoryMatchingViewModel(application: Application) : AndroidViewModel(appli
                 allPairsMatched = false,
                 processingMatch = false,
                 timeLeftInSeconds = difficulty.timeLimitSeconds,
-                isTimerRunning = true,
+                isTimerRunning = false,
                 showLoseScreen = false,
                 loseReason = null,
                 currentScreen = GameScreen.PLAYING
             )
         }
-        timer.start(difficulty.timeLimitSeconds)
     }
 
     fun restartGame() {
@@ -103,6 +102,10 @@ class MemoryMatchingViewModel(application: Application) : AndroidViewModel(appli
             return
         }
 
+        if (!currentState.isTimerRunning) {
+            currentState.currentDifficulty?.let { timer.start(it.timeLimitSeconds) }
+        }
+
         SoundManager.playEffect(getApplication(), R.raw.card_flip)
 
         val newCards = currentState.cards.toMutableStateList()
@@ -112,7 +115,8 @@ class MemoryMatchingViewModel(application: Application) : AndroidViewModel(appli
         _gameState.update {
             it.copy(
                 cards = newCards,
-                flippedCardIndices = newFlippedIndices
+                flippedCardIndices = newFlippedIndices,
+                isTimerRunning = true
             )
         }
 

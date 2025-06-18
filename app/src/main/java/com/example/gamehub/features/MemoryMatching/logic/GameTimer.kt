@@ -1,4 +1,4 @@
-package com.example.gamehub.features.MemoryMatching.backend
+package com.example.gamehub.features.MemoryMatching.logic
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

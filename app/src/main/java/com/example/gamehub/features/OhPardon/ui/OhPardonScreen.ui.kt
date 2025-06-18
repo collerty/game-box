@@ -4,6 +4,7 @@ import android.app.Application
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -38,6 +39,7 @@ import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.classes.SoundManager
 import com.example.gamehub.features.ohpardon.classes.VibrationManager
 import com.example.gamehub.features.ohpardon.models.UiEvent
+import com.example.gamehub.navigation.NavRoutes
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -80,6 +82,12 @@ fun OhPardonScreen(
     val toastMessage by viewModel.toastMessage.collectAsState()
     val showVictoryDialog = remember { mutableStateOf(false) }
     val winnerName = remember { mutableStateOf("") }
+    val showExitDialog = remember { mutableStateOf(false) }
+
+    // Add BackHandler to intercept back button presses
+    BackHandler {
+        showExitDialog.value = true
+    }
 
     LaunchedEffect(gameRoom?.status) {
         if (gameRoom?.status == "over" && gameRoom?.gameState?.gameResult?.contains("wins") == true) {
@@ -154,6 +162,51 @@ fun OhPardonScreen(
         )
     }
 
+    // Exit confirmation dialog
+    if (showExitDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog.value = false },
+            title = { Text(text = "Exit Game") },
+            text = { Text(text = "Are you sure you want to exit the game?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitDialog.value = false
+                    // If host, consider handling room cleanup here
+                    if (isHost) {
+                        firestore.collection("rooms").document(code)
+                            .delete()
+                            .addOnSuccessListener {
+                                navController.popBackStack()
+                            }
+                    } else {
+                        val roomRef = firestore.collection("rooms").document(code)
+                        roomRef.get().addOnSuccessListener { document ->
+                            val players = document.get("players") as? List<Map<String, Any>>
+                            roomRef.update("gameState.ohpardon.diceRoll", null)
+                            roomRef.update("gameState.ohpardon.currentPlayer", gameRoom?.hostUid) //give the turn to the host
+                            val playerToRemove = players?.find { it["name"] == userName }
+                            if (playerToRemove != null) {
+                                roomRef.update("players", com.google.firebase.firestore.FieldValue.arrayRemove(playerToRemove))
+                                    .addOnSuccessListener {
+                                        navController.navigate(NavRoutes.GAMES_LIST)
+                                    }
+                            } else {
+                                navController.navigate(NavRoutes.GAMES_LIST)
+                            }
+                        }
+                    }
+                }) {
+                    Text(if (isHost) "Exit & Close Room" else "Exit")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog.value = false }) {
+                    Text("Stay")
+                }
+            }
+        )
+    }
+
     val pixelFont = FontFamily(Font(R.font.gamebox_font)) // Replace with your actual font
 
     Scaffold { padding ->
@@ -173,9 +226,10 @@ fun OhPardonScreen(
             )
 
             // Overlay to make text readable
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0x99000000)) // semi-transparent black
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x99000000)) // semi-transparent black
             )
 
             // Foreground content
@@ -203,19 +257,28 @@ fun OhPardonScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    val currentTurnPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+                    val currentTurnPlayer =
+                        gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
 
                     if (currentTurnPlayer != null) {
                         Text(
                             text = "It's ${currentTurnPlayer.name}'s turn!",
-                            style = TextStyle(fontFamily = pixelFont, fontSize = 20.sp, color = Color.White),
+                            style = TextStyle(
+                                fontFamily = pixelFont,
+                                fontSize = 20.sp,
+                                color = Color.White
+                            ),
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
                         currentDiceRoll?.let {
                             Text(
                                 text = "${currentTurnPlayer.name} rolled a $it!",
-                                style = TextStyle(fontFamily = pixelFont, fontSize = 16.sp, color = Color.White),
+                                style = TextStyle(
+                                    fontFamily = pixelFont,
+                                    fontSize = 16.sp,
+                                    color = Color.White
+                                ),
                                 modifier = Modifier.padding(bottom = 16.dp)
                             )
                         }
@@ -264,7 +327,10 @@ fun OhPardonScreen(
                             if (currentDiceRoll != null && selectedPawnId != null) {
                                 Button(
                                     onClick = {
-                                        viewModel.attemptMovePawn(gameRoom!!.gameState.currentTurnUid, selectedPawnId.toString())
+                                        viewModel.attemptMovePawn(
+                                            gameRoom!!.gameState.currentTurnUid,
+                                            selectedPawnId.toString()
+                                        )
                                         selectedPawnId = null
                                     },
                                     modifier = buttonModifier,
@@ -294,7 +360,11 @@ fun OhPardonScreen(
                     CircularProgressIndicator()
                     Text(
                         "Loading game data...",
-                        style = TextStyle(fontFamily = pixelFont, fontSize = 16.sp, color = Color.White)
+                        style = TextStyle(
+                            fontFamily = pixelFont,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
                     )
                 }
             }

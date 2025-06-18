@@ -8,7 +8,6 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,7 +18,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -39,23 +37,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.classes.SoundManager
 import com.example.gamehub.features.ohpardon.classes.VibrationManager
-import com.example.gamehub.features.ohpardon.models.Player
 import com.example.gamehub.features.ohpardon.models.UiEvent
-
-enum class CellType {
-    EMPTY, PATH, HOME, GOAL, ENTRY
-}
-
-data class BoardCell(
-    val x: Int,
-    val y: Int,
-    val type: CellType,
-    val pawn: PawnForUI? = null,
-    val color: Color? = null
-)
-
-data class PawnForUI(val color: Color, val id: Int)
-
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -138,7 +120,6 @@ fun OhPardonScreen(
         }
     }
 
-
     val currentPlayer = gameRoom?.players?.find { it.name == userName }
     val isHost = gameRoom?.hostUid == currentPlayer?.uid
 
@@ -172,7 +153,6 @@ fun OhPardonScreen(
             }
         )
     }
-
 
     val pixelFont = FontFamily(Font(R.font.gamebox_font)) // Replace with your actual font
 
@@ -320,77 +300,3 @@ fun OhPardonScreen(
         }
     }
 }
-
-@Composable
-fun GameBoard(
-    board: List<List<BoardCell>>,
-    onPawnClick: (Int) -> Unit,
-    currentPlayer: Player?
-) {
-    Column {
-        board.forEach { row ->
-            Row {
-                row.forEach { cell ->
-                    BoardCellView(cell = cell, currentPlayer = currentPlayer, onPawnClick = onPawnClick)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun getPawnImageRes(color: Color?): Int {
-    return when (color) {
-        Color.Red -> R.drawable.pawn_red
-        Color.Blue -> R.drawable.pawn_blue
-        Color.Green -> R.drawable.pawn_green
-        Color.Yellow -> R.drawable.pawn_yellow
-        else -> R.drawable.pawn_default // fallback image
-    }
-}
-
-
-@Composable
-fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) -> Unit) {
-    val isMyPawn = cell.pawn?.color == currentPlayer?.color
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    val cellSize = screenWidth / 12 // or dynamically based on board size
-
-    val backgroundColor = when (cell.type) {
-        CellType.EMPTY -> Color.LightGray
-        CellType.PATH -> cell.color ?: Color.White
-        CellType.HOME -> cell.color ?: Color.Cyan
-        CellType.GOAL -> cell.color ?: Color.Yellow
-        CellType.ENTRY -> cell.color ?: Color.Black
-    }
-
-    Box(
-        modifier = Modifier
-            .size(cellSize)
-            .border(1.dp, Color.Black)
-            .background(backgroundColor)
-            .clickable(enabled = isMyPawn) {
-                cell.pawn?.let { onPawnClick(it.id) }
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        cell.pawn?.let {
-            Box(
-                modifier = Modifier
-                    .size(cellSize)
-                    .background(Color.LightGray, shape = CircleShape)
-                    .border(1.dp, Color.DarkGray, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = getPawnImageRes(it.color)),
-                    contentDescription = "Pawn",
-                    modifier = Modifier.size(cellSize * 0.85f)
-                )
-            }
-
-        }
-
-    }
-}
-

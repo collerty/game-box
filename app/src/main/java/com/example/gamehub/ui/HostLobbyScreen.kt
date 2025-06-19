@@ -176,7 +176,13 @@ fun HostLobbyScreen(
                                 Text("Spectators", fontFamily = GameBoxFontFamily, fontSize = 19.sp, color = Color(0xFFc08cdc), modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
                                 spectators.forEach { player ->
                                     val name = player["name"] as? String ?: ""
-                                    Text("• $name", fontFamily = GameBoxFontFamily, modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
+                                    Text(
+                                        "• $name",
+                                        fontFamily = GameBoxFontFamily,
+                                        color = Color.White,
+                                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                                 
                                 // Add team join buttons for spectators

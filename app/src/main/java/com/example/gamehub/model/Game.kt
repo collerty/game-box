@@ -19,7 +19,7 @@ sealed class Game(
     /* single-player or local-only examples */
     object Spy          : Game("spy",        "Spy",          R.drawable.ic_spy,         online = false, R.drawable.spy_preview)
     object JorisJump    : Game("jorisjump",  "Joris Jump",   R.drawable.ic_jorisjump,   online = false, R.drawable.doodle_menu)
-    object ScreamoSaur  : Game("screamosaur","Scream-O-Saur",R.drawable.ic_screamosaur, online = false, R.drawable.dinasourtemplate)
+    object ScreamoSaur  : Game("screamosaur","Scream-O-Saur",R.drawable.ic_sceamosaur, online = false, R.drawable.dinasourtemplate)
     object SpaceInvaders  : Game("spaceinvaders","Space Invaders",R.drawable.ic_spaceinvaders, online = false, R.drawable.spaceinvaders_gamecard)
     object MemoryMatch  : Game("memoryMatching", "Memory Match", R.drawable.ic_memory_match, online = false, R.drawable.memory_match_template)
 

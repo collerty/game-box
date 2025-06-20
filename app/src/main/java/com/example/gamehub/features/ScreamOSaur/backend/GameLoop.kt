@@ -1,3 +1,4 @@
+
 package com.example.gamehub.features.ScreamOSaur.backend
 
 import androidx.compose.ui.geometry.Rect
@@ -22,7 +23,7 @@ class GameLoop(
     private var initialDelayHasOccurred = false
 
     companion object {
-        const val INITIAL_GAME_SPEED = 4f
+        const val INITIAL_GAME_SPEED = 8f
         const val MAX_GAME_SPEED = 18f
     }
 
@@ -118,4 +119,3 @@ class GameLoop(
         }
     }
 }
-

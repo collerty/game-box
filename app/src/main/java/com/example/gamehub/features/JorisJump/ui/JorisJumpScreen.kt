@@ -53,7 +53,7 @@ private const val SCROLL_THRESHOLD_ON_SCREEN_Y_FACTOR = 0.65f
 private const val MAX_PLATFORMS_ON_SCREEN = 10
 private const val INITIAL_PLATFORM_COUNT = 5
 private const val SCORE_POINTS_PER_DP_WORLD_Y = 0.04f
-private const val DEBUG_SHOW_HITBOXES = true // Set to true to see logical hitboxes
+private const val DEBUG_SHOW_HITBOXES = false // Set to true to see logical hitboxes
 
 // Constants for Moving Platforms
 private const val PLATFORM_BASE_MOVE_SPEED = 1.6f

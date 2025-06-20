@@ -1,3 +1,4 @@
+
 package com.example.gamehub.features.ScreamOSaur.backend
 
 import androidx.compose.ui.geometry.Rect
@@ -118,4 +119,3 @@ class GameLoop(
         }
     }
 }
-

@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import android.util.Log
-import com.example.gamehub.features.whereandwhen.ui.gameChallenges
+import com.example.gamehub.features.whereandwhe.model.gameChallenges
 
 object LobbyService {
     private val firestore = FirebaseFirestore.getInstance()

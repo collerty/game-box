@@ -8,7 +8,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -90,7 +92,16 @@ fun GameInfoScreen(navController: NavController, gameId: String) {
                         .padding(18.dp),
                     contentAlignment = Alignment.TopCenter
                 ) {
-                    GameDetailsContent(gameId)
+                    // SCROLLABLE COLUMN!
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
+                    ) {
+                        GameDetailsContent(gameId)
+                    }
                 }
             }
 
@@ -117,19 +128,115 @@ fun GameInfoScreen(navController: NavController, gameId: String) {
 
 @Composable
 fun BattleshipsInfo() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
         Text(
-            "Sink the enemy fleet. Classic naval strategy!",
+            text = "Sink the enemy fleet before they sink yours!",
             style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "How to Play",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp
+            ),
             textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(10.dp))
+
+        // Voting for the Map
         Text(
-            "Players: 2", style = MaterialTheme.typography.bodyMedium,
+            text = "🗺️ Map Voting",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Both players vote for a map (20 seconds).\n• If both choose the same map, it's picked. If not, a map between the two votes is chosen.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Ship Placement
+        Text(
+            text = "🚢 Ship Placement",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Each player places 5 ships on the map.\n• Ships can be rotated and repositioned before confirming.\n• Tap a placed ship to retract it and place again.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Gameplay
+        Text(
+            text = "🎯 Battle Phase",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Take turns attacking tiles on the opponent's map.\n• Visual feedback tells you if you hit or missed.\n• The first to destroy all enemy ships wins!",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Power-Ups Section
+        Text(
+            text = "💥 Power-Ups (once per round)",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• **Mine (2 energy):** Place on your map. If hit, rebounds on enemy’s map in 3 random spots. You can attack after using a mine.\n" +
+                    "• **Bomb (3 energy):** Destroy a 2x2 square. Using this skips your attack turn.\n" +
+                    "• **Laser (4 energy):** Destroy an entire row or column. Using this skips your attack turn.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Energy
+        Text(
+            text = "⚡ Energy System",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Destroying an enemy ship: +1 energy\n• Losing your own ship: +2 energy",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Strategize, use power-ups wisely, and sink the fleet before they sink you!",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            ),
             textAlign = TextAlign.Center
         )
     }
 }
+
 
 @Composable
 fun OhPardonInfo() {
@@ -171,15 +278,86 @@ fun SpaceInvadersInfo() {
 
 @Composable
 fun SpyInfo() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
         Text(
-            "Can you uncover the spy among the players?",
+            text = "Unmask the spy—or blend in and escape discovery!",
             style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "How to Play",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp
+            ),
             textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(10.dp))
+
+        // Setup
         Text(
-            "Social deduction. Bluff and guess!", style = MaterialTheme.typography.bodyMedium,
+            text = "🎭 Game Setup",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Players are secretly assigned roles: most are agents, but one is the spy.\n• All agents know the secret location. The spy does NOT.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Questioning
+        Text(
+            text = "❓ Ask & Answer",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Players take turns asking each other questions about the secret location.\n• Agents must answer truthfully (but not too obvious!).\n• The spy tries to blend in, guessing based on the answers.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // End of Game
+        Text(
+            text = "🔎 Accuse or Escape",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• At any point, players can vote to accuse someone of being the spy.\n• If the spy is caught, the agents win!\n• If the spy can guess the location before being caught, the spy wins!",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Bluff, deduce, and outsmart your friends. Will you reveal the spy—or get away with the secret?",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            ),
             textAlign = TextAlign.Center
         )
     }
@@ -425,7 +603,101 @@ private fun MiniCardGrid() {
         }
     }
 }
-// Add more per-game info as needed...
+@Composable
+fun TriviatoeInfo() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        Text(
+            text = "Answer questions. Claim the board. Connect four!",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "How to Play",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        // Assignment of X and O
+        Text(
+            text = "❌⭕ Get Your Symbol",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• At the start, you are assigned either X or O. Your opponent gets the other symbol.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Question Round
+        Text(
+            text = "❓ Question Round",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• A general question appears, with a 10 second timer.\n• The first player to answer correctly wins the round!\n• If both answer incorrectly or time runs out, the winner is chosen randomly.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Placing Pieces
+        Text(
+            text = "🟦 Place Your Symbol",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• The winner places their X or O anywhere on a 10x10 board.\n• Your goal: connect 4 of your symbols in a row—horizontally, vertically, or diagonally.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Strategy and Win
+        Text(
+            text = "🧠 Outplay & Win",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Place strategically to block your opponent while setting up your own victory!\n• First to connect 4 wins the game.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Quick thinking and smart moves—can you outwit your opponent and connect four first?",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            ),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 
 // ====== GAME INFO DISPATCHER ======
 
@@ -439,6 +711,7 @@ fun GameDetailsContent(gameId: String) {
         "spaceinvaders" -> SpaceInvadersInfo()
         "screamosaur" -> ScreamOSaurInfo()
         "memoryMatching" -> MemoryMatchInfo()
+        "triviatoe" -> TriviatoeInfo()
         // Add further games here...
         else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }

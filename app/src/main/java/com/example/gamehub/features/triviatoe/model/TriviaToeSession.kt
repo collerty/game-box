@@ -15,7 +15,8 @@ data class TriviatoeSession(
     val randomized: Boolean? = null,
     val lastQuestion: TriviatoeQuestion? = null,
     val lastCorrectIndex: Int? = null,
-    val rematchVotes: Map<String, Boolean> = emptyMap()
+    val rematchVotes: Map<String, Boolean> = emptyMap(),
+    val readyForQuestion: Map<String, Boolean>? = null
 )
 
 data class TriviatoePlayer(
@@ -56,5 +57,6 @@ enum class TriviatoeRoundState {
     MOVE_2,      // Second player move
     CHECK_WIN,   // Check win state
     FINISHED,
-    XO_ASSIGN
+    XO_ASSIGN,
+    WAITING_FOR_READY
 }

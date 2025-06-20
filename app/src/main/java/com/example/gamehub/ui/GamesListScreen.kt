@@ -175,7 +175,7 @@ fun GameCard(
                     .padding(end = 3.dp), // more padding to separate from text
                 contentAlignment = Alignment.Center
             ) {
-                if (game.id == "codenames" || game.id == "spy") {
+                if (game.id == "codenames" || game.id == "spy" || game.id == "jorisjump" || game.id == "whereandwhen") {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()

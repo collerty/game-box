@@ -109,12 +109,14 @@ fun BattleshipsInfo() {
         Text(
             "Sink the enemy fleet. Classic naval strategy!",
             style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
         Spacer(Modifier.height(10.dp))
         Text(
             "Players: 2", style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
     }
 }
@@ -163,12 +165,14 @@ fun SpyInfo() {
         Text(
             "Can you uncover the spy among the players?",
             style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
         Spacer(Modifier.height(10.dp))
         Text(
             "Social deduction. Bluff and guess!", style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
     }
 }
@@ -179,13 +183,53 @@ fun JorisJumpInfo() {
         Text(
             "Jump your way to a new high score!",
             style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
         Spacer(Modifier.height(10.dp))
         Text(
             "Fast reflexes needed. Compete for the top!",
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+    }
+}
+
+@Composable
+fun CodenamesInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Give clever clues and guess words to outsmart the other team!",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Team-based word game. One player gives one-word clues to help their team guess the right words on the board. Avoid the assassin!",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+    }
+}
+
+@Composable
+fun WhereAndWhenInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Guess the place and year of famous world events! Compete for accuracy.",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "A multiplayer trivia game. Each round, see a photo and hint, then guess the location on the map and the year it happened. The closer you are, the more points you get!",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
     }
 }
@@ -202,6 +246,8 @@ fun GameDetailsContent(gameId: String) {
         "spy" -> SpyInfo()
         "jorisjump" -> JorisJumpInfo()
         "spaceinvaders" -> SpaceInvadersInfo()
+        "codenames" -> CodenamesInfo()
+        "whereandwhen" -> WhereAndWhenInfo()
         // Add further games here...
         else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }

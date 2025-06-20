@@ -1,8 +1,4 @@
-// FILE: app/src/main/java/com/example/gamehub/features/whereandwhe/ui/WhereAndWhenScreen.kt
-// REPLACE THE ENTIRE CONTENT OF THIS FILE
-
 package com.example.gamehub.features.whereandwhen.ui
-
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.media.MediaPlayer
@@ -41,10 +37,12 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.gamehub.R
+import com.example.gamehub.features.whereandwhe.model.Challenge
 import com.example.gamehub.features.whereandwhe.model.WWPlayerGuess
 import com.example.gamehub.features.whereandwhe.model.WWPlayerRoundResult
 import com.example.gamehub.features.whereandwhe.model.WWRoundResultsContainer
 import com.example.gamehub.features.whereandwhe.model.WhereAndWhenGameState
+import com.example.gamehub.features.whereandwhe.model.gameChallenges
 import com.example.gamehub.navigation.NavRoutes
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -56,190 +54,24 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.ktx.Firebase
 import com.google.maps.android.compose.*
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.UUID
-import kotlin.math.abs
-
+import com.example.gamehub.features.whereandwhen.ui.components.RoundResultsDialog
 // --- Font ---
 val arcadeFontFamily_WhereAndWhen = FontFamily(
     Font(R.font.arcade_classic, FontWeight.Normal)
 )
 val Gold = Color(0xFFFFD700)
 
-// --- Data Classes (Challenge) ---
-data class Challenge(
-    val id: String,
-    val imageResId: Int,
-    val correctYear: Int,
-    val correctLatitude: Double,
-    val correctLongitude: Double,
-    val correctLocationName: String,
-    val eventName: String
-)
-
-// --- Constants ---
-private const val MAX_YEAR_SCORE = 1000
-private const val MAX_LOCATION_SCORE = 1000
-private const val MAX_YEAR_DIFFERENCE_FOR_POINTS = 35
-private const val MAX_DISTANCE_KM_FOR_POINTS = 5000.0
-
 private const val GUESSING_PHASE_DURATION_SECONDS = 35
 private const val MAP_REVEAL_DURATION_MS = 6000L // 6 seconds
 private const val RESULTS_DIALOG_TIMEOUT_MS = 15000L // 15 seconds for players to click "Continue"
 private const val LEADERBOARD_DURATION_MS = 5000L // 5 seconds for leaderboard display
-
 private const val MIN_SLIDER_YEAR = 1850f
 private const val MAX_SLIDER_YEAR = 2024f
-private val TOTAL_ROUNDS = 5 // Should match the number of challenges for now
-
-val gameChallenges = listOf(
-    Challenge("jfk", R.drawable.kennedy_assassination, 1963, 32.7790, -96.8089, "Dealey Plaza, Dallas, TX, USA", "Assassination of JFK"),
-    Challenge("moon", R.drawable.moon_landing_1969, 1969, 28.5721, -80.6480, "Tranquility Base, Moon", "Apollo 11 Moon Landing"),
-    Challenge("berlinwall", R.drawable.berlin_wall_fall_1989, 1989, 52.5160, 13.3777, "Brandenburg Gate, Berlin, Germany", "Fall of the Berlin Wall"),
-    Challenge("titanic", R.drawable.titanic_sinking_1912, 1912, 41.726931, -49.948253, "North Atlantic Ocean (Titanic Wreck)", "Sinking of the Titanic"),
-    Challenge("wright", R.drawable.wright_brothers_flight_1903, 1903, 36.0156, -75.6674, "Kitty Hawk, North Carolina, USA", "Wright Brothers' First Flight"),
-    Challenge("vday", R.drawable.vj_day_kiss_1945, 1945, 40.7580, -73.9855, "Times Square, New York, USA", "V-J Day Kiss in Times Square"),
-    Challenge("mandela", R.drawable.mandela_release_1990, 1990, -33.9258, 18.4232, "Cape Town, South Africa", "Nelson Mandela's Release"),
-    Challenge("obama", R.drawable.obama_inauguration_2009, 2009, 38.8895, -77.0352, "Capitol Hill, Washington D.C., USA", "Barack Obama's Inauguration"),
-    Challenge("9_11", R.drawable.attack_september_11_2001, 2001, 40.7115, -74.0134, "World Trade Center, New York, USA", "September 11 Attacks"),
-    Challenge("hiroshima", R.drawable.hiroshima_bombing_1945, 1945, 34.3853, 132.4553, "Hiroshima, Japan", "Atomic Bombing of Hiroshima"),
-    Challenge("pearlharbor", R.drawable.pearl_harbor_attack_1941, 1941, 21.3667, -157.9333, "Pearl Harbor, Hawaii, USA", "Attack on Pearl Harbor"),
-    Challenge("dday", R.drawable.d_day_landing_1944, 1944, 49.3389, -0.6217, "Omaha Beach, Normandy, France", "D-Day Normandy Landings"),
-    Challenge("fall_soviet", R.drawable.soviet_union_dissolution_1991, 1991, 55.7558, 37.6173, "Moscow, Russia", "Dissolution of the Soviet Union"),
-    Challenge("great_depression", R.drawable.wall_street_crash_1929, 1929, 40.7069, -74.0113, "Wall Street, New York, USA", "Wall Street Crash of 1929"),
-    Challenge("gettysburg_battle", R.drawable.gettysburg_battle_1863, 1863, 39.8140, -77.2301, "Gettysburg, Pennsylvania, USA", "Battle of Gettysburg"),
-    Challenge("suez_canal_opening", R.drawable.suez_canal_opening_1869, 1869, 30.5852, 32.2623, "Port Said, Egypt", "Opening of the Suez Canal"),
-    Challenge("eiffel_tower_construction", R.drawable.eiffel_tower_construction, 1888, 48.8584, 2.2945, "Paris, France", "Construction of the Eiffel Tower"),
-    Challenge("klondike_gold_rush", R.drawable.klondike_gold_rush_1897, 1897, 64.0500, -139.4333, "Dawson City, Yukon, Canada", "Klondike Gold Rush"),
-    Challenge("panama_canal_opening", R.drawable.panama_canal_opening_1914, 1914, 9.0800, -79.6800, "Panama Canal, Panama", "Opening of the Panama Canal"),
-    Challenge("russian_revolution_1917", R.drawable.russian_revolution_1917, 1917, 59.9371, 30.3097, "Winter Palace, St. Petersburg, Russia", "Russian Revolution (Storming of Winter Palace)"),
-    Challenge("prohibition_usa_start", R.drawable.prohibition_usa_start_1920, 1920, 40.7128, -74.0060, "New York City, USA (Speakeasy imagery)", "Start of Prohibition in the USA"),
-    Challenge("tutankhamun_tomb_discovery", R.drawable.tutankhamun_tomb_discovery_1922, 1922, 25.7402, 32.6014, "Valley of the Kings, Luxor, Egypt", "Discovery of Tutankhamun's Tomb"),
-    Challenge("hoover_dam_completion", R.drawable.hoover_dam_completion_1936, 1936, 36.0160, -114.7377, "Hoover Dam, Nevada/Arizona, USA", "Completion of Hoover Dam"),
-    Challenge("hindenburg_disaster", R.drawable.hindenburg_disaster_1937, 1937, 40.0793, -74.3293, "Lakehurst, New Jersey, USA", "Hindenburg Disaster"),
-    Challenge("battle_of_britain", R.drawable.battle_of_britain_1940, 1940, 51.5074, -0.1278, "London, UK (Spitfires/Blitz imagery)", "Battle of Britain"),
-    Challenge("battle_stalingrad", R.drawable.battle_stalingrad_1943, 1943, 48.7081, 44.5133, "Stalingrad (Volgograd), Russia", "Battle of Stalingrad (Turning Point)"),
-    Challenge("israel_founding_1948", R.drawable.israel_founding_1948, 1948, 32.0853, 34.7818, "Tel Aviv, Israel", "Founding of the State of Israel"),
-    Challenge("everest_first_ascent", R.drawable.everest_first_ascent_1953, 1953, 27.9881, 86.9250, "Mount Everest, Nepal/China", "First Ascent of Mount Everest"),
-    Challenge("sputnik_launch", R.drawable.sputnik_launch_1957, 1957, 45.9647, 63.3052, "Baikonur Cosmodrome, Kazakhstan", "Launch of Sputnik 1"),
-    Challenge("march_on_washington", R.drawable.march_on_washington_1963, 1963, 38.8893, -77.0502, "Lincoln Memorial, Washington D.C., USA", "March on Washington for Jobs and Freedom"),
-    Challenge("woodstock_festival", R.drawable.woodstock_festival_1969, 1969, 41.7137, -74.8754, "Bethel, New York, USA", "Woodstock Music Festival"),
-    Challenge("watergate_scandal_breakin", R.drawable.watergate_scandal_breakin_1972, 1972, 38.9007, -77.0506, "Watergate Complex, Washington D.C., USA", "Watergate Break-in"),
-    Challenge("fall_of_saigon", R.drawable.fall_of_saigon_1975, 1975, 10.7769, 106.7009, "Ho Chi Minh City (Saigon), Vietnam", "Fall of Saigon"),
-    Challenge("apple_founded_1976", R.drawable.apple_founded_1976, 1976, 37.3318, -122.0312, "Cupertino, California, USA (Garage imagery)", "Founding of Apple Computer"),
-    Challenge("challenger_disaster_1986", R.drawable.challenger_disaster_1986, 1986, 28.6084, -80.6043, "Cape Canaveral, Florida, USA", "Space Shuttle Challenger Disaster"),
-    Challenge("tiananmen_square_protests", R.drawable.tiananmen_square_protests_1989, 1989, 39.9075, 116.3972, "Tiananmen Square, Beijing, China", "Tiananmen Square Protests (Tank Man)"),
-    Challenge("dolly_the_sheep_cloned", R.drawable.dolly_the_sheep_cloned_1996, 1996, 55.9291, -3.2122, "Roslin Institute, Scotland, UK", "Cloning of Dolly the Sheep"),
-    Challenge("hong_kong_handover_1997", R.drawable.hong_kong_handover_1997, 1997, 22.2793, 114.1628, "Hong Kong Convention and Exhibition Centre", "Handover of Hong Kong to China"),
-    Challenge("indian_ocean_tsunami_2004", R.drawable.indian_ocean_tsunami_2004, 2004, 3.3166, 95.8536, "Banda Aceh, Indonesia (epicenter proxy)", "Indian Ocean Tsunami"),
-    Challenge("hurricane_katrina_2005", R.drawable.hurricane_katrina_2005, 2005, 29.9511, -90.0715, "New Orleans, Louisiana, USA", "Hurricane Katrina"),
-    Challenge("iphone_launch_2007", R.drawable.iphone_launch_2007, 2007, 37.7749, -122.4194, "San Francisco, CA (Moscone Center)", "Launch of the first iPhone"),
-    Challenge("financial_crisis_2008", R.drawable.financial_crisis_2008, 2008, 40.7069, -74.0113, "Wall Street, New York, USA", "Global Financial Crisis (Lehman Brothers collapse)"),
-    Challenge("arab_spring_egypt_2011", R.drawable.arab_spring_egypt_2011, 2011, 30.0444, 31.2357, "Tahrir Square, Cairo, Egypt", "Egyptian Revolution (Arab Spring)"),
-    Challenge("crimea_annexation_2014", R.drawable.crimea_annexation_2014, 2014, 44.9521, 34.1024, "Simferopol, Crimea", "Annexation of Crimea by Russia"),
-    Challenge("paris_agreement_climate", R.drawable.paris_agreement_climate_2015, 2015, 48.8566, 2.3522, "Paris, France", "Paris Agreement on Climate Change Signed"),
-    Challenge("notre_dame_fire_2019", R.drawable.notre_dame_fire_2019, 2019, 48.8530, 2.3499, "Notre-Dame Cathedral, Paris, France", "Notre-Dame Cathedral Fire"),
-    Challenge("us_capitol_attack_2021", R.drawable.us_capitol_attack_2021, 2021, 38.8899, -77.0091, "U.S. Capitol, Washington D.C., USA", "January 6th Capitol Attack"),
-    Challenge("ukraine_invasion_2022", R.drawable.ukraine_invasion_2022, 2022, 50.4501, 30.5234, "Kyiv, Ukraine", "Start of Full-Scale Ukraine Invasion")
-)
-
-// --- Helper Functions ---
-private fun calculateDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-    val earthRadiusKm = 6371.0; val dLat = Math.toRadians(lat2 - lat1); val dLon = Math.toRadians(lon2 - lon1)
-    val radLat1 = Math.toRadians(lat1); val radLat2 = Math.toRadians(lat2)
-    val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(radLat1) * Math.cos(radLat2)
-    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return earthRadiusKm * c
-}
-
-private fun calculatePlayerScoreForRound(playerGuess: WWPlayerGuess?, challenge: Challenge, timeRanOutForThisPlayer: Boolean): WWPlayerRoundResult {
-    val actualYear = challenge.correctYear
-    val actualLocation = LatLng(challenge.correctLatitude, challenge.correctLongitude)
-    val guessedYearValue = playerGuess?.year ?: actualYear // Default to actual year if no guess (0 points)
-    val guessedLatLngValue = if (playerGuess?.lat != null && playerGuess.lng != null) LatLng(playerGuess.lat, playerGuess.lng) else null
-
-    // If player ran out of time, or somehow didn't submit a guess (which timeout should prevent for playerGuesses map)
-    if (timeRanOutForThisPlayer || playerGuess == null || (!playerGuess.submitted && !timeRanOutForThisPlayer) ) {
-        val distanceForNoGuess = guessedLatLngValue?.let { calculateDistanceKm(it.latitude, it.longitude, actualLocation.latitude, actualLocation.longitude) }
-        return WWPlayerRoundResult(guessedYearValue, 0, guessedLatLngValue?.latitude, guessedLatLngValue?.longitude, distanceForNoGuess, 0, 0, true)
-    }
-
-    val yearDifference = abs(guessedYearValue - actualYear)
-    val yearScore = if (yearDifference > MAX_YEAR_DIFFERENCE_FOR_POINTS) 0 else (MAX_YEAR_SCORE * (1.0 - (yearDifference.toDouble() / MAX_YEAR_DIFFERENCE_FOR_POINTS))).toInt()
-
-    var locationScore = 0
-    var distanceInKm: Double? = null
-    if (guessedLatLngValue != null) {
-        distanceInKm = calculateDistanceKm(guessedLatLngValue.latitude, guessedLatLngValue.longitude, actualLocation.latitude, actualLocation.longitude)
-        locationScore = if (distanceInKm > MAX_DISTANCE_KM_FOR_POINTS) 0 else (MAX_LOCATION_SCORE * (1.0 - (distanceInKm / MAX_DISTANCE_KM_FOR_POINTS))).toInt()
-    }
-
-    return WWPlayerRoundResult(
-        guessedYear = guessedYearValue,
-        yearScore = yearScore.coerceIn(0, MAX_YEAR_SCORE),
-        guessedLat = guessedLatLngValue?.latitude,
-        guessedLng = guessedLatLngValue?.longitude,
-        distanceKm = distanceInKm,
-        locationScore = locationScore.coerceIn(0, MAX_LOCATION_SCORE),
-        roundScore = (yearScore + locationScore).coerceIn(0, MAX_YEAR_SCORE + MAX_LOCATION_SCORE),
-        timeRanOut = false // If we reached here, it means a guess was submitted (not due to global timeout forcing a zero score)
-    )
-}
-
-private suspend fun proceedToNextRoundOrEndGame(
-    db: FirebaseFirestore,
-    roomCode: String,
-    currentWwGameState: WhereAndWhenGameState?,
-    totalRounds: Int,
-    myPlayerIdForLog: String
-) {
-    Log.i("WW_Host_Proc_Entry", "[HOST $myPlayerIdForLog] Entering proceedToNextRoundOrEndGame. CurrentRound: ${currentWwGameState?.currentRoundIndex}")
-    if (currentWwGameState == null) {
-        Log.e("WW_Host_Proc_Error", "[HOST $myPlayerIdForLog] Cannot proceed, wwGameState is null.")
-        return
-    }
-    val currentRoundIdx = currentWwGameState.currentRoundIndex
-    if (currentRoundIdx + 1 < totalRounds) {
-        val nextRoundIdx = currentRoundIdx + 1
-        Log.i("WW_Host_Proc_NextRound", "[HOST $myPlayerIdForLog] Starting next round: ${nextRoundIdx + 1}")
-
-        // Use the existing challengeOrder from the game state
-        val currentChallengeOrder = currentWwGameState.challengeOrder
-        val nextChallengeId = currentChallengeOrder.getOrNull(nextRoundIdx)
-            ?: run { // Fallback if order is too short or empty (shouldn't happen if initialized correctly)
-                Log.e("WW_Host_Proc_Error", "[HOST $myPlayerIdForLog] Challenge order issue! Order size: ${currentChallengeOrder.size}, next index: $nextRoundIdx. Falling back.")
-                gameChallenges.map { it.id }.filterNot { it == currentWwGameState.currentChallengeId }.shuffled().firstOrNull()
-                    ?: gameChallenges.first().id // Absolute fallback
-            }
-
-        val updates = mapOf(
-            "gameState.whereandwhen.currentRoundIndex" to nextRoundIdx,
-            "gameState.whereandwhen.currentChallengeId" to nextChallengeId,
-            "gameState.whereandwhen.roundStartTimeMillis" to System.currentTimeMillis(),
-            "gameState.whereandwhen.roundStatus" to WhereAndWhenGameState.STATUS_GUESSING,
-            "gameState.whereandwhen.playerGuesses" to emptyMap<String, Any>(),
-            "gameState.whereandwhen.roundResults" to WWRoundResultsContainer(),
-            "gameState.whereandwhen.mapRevealStartTimeMillis" to 0L,
-            "gameState.whereandwhen.resultsDialogStartTimeMillis" to 0L,
-            "gameState.whereandwhen.leaderboardStartTimeMillis" to 0L,
-            "gameState.whereandwhen.playersReadyForResultsDialog" to emptyMap<String, Boolean>(),
-            "gameState.whereandwhen.playersReadyForLeaderboard" to emptyMap<String, Boolean>(),
-            "gameState.whereandwhen.playersReadyForNextRound" to emptyMap<String, Boolean>()
-            // challengeOrder remains the same
-        )
-        Log.d("WW_Host_Proc_Update", "[HOST $myPlayerIdForLog] Firestore update for next round: $updates")
-        db.collection("rooms").document(roomCode).update(updates)
-            .addOnSuccessListener { Log.i("WW_Host_Proc_Success", "[HOST $myPlayerIdForLog] Firestore updated for next round successfully.") }
-            .addOnFailureListener { e -> Log.e("WW_Host_Proc_Fail", "[HOST $myPlayerIdForLog] Error starting next round", e) }
-    } else {
-        Log.i("WW_Host_Proc_EndGame", "[HOST $myPlayerIdForLog] All rounds complete. Setting game status to ended.")
-        db.collection("rooms").document(roomCode).update("status", "ended")
-            .addOnSuccessListener { Log.i("WW_Host_Proc_Success", "[HOST $myPlayerIdForLog] Game status set to 'ended'.")}
-            .addOnFailureListener { e -> Log.e("WW_Host_Proc_Fail", "[HOST $myPlayerIdForLog] Error setting game status to 'ended'", e)}
-    }
-}
+private val TOTAL_ROUNDS = 5
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -786,59 +618,21 @@ fun WhereAndWhenScreen(
         }
 
         if (showResultsDialogUI && currentWwGameState.roundStatus == WhereAndWhenGameState.STATUS_RESULTS && currentWwGameState.roundResults.results.isNotEmpty() && currentChallenge != null) {
-            Log.i("WW_Client_UI_Dialog", "[Player $myPlayerId] Displaying Results Dialog for challenge: ${currentChallenge.eventName}")
-            val actualChallengeInfo = currentChallenge
-            val allPlayerResultsInfo = currentWwGameState.roundResults.results
-            val myResultData = allPlayerResultsInfo[myPlayerId]
-            val iWonThisRound = myResultData != null && allPlayerResultsInfo.isNotEmpty() && myResultData.roundScore >= (allPlayerResultsInfo.values.maxOfOrNull { it.roundScore } ?: 0) && myResultData.roundScore > 0
-            val dialogBorderColor = if (iWonThisRound) Color(0xFF27AE60) else Color(0xFFE74C3C)
-
-            AlertDialog(
-                onDismissRequest = { Log.w("WW_Client_UI_Dialog", "[Player $myPlayerId] Attempted to dismiss Results Dialog (not allowed).") },
-                shape = RoundedCornerShape(0.dp),
-                containerColor = Color(0xFFDCDCDC),
-                titleContentColor = Color.Black,
-                textContentColor = Color.Black,
-                modifier = Modifier.border(BorderStroke(4.dp, dialogBorderColor)),
-                title = { Text("ROUND ${currentWwGameState.currentRoundIndex + 1} RESULTS", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 28.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
-                text = {
-                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp, horizontal = 4.dp)) {
-                        Text("EVENT: ${actualChallengeInfo.eventName.uppercase()}", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp))
-                        Text("ACTUAL: ${actualChallengeInfo.correctYear} - ${actualChallengeInfo.correctLocationName}", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 14.sp, textAlign = TextAlign.Center, color = Color.DarkGray, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp))
-                        Divider(color = Color.Gray, thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
-                        val sortedPlayerResults = allPlayerResultsInfo.entries.sortedByDescending { it.value.roundScore }
-                        sortedPlayerResults.forEachIndexed { index, entry ->
-                            val pId = entry.key; val result = entry.value
-                            val playerName = roomPlayers.find { it["uid"] == pId }?.get("name") as? String ?: "Player"
-                            val isCurrentUser = pId == myPlayerId
-                            val playerPrefix = if (isCurrentUser) "YOUR" else playerName.uppercase()
-                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).then(if (isCurrentUser) Modifier.background(Color.Yellow.copy(alpha = 0.15f), RoundedCornerShape(4.dp)).padding(4.dp) else Modifier)) {
-                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("$playerPrefix SCORE:", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 20.sp, fontWeight = if (isCurrentUser) FontWeight.ExtraBold else FontWeight.Bold)
-                                    Text("${result.roundScore} PTS", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = if (result.roundScore > 0) Color(0xFF27AE60) else Color.Black)
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(modifier = Modifier.fillMaxWidth()) { Text("  YEAR: ${result.guessedYear} (ACTUAL: ${actualChallengeInfo.correctYear})", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 15.sp, modifier = Modifier.weight(1f)); Text("-> ${result.yearScore} PTS", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
-                                Row(modifier = Modifier.fillMaxWidth()) { val distKmStr = result.distanceKm?.let { "%.0f KM".format(it) } ?: "N/A"; Text("  LOCATION: $distKmStr", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 15.sp, modifier = Modifier.weight(1f)); Text("-> ${result.locationScore} PTS", fontFamily = arcadeFontFamily_WhereAndWhen, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
-                                if (result.timeRanOut) { Text("  (TIME RAN OUT!)", fontFamily = arcadeFontFamily_WhereAndWhen, color = Color.Red.copy(alpha = 0.9f), fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp)) }
-                            }
-                            if (index < sortedPlayerResults.size - 1) { Divider(color = Color.LightGray, thickness = 1.dp, modifier = Modifier.padding(vertical = 6.dp)) }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
+            RoundResultsDialog(
+                show = true,
+                currentRoundIndex = currentWwGameState.currentRoundIndex,
+                currentChallengeName = currentChallenge.eventName,
+                currentChallengeYear = currentChallenge.correctYear,
+                currentChallengeLocation = currentChallenge.correctLocationName,
+                allPlayerResultsInfo = currentWwGameState.roundResults.results,
+                myPlayerId = myPlayerId,
+                roomPlayers = roomPlayers,
+                onContinue = {
                             Log.i("WW_Sync_ResultsAck_Click", "[Player $myPlayerId] Clicked 'Continue' on results dialog.")
                             db.collection("rooms").document(roomCode).update(
                                 "gameState.whereandwhen.playersReadyForLeaderboard.$myPlayerId", true
                             ).addOnSuccessListener { Log.i("WW_Sync_ResultsAck_Success", "[Player $myPlayerId] Successfully set playersReadyForLeaderboard to true.") }
                                 .addOnFailureListener { e -> Log.e("WW_Sync_ResultsAck_Fail", "[Player $myPlayerId] Failed to set playersReadyForLeaderboard.", e)}
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333), contentColor = Color.White),
-                        border = BorderStroke(2.dp, Color.Black)
-                    ) { Text("Continue", fontFamily = arcadeFontFamily_WhereAndWhen ) }
                 }
             )
         }

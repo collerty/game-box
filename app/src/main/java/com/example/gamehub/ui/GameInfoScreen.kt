@@ -698,6 +698,117 @@ fun TriviatoeInfo() {
     }
 }
 
+@Composable
+fun CodenamesInfo() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        Text(
+            text = "Give clever clues. Guess the right words. Outsmart the other team!",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "How to Play",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        // Setup
+        Text(
+            text = "🧩 Teams & Roles",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Play in two teams: Red and Blue.\n• Each team has one Spymaster and one or more Field Operatives.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Clue giving
+        Text(
+            text = "💬 Spymaster’s Clue",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• The Spymaster gives a one-word clue and a number (e.g. \"Animal: 2\").\n• The clue relates to words on the table belonging to their team.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Guessing
+        Text(
+            text = "🔍 Guessing",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Field Operatives discuss (use chat!) and guess the words the Spymaster meant.\n• Click to select a word. Be careful! Guess only your team's words.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Danger and win
+        Text(
+            text = "⚠️ End & Danger",
+            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFc08cdc), fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• If you guess a neutral word, your turn ends.\n• If you guess the assassin word, your team instantly loses!\n• First team to find all their words wins.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Chat feature
+        Text(
+            text = "💬 Team Chat",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "• Use the in-game chat to talk, discuss clues, and plan your guesses with teammates.",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFc08cdc)),
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Think fast, make clever connections, and help your team win!",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFFc08cdc),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            ),
+            textAlign = TextAlign.Center
+        )
+    }
+}
 
 // ====== GAME INFO DISPATCHER ======
 
@@ -712,6 +823,7 @@ fun GameDetailsContent(gameId: String) {
         "screamosaur" -> ScreamOSaurInfo()
         "memoryMatching" -> MemoryMatchInfo()
         "triviatoe" -> TriviatoeInfo()
+        "codenames" -> CodenamesInfo()
         // Add further games here...
         else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }

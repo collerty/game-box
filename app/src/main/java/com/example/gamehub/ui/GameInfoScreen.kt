@@ -847,6 +847,7 @@ fun GameDetailsContent(gameId: String) {
         "memoryMatching" -> MemoryMatchInfo()
         "triviatoe" -> TriviatoeInfo()
         "codenames" -> CodenamesInfo()
+        "whereandwhen" -> WhereAndWhenInfo()
         // Add further games here...
         else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }

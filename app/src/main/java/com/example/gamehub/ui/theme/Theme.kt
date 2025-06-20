@@ -1,6 +1,8 @@
 package com.example.gamehub.ui.theme
 
+import GameBoxTypography
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -32,6 +34,7 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun GameHubTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -51,7 +54,7 @@ fun GameHubTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = GameBoxTypography,
         content = content
     )
 }

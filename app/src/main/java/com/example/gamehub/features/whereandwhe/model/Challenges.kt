@@ -1,0 +1,65 @@
+package com.example.gamehub.features.whereandwhe.model
+
+import com.example.gamehub.R
+
+// Data class for a challenge
+data class Challenge(
+    val id: String,
+    val imageResId: Int,
+    val correctYear: Int,
+    val correctLatitude: Double,
+    val correctLongitude: Double,
+    val correctLocationName: String,
+    val eventName: String
+)
+
+val gameChallenges = listOf(
+    Challenge("jfk", R.drawable.challenge_kennedy_assassination, 1963, 32.7790, -96.8089, "Dealey Plaza, Dallas, TX, USA", "Assassination of JFK"),
+    Challenge("moon", R.drawable.challenge_moon_landing_1969, 1969, 28.5721, -80.6480, "Tranquility Base, Moon", "Apollo 11 Moon Landing"),
+    Challenge("berlinwall", R.drawable.challenge_berlin_wall_fall_1989, 1989, 52.5160, 13.3777, "Brandenburg Gate, Berlin, Germany", "Fall of the Berlin Wall"),
+    Challenge("titanic", R.drawable.challenge_titanic_sinking_1912, 1912, 41.726931, -49.948253, "North Atlantic Ocean (Titanic Wreck)", "Sinking of the Titanic"),
+    Challenge("wright", R.drawable.challenge_wright_brothers_flight_1903, 1903, 36.0156, -75.6674, "Kitty Hawk, North Carolina, USA", "Wright Brothers' First Flight"),
+    Challenge("vday", R.drawable.challenge_vj_day_kiss_1945, 1945, 40.7580, -73.9855, "Times Square, New York, USA", "V-J Day Kiss in Times Square"),
+    Challenge("mandela", R.drawable.challenge_mandela_release_1990, 1990, -33.9258, 18.4232, "Cape Town, South Africa", "Nelson Mandela's Release"),
+    Challenge("obama", R.drawable.challenge_obama_inauguration_2009, 2009, 38.8895, -77.0352, "Capitol Hill, Washington D.C., USA", "Barack Obama's Inauguration"),
+    Challenge("9_11", R.drawable.challenge_attack_september_11_2001, 2001, 40.7115, -74.0134, "World Trade Center, New York, USA", "September 11 Attacks"),
+    Challenge("hiroshima", R.drawable.challenge_hiroshima_bombing_1945, 1945, 34.3853, 132.4553, "Hiroshima, Japan", "Atomic Bombing of Hiroshima"),
+    Challenge("pearlharbor", R.drawable.challenge_pearl_harbor_attack_1941, 1941, 21.3667, -157.9333, "Pearl Harbor, Hawaii, USA", "Attack on Pearl Harbor"),
+    Challenge("dday", R.drawable.challenge_d_day_landing_1944, 1944, 49.3389, -0.6217, "Omaha Beach, Normandy, France", "D-Day Normandy Landings"),
+    Challenge("fall_soviet", R.drawable.challenge_soviet_union_dissolution_1991, 1991, 55.7558, 37.6173, "Moscow, Russia", "Dissolution of the Soviet Union"),
+    Challenge("great_depression", R.drawable.challenge_wall_street_crash_1929, 1929, 40.7069, -74.0113, "Wall Street, New York, USA", "Wall Street Crash of 1929"),
+    Challenge("gettysburg_battle", R.drawable.challenge_gettysburg_battle_1863, 1863, 39.8140, -77.2301, "Gettysburg, Pennsylvania, USA", "Battle of Gettysburg"),
+    Challenge("suez_canal_opening", R.drawable.challenge_suez_canal_opening_1869, 1869, 30.5852, 32.2623, "Port Said, Egypt", "Opening of the Suez Canal"),
+    Challenge("eiffel_tower_construction", R.drawable.challenge_eiffel_tower_construction, 1888, 48.8584, 2.2945, "Paris, France", "Construction of the Eiffel Tower"),
+    Challenge("klondike_gold_rush", R.drawable.challenge_klondike_gold_rush_1897, 1897, 64.0500, -139.4333, "Dawson City, Yukon, Canada", "Klondike Gold Rush"),
+    Challenge("panama_canal_opening", R.drawable.challenge_panama_canal_opening_1914, 1914, 9.0800, -79.6800, "Panama Canal, Panama", "Opening of the Panama Canal"),
+    Challenge("russian_revolution_1917", R.drawable.challenge_russian_revolution_1917, 1917, 59.9371, 30.3097, "Winter Palace, St. Petersburg, Russia", "Russian Revolution (Storming of Winter Palace)"),
+    Challenge("prohibition_usa_start", R.drawable.challenge_prohibition_usa_start_1920, 1920, 40.7128, -74.0060, "New York City, USA (Speakeasy imagery)", "Start of Prohibition in the USA"),
+    Challenge("tutankhamun_tomb_discovery", R.drawable.challenge_tutankhamun_tomb_discovery_1922, 1922, 25.7402, 32.6014, "Valley of the Kings, Luxor, Egypt", "Discovery of Tutankhamun's Tomb"),
+    Challenge("hoover_dam_completion", R.drawable.challenge_hoover_dam_completion_1936, 1936, 36.0160, -114.7377, "Hoover Dam, Nevada/Arizona, USA", "Completion of Hoover Dam"),
+    Challenge("hindenburg_disaster", R.drawable.challenge_hindenburg_disaster_1937, 1937, 40.0793, -74.3293, "Lakehurst, New Jersey, USA", "Hindenburg Disaster"),
+    Challenge("battle_of_britain", R.drawable.challenge_battle_of_britain_1940, 1940, 51.5074, -0.1278, "London, UK (Spitfires/Blitz imagery)", "Battle of Britain"),
+    Challenge("battle_stalingrad", R.drawable.challenge_battle_stalingrad_1943, 1943, 48.7081, 44.5133, "Stalingrad (Volgograd), Russia", "Battle of Stalingrad (Turning Point)"),
+    Challenge("israel_founding_1948", R.drawable.challenge_israel_founding_1948, 1948, 32.0853, 34.7818, "Tel Aviv, Israel", "Founding of the State of Israel"),
+    Challenge("everest_first_ascent", R.drawable.challenge_everest_first_ascent_1953, 1953, 27.9881, 86.9250, "Mount Everest, Nepal/China", "First Ascent of Mount Everest"),
+    Challenge("sputnik_launch", R.drawable.challenge_sputnik_launch_1957, 1957, 45.9647, 63.3052, "Baikonur Cosmodrome, Kazakhstan", "Launch of Sputnik 1"),
+    Challenge("march_on_washington", R.drawable.challenge_march_on_washington_1963, 1963, 38.8893, -77.0502, "Lincoln Memorial, Washington D.C., USA", "March on Washington for Jobs and Freedom"),
+    Challenge("woodstock_festival", R.drawable.challenge_woodstock_festival_1969, 1969, 41.7137, -74.8754, "Bethel, New York, USA", "Woodstock Music Festival"),
+    Challenge("watergate_scandal_breakin", R.drawable.challenge_watergate_scandal_breakin_1972, 1972, 38.9007, -77.0506, "Watergate Complex, Washington D.C., USA", "Watergate Break-in"),
+    Challenge("fall_of_saigon", R.drawable.challenge_fall_of_saigon_1975, 1975, 10.7769, 106.7009, "Ho Chi Minh City (Saigon), Vietnam", "Fall of Saigon"),
+    Challenge("apple_founded_1976", R.drawable.challenge_apple_founded_1976, 1976, 37.3318, -122.0312, "Cupertino, California, USA (Garage imagery)", "Founding of Apple Computer"),
+    Challenge("challenger_disaster_1986", R.drawable.challenge_challenger_disaster_1986, 1986, 28.6084, -80.6043, "Cape Canaveral, Florida, USA", "Space Shuttle Challenger Disaster"),
+    Challenge("tiananmen_square_protests", R.drawable.challenge_tiananmen_square_protests_1989, 1989, 39.9075, 116.3972, "Tiananmen Square, Beijing, China", "Tiananmen Square Protests (Tank Man)"),
+    Challenge("dolly_the_sheep_cloned", R.drawable.challenge_dolly_the_sheep_cloned_1996, 1996, 55.9291, -3.2122, "Roslin Institute, Scotland, UK", "Cloning of Dolly the Sheep"),
+    Challenge("hong_kong_handover_1997", R.drawable.challenge_hong_kong_handover_1997, 1997, 22.2793, 114.1628, "Hong Kong Convention and Exhibition Centre", "Handover of Hong Kong to China"),
+    Challenge("indian_ocean_tsunami_2004", R.drawable.challenge_indian_ocean_tsunami_2004, 2004, 3.3166, 95.8536, "Banda Aceh, Indonesia (epicenter proxy)", "Indian Ocean Tsunami"),
+    Challenge("hurricane_katrina_2005", R.drawable.challenge_hurricane_katrina_2005, 2005, 29.9511, -90.0715, "New Orleans, Louisiana, USA", "Hurricane Katrina"),
+    Challenge("iphone_launch_2007", R.drawable.challenge_iphone_launch_2007, 2007, 37.7749, -122.4194, "San Francisco, CA (Moscone Center)", "Launch of the first iPhone"),
+    Challenge("financial_crisis_2008", R.drawable.challenge_financial_crisis_2008, 2008, 40.7069, -74.0113, "Wall Street, New York, USA", "Global Financial Crisis (Lehman Brothers collapse)"),
+    Challenge("arab_spring_egypt_2011", R.drawable.challenge_arab_spring_egypt_2011, 2011, 30.0444, 31.2357, "Tahrir Square, Cairo, Egypt", "Egyptian Revolution (Arab Spring)"),
+    Challenge("crimea_annexation_2014", R.drawable.challenge_crimea_annexation_2014, 2014, 44.9521, 34.1024, "Simferopol, Crimea", "Annexation of Crimea by Russia"),
+    Challenge("paris_agreement_climate", R.drawable.challenge_paris_agreement_climate_2015, 2015, 48.8566, 2.3522, "Paris, France", "Paris Agreement on Climate Change Signed"),
+    Challenge("notre_dame_fire_2019", R.drawable.challenge_notre_dame_fire_2019, 2019, 48.8530, 2.3499, "Notre-Dame Cathedral, Paris, France", "Notre-Dame Cathedral Fire"),
+    Challenge("us_capitol_attack_2021", R.drawable.challenge_us_capitol_attack_2021, 2021, 38.8899, -77.0091, "U.S. Capitol, Washington D.C., USA", "January 6th Capitol Attack"),
+    Challenge("ukraine_invasion_2022", R.drawable.challenge_ukraine_invasion_2022, 2022, 50.4501, 30.5234, "Kyiv, Ukraine", "Start of Full-Scale Ukraine Invasion")
+)

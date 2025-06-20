@@ -111,8 +111,10 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
 
     fun setScreenSize(width: Float, height: Float) {
         if (!screenSizeSet) {
-            _gameEngine.screenWidthPx = width
-            _gameEngine.screenHeightPx = height
+            Log.d("SpaceInvaders", "Setting screen size: width=$width, height=$height")
+            //YES, this has to be like this, due to going from portrait to landscape, otherwise the bunkers wont work correctly
+            _gameEngine.screenWidthPx = height
+            _gameEngine.screenHeightPx = width
             // Set player Y position to bottom of screen
             _gameEngine.playerController.setPlayer(
                 _gameEngine.player.copy(y = height - 100f)
@@ -149,10 +151,14 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
         if (tiltControlEnabled) {
             sensorManager.unregisterListener(this)
         }
+        Log.d("SpaceInvaders", "Restarting game with screen size: $screenWidthPx x $screenHeightPx")
         _gameEngine = SpaceInvadersGameEngine()
         // Set screen dimensions in engine
         _gameEngine.screenWidthPx = screenWidthPx
         _gameEngine.screenHeightPx = screenHeightPx
+
+        Log.d("SpaceInvaders", "Screen size set: ${_gameEngine.screenWidthPx} x ${_gameEngine.screenHeightPx}")
+
         _gameEngine.playerController.setPlayer(
             _gameEngine.player.copy(y = screenHeightPx - 100f)
         )
@@ -161,6 +167,7 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME)
         }
         _gameEngine.gameState = GameState.PLAYING
+        _gameEngine.bunkersInitialized = false
         _gameEngine.initializeBunkers()
         _tick.value++
     }

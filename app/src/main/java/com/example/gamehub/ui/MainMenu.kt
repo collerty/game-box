@@ -1,81 +1,96 @@
-package com.example.gamehub.ui
-
 import android.app.Activity
 import android.content.Intent
-import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.gamehub.lobby.LobbyService
+import coil.compose.AsyncImage
+import coil.ImageLoader
+import coil.decode.GifDecoder
+import com.example.gamehub.R
 import com.example.gamehub.navigation.NavRoutes
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.launch
-
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import com.example.gamehub.ui.SpriteMenuButton
 @Composable
 fun MainMenu(navController: NavController) {
-    // Grab the Activity so we can call finish()
     val activity = (LocalContext.current as? Activity)
-
     val context = LocalContext.current
+
+    // Ensure GIFs animate (important!)
+    val imageLoader = remember {
+        ImageLoader.Builder(context)
+            .components {
+                add(GifDecoder.Factory())
+            }
+            .build()
+    }
+
     LaunchedEffect(Unit) {
         context.stopService(Intent(context, com.example.gamehub.MusicService::class.java))
     }
-
     LaunchedEffect(Unit) {
         if (FirebaseAuth.getInstance().currentUser == null) {
             FirebaseAuth.getInstance().signInAnonymously()
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement   = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-
-    ) {
-        Button(
-            onClick = { navController.navigate(NavRoutes.GAMES_LIST) },
-            modifier = Modifier.fillMaxWidth()
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background image
+        Image(
+            painter = painterResource(id = R.drawable.game_box_bg1),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Play")
-        }
+            Spacer(Modifier.height(50.dp)) // <-- push the logo and buttons down
 
-        Spacer(Modifier.height(16.dp))
+            // Looping GIF logo
+            AsyncImage(
+                model = "file:///android_asset/game_box_logo.gif",
+                contentDescription = null,
+                modifier = Modifier
+                    .size(220.dp) // adjust as needed
+                    .align(Alignment.CenterHorizontally),
+                imageLoader = imageLoader
+            )
 
-        Button(
-            onClick = { navController.navigate(NavRoutes.SETTINGS) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Settings")
-        }
+            Spacer(Modifier.height(60.dp)) // <-- more space between logo and buttons
 
-        Spacer(Modifier.height(16.dp))
-
-        Button(
-            onClick = { navController.navigate(NavRoutes.TEST_SENSORS) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("TestSensors")
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        Button(
-            onClick = { activity?.finish() },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Exit")
+            // Buttons
+            SpriteMenuButton(
+                text = "Play",
+                onClick = { navController.navigate(NavRoutes.GAMES_LIST) }
+            )
+            Spacer(Modifier.height(16.dp))
+            SpriteMenuButton(
+                text = "Settings",
+                onClick = { navController.navigate(NavRoutes.SETTINGS) }
+            )
+            Spacer(Modifier.height(16.dp))
+            SpriteMenuButton(
+                text = "Test Sensors",
+                onClick = { navController.navigate(NavRoutes.TEST_SENSORS) }
+            )
+            Spacer(Modifier.height(16.dp))
+            SpriteMenuButton(
+                text = "Exit",
+                onClick = { activity?.finish() }
+            )
         }
     }
 }
-

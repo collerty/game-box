@@ -227,7 +227,8 @@ fun TriviatoePlayScreen(
                                         (gameState.state == TriviatoeRoundState.MOVE_1 || gameState.state == TriviatoeRoundState.MOVE_2) &&
                                         gameState.currentTurn == playerId &&
                                         !gameState.moves.any { it.playerId == playerId && it.round == gameState.currentRound } &&
-                                        gameState.board.none { it.row == row && it.col == col && it.symbol != null }
+                                        gameState.board.none { it.row == row && it.col == col && it.symbol != null } &&
+                                        gameState.state != TriviatoeRoundState.FINISHED // <-- Fix: disallow clicks if finished
                                     ) {
                                         playSound(context, R.raw.triviatoe_place_down_piece)
                                         scope.launch {

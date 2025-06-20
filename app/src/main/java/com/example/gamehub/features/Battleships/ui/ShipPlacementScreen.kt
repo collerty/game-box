@@ -148,8 +148,6 @@ fun ShipPlacementScreen(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Box(
-                    Modifier
-                        .border(4.dp, Color.Black, RectangleShape) // Thick black border
                 ) {
                     BattleshipMap(
                         gridSize = 10,
@@ -175,7 +173,8 @@ fun ShipPlacementScreen(
                                     }
                                 }
                             }
-                        }
+                        },
+                        validCells = mapCells
                     )
                 }
             }
@@ -291,7 +290,7 @@ fun ShipPreview(ship: Ship) {
                         Modifier
                             .size(24.dp)
                             .background(Color(0xFF4B8B1D))
-                            .border(2.dp, Color.Black, RectangleShape)
+                            .border(3.dp, Color.Black, RectangleShape)
                     )
                     if (it != ship.size - 1) Spacer(Modifier.width(2.dp))
                 }
@@ -303,7 +302,7 @@ fun ShipPreview(ship: Ship) {
                         Modifier
                             .size(24.dp)
                             .background(Color(0xFF4B8B1D))
-                            .border(2.dp, Color.Black, RectangleShape)
+                            .border(3.dp, Color.Black, RectangleShape)
                     )
                     if (it != ship.size - 1) Spacer(Modifier.height(2.dp))
                 }

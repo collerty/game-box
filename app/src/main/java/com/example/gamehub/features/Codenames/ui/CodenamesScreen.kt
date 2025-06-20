@@ -4,6 +4,11 @@ import android.util.Log
 import android.widget.Toast
 import android.view.WindowManager
 import android.view.View
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,6 +39,7 @@ import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.navigation.NavRoutes
+import com.example.gamehub.ui.SpriteMenuButton
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
@@ -41,6 +47,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.ktx.toObject
 import com.example.gamehub.ui.theme.ArcadeClassic
+import com.google.firebase.auth.FirebaseAuth
+import com.example.gamehub.audio.SoundManager
 
 data class Clue(
     val word: String,
@@ -54,11 +62,29 @@ fun CodenamesScreen(
     isMaster: Boolean,
     masterTeam: String? = null
 ) {
-    // Get the current window
     val view = LocalView.current
     val window = (view.context as? android.app.Activity)?.window
+    val context = LocalContext.current
 
-    // Hide system bars when the screen is first composed
+    // Function to vibrate
+    fun vibrate(duration: Long) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(duration)
+        }
+    }
+
+    // Hide system bars
     LaunchedEffect(Unit) {
         window?.let {
             WindowCompat.setDecorFitsSystemWindows(it, false)
@@ -88,8 +114,6 @@ fun CodenamesScreen(
     var blueClues by remember { mutableStateOf<List<Clue>>(emptyList()) }
     var currentMasterTeam by remember { mutableStateOf(masterTeam?.uppercase()) }
 
-    val context = LocalContext.current // Get the current context for Toast
-
     // Debug logging for visibility conditions
     LaunchedEffect(isMaster, currentMasterTeam, isMasterPhase, currentTeam) {
         Log.d("CodenamesDebug", """
@@ -114,6 +138,10 @@ fun CodenamesScreen(
         // Only run timer if there's no winner
         if (winner == null) {
             while (timerSeconds > 0) {
+                // Play ticking sound for last 5 seconds
+                if (timerSeconds <= 5) {
+                    SoundManager.playEffect(context, R.raw.ticking_sound)
+                }
                 delay(1000)
                 timerSeconds--
             }
@@ -253,8 +281,8 @@ fun CodenamesScreen(
     ) {
         // Background image
         androidx.compose.foundation.Image(
-            painter = painterResource(id = R.drawable.plank_background),
-            contentDescription = "Plank Background",
+            painter = painterResource(id = R.drawable.stars_bg),
+            contentDescription = "Stars Background",
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.FillBounds
         )
@@ -401,6 +429,9 @@ fun CodenamesScreen(
                                                     updatedCards[cardIndex] = updatedCards[cardIndex].toMutableMap().apply {
                                                         put("isRevealed", true)
                                                     }
+
+                                                    // Vibrate when a card is revealed
+                                                    vibrate(500)
 
                                                     // Update remaining words count based on the revealed card's color
                                                     val updates = mutableMapOf<String, Any>(
@@ -599,11 +630,21 @@ fun CodenamesScreen(
                             onValueChange = {
                                 if (currentTeam == "RED") redMasterClue = it else blueMasterClue = it
                             },
-                            label = { Text("Enter clue and number (e.g., 'APPLE 3')", fontFamily = ArcadeClassic) },
-                            modifier = Modifier.fillMaxWidth()
+                            label = { Text("Enter clue and number (e.g., 'APPLE 3')", fontFamily = ArcadeClassic, color = Color.White) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color.White,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                focusedLabelColor = Color.White,
+                                unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                                cursorColor = Color.White
+                            )
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Button(
+                        SpriteMenuButton(
+                            text = "Submit Clue",
                             onClick = {
                                 val clueText = if (currentTeam == "RED") redMasterClue else blueMasterClue
                                 // Basic validation for clue format (e.g., "WORD X")
@@ -615,7 +656,7 @@ fun CodenamesScreen(
                                     if (count < 0 || count > 9) { // Example constraint for count
                                         Toast.makeText(context, "Clue number must be between 0 and 9", Toast.LENGTH_SHORT).show()
                                         Log.e("Codenames", "Invalid clue number: $count")
-                                        return@Button // Exit onClick if invalid
+                                        return@SpriteMenuButton // Exit onClick if invalid
                                     }
 
                                     if (word.isNotEmpty()) {
@@ -666,9 +707,7 @@ fun CodenamesScreen(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Submit Clue", fontFamily = ArcadeClassic)
-                        }
+                        )
                     }
                 } else {
                     // Display Current Turn/Phase for non-masters or for the other master's turn

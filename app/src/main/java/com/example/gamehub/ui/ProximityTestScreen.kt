@@ -5,34 +5,36 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.gamehub.R
+import com.example.gamehub.ui.components.NinePatchBorder
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ProximityTestScreen(navController: NavController) {
     val context = LocalContext.current
 
-    // Get sensor manager & proximity sensor
+    // Sensor setup
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
-    val proxSensor = remember {
-        sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-    }
+    val proxSensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY) }
     val maxRange = proxSensor?.maximumRange ?: 0f
 
-    // Track whether something is close
     var isDetected by remember { mutableStateOf(false) }
 
     DisposableEffect(proxSensor) {
@@ -43,44 +45,81 @@ fun ProximityTestScreen(navController: NavController) {
                 }
                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
             }
-            sensorManager.registerListener(
-                listener, proxSensor, SensorManager.SENSOR_DELAY_UI
-            )
+            sensorManager.registerListener(listener, proxSensor, SensorManager.SENSOR_DELAY_UI)
             onDispose { sensorManager.unregisterListener(listener) }
         } else {
             onDispose { }
         }
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = if (isDetected) Color.Red else Color.Green
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Retro pixel background
+        Image(
+            painter = painterResource(id = R.drawable.game_box_bg1),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+        )
+
         Column(
-            Modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
-            verticalArrangement = Arrangement.Center,
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Proximity Sensor",
-                style = MaterialTheme.typography.headlineMedium
+            Spacer(Modifier.height(50.dp))
+            Image(
+                painter = painterResource(id = R.drawable.proximity),
+                contentDescription = "Proximity Test",
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .height(90.dp)
             )
-
-            Spacer(Modifier.height(24.dp))
-
-            Text(
-                text = if (isDetected) "OBJECT DETECTED" else "NO OBJECT",
-                style = MaterialTheme.typography.headlineLarge,
-                color = Color.White
-            )
-
-            Spacer(Modifier.height(48.dp))
-
-            Button(onClick = { navController.popBackStack() }) {
-                Text("Back to Menu")
+            Spacer(Modifier.height(90.dp))
+            // Centered bordered box with proximity message
+            Box(
+                modifier = Modifier
+                    .size(220.dp) // or adjust as needed
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // 9-patch border (replace with your correct resource name)
+                NinePatchBorder(
+                    modifier = Modifier.matchParentSize(),
+                    drawableRes = R.drawable.game_list_border // your 9-patch border resource
+                )
+                // Inside: green/red background + content
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .background(
+                            if (isDetected) Color(0xFFba8add) else Color(0xFF5b2f77),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp) // no extra rounding
+                        ),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (isDetected) "OBJECT DETECTED" else "NO OBJECT",
+                        color = if (isDetected) Color(0xFF5b2f77) else Color(0xFFba8add),
+                        fontSize = 24.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            SpriteMenuButton(
+                text = "Back to Menu",
+                onClick = { navController.popBackStack() },
+                modifier = Modifier
+                    .fillMaxWidth(0.95f),
+                normalRes = R.drawable.menu_button_long,
+                pressedRes = R.drawable.menu_button_long_pressed
+            )
+            Spacer(Modifier.height(20.dp))
         }
     }
 }

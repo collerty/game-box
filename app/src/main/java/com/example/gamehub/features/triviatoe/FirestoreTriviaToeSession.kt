@@ -78,6 +78,14 @@ class FirestoreTriviatoeSession(
 
     // Place an X or O on the grid
     suspend fun submitMove(playerId: String, row: Int, col: Int, symbol: String) {
+        val snap = room.get().await()
+        val gs = snap.get("gameState") as? Map<*, *> ?: return
+        val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
+        val session = TriviatoeCodec.decodeState(triviatoeState as Map<String, Any?>)
+        if (session.state == TriviatoeRoundState.FINISHED) {
+            println("submitMove: Game already finished, move blocked.")
+            return
+        }
         val move = mapOf(
             "playerId" to playerId,
             "row" to row,
@@ -95,16 +103,6 @@ class FirestoreTriviatoeSession(
             ),
             "submitMove"
         )
-
-        val snap = room.get().await()
-        val gs = snap.get("gameState") as? Map<*, *> ?: return
-        val triviatoeState = (gs["triviatoe"] as? Map<*, *>)?.mapKeys { it.key as String } ?: return
-        val session = TriviatoeCodec.decodeState(triviatoeState as Map<String, Any?>)
-        if (session.state == TriviatoeRoundState.FINISHED) {
-            println("submitMove: Already finished, skipping any updates.")
-            return
-        }
-        // Prevent further moves if already finished
 
         val boardCells = session.board.toMutableList()
         if (!boardCells.any { it.row == row && it.col == col }) {

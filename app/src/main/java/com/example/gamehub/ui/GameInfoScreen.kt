@@ -125,13 +125,15 @@ fun OhPardonInfo() {
         Text(
             "A fast-paced party game of luck and humor.",
             style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "Great for groups of 4 people. Laughter guaranteed! Roll the dice by shaking your phone to move around the game board, but be careful because opponents can send your pawn right back to the start if they land on it! To get your pawn onto the game board, you must roll a 6. Your task is to get all of your pawns into the victory zone, for this you must traverse the entire game board with all your pawns before the other players do.",
+            "Great for groups of 4 people. Laughter guaranteed! \n\nRoll the dice by shaking your phone to move around the game board, but be careful because opponents can send your pawn right back to the start if they land on it! \n\nTo get your pawn onto the game board, you must roll a 6. \n\nYour task is to get all of your pawns into the victory zone, for this you must traverse the entire game board with all your pawns before the other players do.",
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
     }
 }
@@ -142,12 +144,15 @@ fun SpaceInvadersInfo() {
         Text(
             "Can you defeat all the alien invaders and defend Earth?",
             style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "The classic arcade game from the 80s! Move to the left or right by clicking the buttons, or by clicking on the tilt phone icon on the top right. Shooting enemies gives you points, the UFO is an especially valuable target! Bunkers will defend you from enemy bullets, but only for a while... Can you get the highest score out of all the players?", style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
+            "The classic arcade game from the 80s! \n\nMove to the left or right by clicking the buttons, or by clicking on the tilt phone icon on the top right. \n\nShooting enemies gives you points, the UFO is an especially valuable target! \n\nBunkers will defend you from enemy bullets, but only for a while... \n\nCan you get the highest score out of all the players?",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
     }
 }

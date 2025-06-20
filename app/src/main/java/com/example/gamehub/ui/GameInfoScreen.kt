@@ -402,24 +402,6 @@ fun JorisJumpInfo() {
     }
 }
 
-@Composable
-fun WhereAndWhenInfo() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            "Guess the place and year of famous world events! Compete for accuracy.",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = Color(0xFFc08cdc)
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "A multiplayer trivia game. Each round, see a photo and hint, then guess the location on the map and the year it happened. The closer you are, the more points you get!",
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            color = Color(0xFFc08cdc)
-        )
-    }
-}
 
 @Composable
 fun ScreamOSaurInfo() {

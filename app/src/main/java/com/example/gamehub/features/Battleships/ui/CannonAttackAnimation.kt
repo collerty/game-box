@@ -50,10 +50,9 @@
             }
         }
 
-        val correctionY = -cellSizePx // negative = animation will move up by one cell
         val end = Offset(
             boardOffset.x + cell.col * cellSizePx + cellSizePx / 2f,
-            boardOffset.y + cell.row * cellSizePx + cellSizePx / 2f + correctionY
+            boardOffset.y + cell.row * cellSizePx + cellSizePx / 2f
         )
 
         // --- 3. Curved trajectory control point ---

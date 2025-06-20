@@ -37,6 +37,7 @@ import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.request.ImageRequest
 import coil.ImageLoader
+import kotlinx.coroutines.delay
 
 
 @Suppress("UnusedBoxWithConstraintsScope")
@@ -165,6 +166,45 @@ fun TriviatoePlayScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
+        if (gameState.state == TriviatoeRoundState.WAITING_FOR_READY) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Get ready for the next round!",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White
+                )
+                Spacer(Modifier.height(20.dp))
+                LaunchedEffect(Unit) {
+                    delay(1000)
+                    session.setReadyForQuestion(playerId)
+                }
+                Spacer(Modifier.height(20.dp))
+                val ready = gameState.readyForQuestion ?: emptyMap()
+                Text(
+                    "Players ready: ${ready.values.count { it }}/2",
+                    color = Color.White
+                )
+            }
+
+            // Host (or both clients, safe to double-call) triggers next round when both are ready
+            LaunchedEffect(gameState.readyForQuestion) {
+                if ((gameState.readyForQuestion?.size ?: 0) == 2 &&
+                    gameState.readyForQuestion?.all { it.value } == true
+                ) {
+                    // Only host can do this, or both (safe)
+                    if (playerId == gameState.players.firstOrNull()?.uid) {
+                        session.startNextRound()
+                    }
+                }
+            }
+        }
+
         if (gameState.state == TriviatoeRoundState.QUESTION) {
             Box(
                 modifier = Modifier
@@ -227,7 +267,8 @@ fun TriviatoePlayScreen(
                                         (gameState.state == TriviatoeRoundState.MOVE_1 || gameState.state == TriviatoeRoundState.MOVE_2) &&
                                         gameState.currentTurn == playerId &&
                                         !gameState.moves.any { it.playerId == playerId && it.round == gameState.currentRound } &&
-                                        gameState.board.none { it.row == row && it.col == col && it.symbol != null }
+                                        gameState.board.none { it.row == row && it.col == col && it.symbol != null } &&
+                                        gameState.state != TriviatoeRoundState.FINISHED // <-- Fix: disallow clicks if finished
                                     ) {
                                         playSound(context, R.raw.triviatoe_place_down_piece)
                                         scope.launch {
@@ -398,12 +439,9 @@ fun TriviatoePlayScreen(
                                         textAlign = TextAlign.Center
                                     )
                                     LaunchedEffect(gameState.state, gameState.currentRound) {
-                                        if (
-                                            gameState.state == TriviatoeRoundState.CHECK_WIN &&
-                                            playerId == gameState.players.firstOrNull()?.uid &&
-                                            gameState.currentRound != lastCheckedRound
-                                        ) {
+                                        if (gameState.currentRound != lastCheckedRound) {
                                             lastCheckedRound = gameState.currentRound
+                                            // All players try, safe due to idempotency; add a tiny delay for UI smoothness
                                             scope.launch { session.finishMoveRound(gameState) }
                                         }
                                     }

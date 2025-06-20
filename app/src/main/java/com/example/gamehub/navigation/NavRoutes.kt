@@ -42,6 +42,8 @@ object NavRoutes {
     const val TRIVIATOE_XO_ASSIGN = "triviatoe/{code}/{userName}/xo"
     const val TRIVIATOE_INTRO_ANIM = "triviatoe/{code}/{userName}/intro"
 
+    const val GAME_INFO = "gameInfo/{gameId}"
 
+    const val VOICE_CHAT_TEST = "voice_chat_test"
 
 }

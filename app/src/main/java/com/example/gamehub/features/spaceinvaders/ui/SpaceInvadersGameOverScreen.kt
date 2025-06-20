@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
@@ -27,7 +25,7 @@ fun SpaceInvadersGameOverScreen(
     onRestart: () -> Unit,
     onExit: () -> Unit,
 ) {
-    val retroFont = FontFamily(Font(R.font.space_invaders, FontWeight.Normal))
+    val gameBoxFont = FontFamily(Font(R.font.gamebox_font, FontWeight.Bold))
     val greenTextColor = Color(0xFF00FF00)
 
     Box(
@@ -39,15 +37,15 @@ fun SpaceInvadersGameOverScreen(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 "Game Over",
-                fontSize = 36.sp,
+                fontSize = 48.sp,
                 color = greenTextColor,
-                fontFamily = retroFont
+                fontFamily = gameBoxFont
             )
             Text(
                 "Score: $score",
-                fontSize = 20.sp,
+                fontSize = 32.sp,
                 color = greenTextColor,
-                fontFamily = retroFont,
+                fontFamily = gameBoxFont,
                 modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
             )
 
@@ -60,7 +58,7 @@ fun SpaceInvadersGameOverScreen(
                     contentColor = Color(0xFF00FF00) // Green
                 )
             ) {
-                Text("Restart", color = greenTextColor, fontFamily = retroFont, fontSize = 18.sp)
+                Text("Restart", color = greenTextColor, fontFamily = gameBoxFont, fontSize = 28.sp)
             }
 
             Button(
@@ -72,7 +70,7 @@ fun SpaceInvadersGameOverScreen(
                     contentColor = Color(0xFF00FF00) // Green
                 )
             ) {
-                Text("Exit Game", color = greenTextColor, fontFamily = retroFont, fontSize = 18.sp)
+                Text("Exit Game", color = greenTextColor, fontFamily = gameBoxFont, fontSize = 28.sp)
             }
         }
     }

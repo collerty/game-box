@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.*
 import com.example.gamehub.data.VolumePreferences
 import kotlinx.coroutines.launch
+import com.example.gamehub.audio.SoundManager
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = VolumePreferences(application)
@@ -21,6 +22,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setSoundVolume(value: Float) {
         if (value > 0f) previousSoundVolume = value
+        SoundManager.soundVolume = value
         viewModelScope.launch { preferences.setSoundVolume(value) }
     }
 

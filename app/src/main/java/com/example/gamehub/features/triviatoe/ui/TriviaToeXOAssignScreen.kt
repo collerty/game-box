@@ -1,6 +1,5 @@
 package com.example.gamehub.features.triviatoe.ui
 
-import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -20,7 +19,6 @@ import com.example.gamehub.features.triviatoe.model.TriviatoeRoundState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -34,74 +32,45 @@ fun TriviatoeXOAssignScreen(
 ) {
     val scope = rememberCoroutineScope()
     val state by session.stateFlow.collectAsState()
-    var animating by remember { mutableStateOf(true) }
-    var showResult by remember { mutableStateOf(false) }
-    var animationSymbol by remember { mutableStateOf("X") }
-    var assigned by remember { mutableStateOf(false) } // ensure assignSymbolsRandomly is called once
-
     val context = LocalContext.current
     var diceMediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
-    // Start music when this screen is shown
-    LaunchedEffect(Unit) {
-        context.startService(Intent(context, com.example.gamehub.MusicService::class.java))
-    }
+    // Animation state (just for UI, not logic)
+    var animating by remember { mutableStateOf(true) }
+    var showResult by remember { mutableStateOf(false) }
+    var animationSymbol by remember { mutableStateOf("X") }
+    var assignTimeout by remember { mutableStateOf(false) }
+    var lastAssignAttempt by remember { mutableStateOf(0L) }
+    var lastStartGameAttempt by remember { mutableStateOf(0L) }
+    var hasSetReady by remember { mutableStateOf(false) }
 
-    // Debug print: see what's in state
-    Text(
-        "DEBUG: " + state.players.joinToString { "${it.name}:${it.symbol}" },
-        color = androidx.compose.ui.graphics.Color.Gray
-    )
-
-    // Animation: alternate X/O for 2 seconds, then reveal
+    // --- Animation: alternate X/O for 2 seconds, then reveal ---
     LaunchedEffect(animating) {
         if (animating) {
             diceMediaPlayer = MediaPlayer.create(context, R.raw.triviatoe_dice_rolling)
             diceMediaPlayer?.isLooping = true
             diceMediaPlayer?.start()
-
             repeat(12) { i ->
                 animationSymbol = if (i % 2 == 0) "X" else "O"
                 delay(150)
             }
             animating = false
             showResult = true
-
             diceMediaPlayer?.stop()
             diceMediaPlayer?.release()
             diceMediaPlayer = null
         }
     }
 
-    // Automatically assign after animation is done and both players are loaded, only by host
-    LaunchedEffect(showResult, state.players) {
-        // Try to assign as soon as both players are present, animation is done, and not assigned yet.
-        // Let ANY player try after timeout if stuck (idempotent, only first write wins).
-        if (!assigned && showResult && state.players.size == 2) {
-            assigned = true
-            println("Assigning symbols (fallback mode, anyone can trigger)")
-            scope.launch { session.assignSymbolsRandomly() }
-        }
-    }
-
-    LaunchedEffect(state.players) {
-        println("Current players from state: $state.players")
-    }
-
-
-    val assignedSymbol = state.players.find { it.uid == playerId }?.symbol
-    val otherPlayer = state.players.firstOrNull { it.uid != playerId }
-    val otherSymbol = otherPlayer?.symbol
-
-    LaunchedEffect(assignedSymbol, state.players) {
-        if (
-            showResult && // animation done
-            assignedSymbol != null &&
-            state.players.size == 2
-        ) {
-            // Let any device try to progress after assign.
-            delay(2000)
-            scope.launch { session.startNextRound() }
+    // After animation finishes, set ready flag in Firestore (only once)
+    LaunchedEffect(showResult) {
+        if (showResult && !hasSetReady) {
+            hasSetReady = true
+            println("setReadyForQuestion called for $playerId")
+            scope.launch { session.setReadyForQuestion(playerId) }
+            // Defensive: if stuck more than 12s after anim, show retry
+            delay(12000)
+            assignTimeout = true
         }
     }
 
@@ -113,12 +82,48 @@ fun TriviatoeXOAssignScreen(
         }
     }
 
-    // Auto-navigate to PlayScreen only when QUESTION is ready in Firestore!
+    // --- Firestore state-driven progression ---
+    val assignedSymbol = state.players.find { it.uid == playerId }?.symbol
+    val otherPlayer = state.players.firstOrNull { it.uid != playerId }
+    val otherSymbol = otherPlayer?.symbol
+
+    // Main effect: Handles assignment, ready, and round start (auto-retries)
+    LaunchedEffect(state.players, state.readyForQuestion, state.state) {
+        val validPlayers = state.players.filter { !it.uid.isNullOrEmpty() }
+        val readyMap = state.readyForQuestion ?: emptyMap()
+        val bothAssigned = validPlayers.size == 2 && validPlayers.all { !it.symbol.isNullOrEmpty() }
+        val allReady = validPlayers.size == 2 && validPlayers.all { p -> readyMap[p.uid] == true }
+
+        println("Effect: bothAssigned=$bothAssigned allReady=$allReady state=${state.state}")
+
+        if (!bothAssigned) {
+            if (System.currentTimeMillis() - lastAssignAttempt > 3000) {
+                lastAssignAttempt = System.currentTimeMillis()
+                println("Trying assignSymbolsRandomly")
+                scope.launch { session.assignSymbolsRandomly() }
+            }
+        } else if (bothAssigned && allReady) {
+            // Only trigger if not already at QUESTION state
+            if (bothAssigned && allReady) {
+                if (System.currentTimeMillis() - lastStartGameAttempt > 3000) {
+                    lastStartGameAttempt = System.currentTimeMillis()
+                    println("Trying startNextRound (both ready)")
+                    scope.launch { session.startNextRound() }
+                }
+            }
+        }
+    }
+
+    // Navigate forward as soon as Firestore says round is ready!
     LaunchedEffect(state.state, state.quizQuestion) {
+        println("NAV CHECK: state=${state.state} question=${state.quizQuestion}")
         if (state.state == TriviatoeRoundState.QUESTION && state.quizQuestion != null) {
+            println("Navigating to play screen!")
             navController.navigate(
                 "triviatoe/${session.roomCode}/${Uri.encode(userName)}"
-            )
+            ) {
+                popUpTo("triviatoe/${session.roomCode}/${Uri.encode(userName)}/xo") { inclusive = true }
+            }
         }
     }
 
@@ -129,9 +134,10 @@ fun TriviatoeXOAssignScreen(
             "O" -> R.drawable.o_icon
             else -> R.drawable.x_icon // fallback to X
         }
+
+    // --- UI ---
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
         Image(
             painter = painterResource(id = R.drawable.triviatoe_bg1),
@@ -139,30 +145,24 @@ fun TriviatoeXOAssignScreen(
             contentScale = ContentScale.Crop,
             modifier = Modifier.matchParentSize()
         )
-
-        // Center the overlay box
-        // Center the overlay box
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .align(Alignment.Center)
-                .clip(RoundedCornerShape(24.dp)) // round the corners
-                .height(IntrinsicSize.Min) // let height grow with content
+                .clip(RoundedCornerShape(24.dp))
+                .height(IntrinsicSize.Min)
         ) {
-            // --- Background sprite, stretches to fit the box! ---
             Image(
-                painter = painterResource(id = R.drawable.triviatoe_box1), // <--- your sprite!
+                painter = painterResource(id = R.drawable.triviatoe_box1),
                 contentDescription = null,
                 contentScale = ContentScale.FillBounds,
                 modifier = Modifier.matchParentSize()
             )
-
-            // --- Foreground UI goes here, exactly as before ---
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 40.dp, horizontal = 20.dp), // padding inside the sprite
+                    .padding(vertical = 40.dp, horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -173,8 +173,6 @@ fun TriviatoeXOAssignScreen(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(40.dp))
-
-                // Animation / symbol display
                 val currentRes = if (showResult && assignedSymbol != null)
                     symbolRes(assignedSymbol)
                 else
@@ -184,9 +182,7 @@ fun TriviatoeXOAssignScreen(
                     contentDescription = null,
                     modifier = Modifier.size(96.dp)
                 )
-
                 Spacer(Modifier.height(32.dp))
-
                 if (showResult && assignedSymbol != null) {
                     if (otherPlayer != null && otherSymbol != null) {
                         Text(
@@ -204,17 +200,10 @@ fun TriviatoeXOAssignScreen(
                     Spacer(Modifier.height(32.dp))
                 }
             }
+        }
+    }
 
-        }
-    }
-    // Defensive timer: if stuck for 10s, show retry UI
-    var assignTimeout by remember { mutableStateOf(false) }
-    LaunchedEffect(showResult, assigned) {
-        if (showResult && assigned) {
-            delay(10000)
-            assignTimeout = true
-        }
-    }
+    // If stuck too long, show retry/leave
     if (assignTimeout) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -228,14 +217,16 @@ fun TriviatoeXOAssignScreen(
                     Text("Leave Room")
                 }
                 Button(onClick = {
-                    assigned = false // allow retry
+                    assignTimeout = false
+                    scope.launch {
+                        session.assignSymbolsRandomly()
+                        session.setReadyForQuestion(playerId)
+                        session.startNextRound()
+                    }
                 }) {
                     Text("Retry Assign")
                 }
-
             }
         }
-
     }
-
 }

@@ -55,7 +55,8 @@ object TriviatoeCodec : GameCodec<TriviatoeMove, TriviatoeSession> {
             randomized = snapshot["randomized"] as? Boolean, // <--- ADD THIS LINE HERE!
             lastQuestion = decodeQuestion(snapshot["lastQuestion"] as? Map<String, Any?>),
             lastCorrectIndex = (snapshot["lastCorrectIndex"] as? Long)?.toInt(),
-            rematchVotes = (snapshot["rematchVotes"] as? Map<String, Boolean>) ?: emptyMap()
+            rematchVotes = (snapshot["rematchVotes"] as? Map<String, Boolean>) ?: emptyMap(),
+            readyForQuestion = (snapshot["readyForQuestion"] as? Map<String, Boolean>) ?: emptyMap()
         )
     }
 

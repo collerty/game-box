@@ -176,7 +176,13 @@ fun HostLobbyScreen(
                                 Text("Spectators", fontFamily = GameBoxFontFamily, fontSize = 19.sp, color = Color(0xFFc08cdc), modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
                                 spectators.forEach { player ->
                                     val name = player["name"] as? String ?: ""
-                                    Text("• $name", fontFamily = GameBoxFontFamily, modifier = Modifier.align(Alignment.CenterHorizontally), textAlign = TextAlign.Center)
+                                    Text(
+                                        "• $name",
+                                        fontFamily = GameBoxFontFamily,
+                                        color = Color.White,
+                                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                                 
                                 // Add team join buttons for spectators
@@ -573,6 +579,6 @@ private fun canStartGame(gameId: String, players: List<Map<String, Any>>, maxPla
     "battleships" -> players.size == maxPlayers
     "ohpardon" -> players.size >= 2 && players.size <= maxPlayers
     "triviatoe" -> players.size == maxPlayers
-    "codenames" -> players.size >= 1 && players.size <= maxPlayers
+    "codenames" -> players.size >= 4 && players.size <= maxPlayers
     else -> players.size >= 2 && players.size <= maxPlayers
 }

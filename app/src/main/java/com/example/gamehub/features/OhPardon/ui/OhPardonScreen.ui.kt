@@ -4,11 +4,11 @@ import android.app.Application
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,7 +19,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -34,28 +33,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gamehub.features.ohpardon.OhPardonViewModel
-import com.example.gamehub.features.ohpardon.Player
 import com.example.gamehub.features.ohpardon.classes.OhPardonViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.classes.SoundManager
 import com.example.gamehub.features.ohpardon.classes.VibrationManager
-import com.example.gamehub.features.ohpardon.UiEvent
-
-enum class CellType {
-    EMPTY, PATH, HOME, GOAL, ENTRY
-}
-
-data class BoardCell(
-    val x: Int,
-    val y: Int,
-    val type: CellType,
-    val pawn: PawnForUI? = null,
-    val color: Color? = null
-)
-
-data class PawnForUI(val color: Color, val id: Int)
-
+import com.example.gamehub.features.ohpardon.models.UiEvent
+import com.example.gamehub.navigation.NavRoutes
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -98,6 +82,12 @@ fun OhPardonScreen(
     val toastMessage by viewModel.toastMessage.collectAsState()
     val showVictoryDialog = remember { mutableStateOf(false) }
     val winnerName = remember { mutableStateOf("") }
+    val showExitDialog = remember { mutableStateOf(false) }
+
+    // Add BackHandler to intercept back button presses
+    BackHandler {
+        showExitDialog.value = true
+    }
 
     LaunchedEffect(gameRoom?.status) {
         if (gameRoom?.status == "over" && gameRoom?.gameState?.gameResult?.contains("wins") == true) {
@@ -138,7 +128,6 @@ fun OhPardonScreen(
         }
     }
 
-
     val currentPlayer = gameRoom?.players?.find { it.name == userName }
     val isHost = gameRoom?.hostUid == currentPlayer?.uid
 
@@ -173,6 +162,50 @@ fun OhPardonScreen(
         )
     }
 
+    // Exit confirmation dialog
+    if (showExitDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog.value = false },
+            title = { Text(text = "Exit Game") },
+            text = { Text(text = "Are you sure you want to exit the game?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitDialog.value = false
+                    // If host, consider handling room cleanup here
+                    if (isHost) {
+                        firestore.collection("rooms").document(code)
+                            .delete()
+                            .addOnSuccessListener {
+                                navController.popBackStack()
+                            }
+                    } else {
+                        val roomRef = firestore.collection("rooms").document(code)
+                        roomRef.get().addOnSuccessListener { document ->
+                            val players = document.get("players") as? List<Map<String, Any>>
+                            roomRef.update("gameState.ohpardon.diceRoll", null)
+                            roomRef.update("gameState.ohpardon.currentPlayer", gameRoom?.hostUid) //give the turn to the host
+                            val playerToRemove = players?.find { it["name"] == userName }
+                            if (playerToRemove != null) {
+                                roomRef.update("players", com.google.firebase.firestore.FieldValue.arrayRemove(playerToRemove))
+                                    .addOnSuccessListener {
+                                        navController.navigate(NavRoutes.GAMES_LIST)
+                                    }
+                            } else {
+                                navController.navigate(NavRoutes.GAMES_LIST)
+                            }
+                        }
+                    }
+                }) {
+                    Text(if (isHost) "Exit & Close Room" else "Exit")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog.value = false }) {
+                    Text("Stay")
+                }
+            }
+        )
+    }
 
     val pixelFont = FontFamily(Font(R.font.gamebox_font)) // Replace with your actual font
 
@@ -193,9 +226,10 @@ fun OhPardonScreen(
             )
 
             // Overlay to make text readable
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0x99000000)) // semi-transparent black
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x99000000)) // semi-transparent black
             )
 
             // Foreground content
@@ -216,25 +250,35 @@ fun OhPardonScreen(
                         GameBoard(
                             board = board,
                             onPawnClick = { selectedPawnId = it },
-                            currentPlayer = currentPlayer
+                            currentPlayer = currentPlayer,
+                            selectedPawnId = selectedPawnId
                         )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    val currentTurnPlayer = gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
+                    val currentTurnPlayer =
+                        gameRoom!!.players.find { it.uid == gameRoom!!.gameState.currentTurnUid }
 
                     if (currentTurnPlayer != null) {
                         Text(
                             text = "It's ${currentTurnPlayer.name}'s turn!",
-                            style = TextStyle(fontFamily = pixelFont, fontSize = 20.sp, color = Color.White),
+                            style = TextStyle(
+                                fontFamily = pixelFont,
+                                fontSize = 20.sp,
+                                color = Color.White
+                            ),
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
 
                         currentDiceRoll?.let {
                             Text(
                                 text = "${currentTurnPlayer.name} rolled a $it!",
-                                style = TextStyle(fontFamily = pixelFont, fontSize = 16.sp, color = Color.White),
+                                style = TextStyle(
+                                    fontFamily = pixelFont,
+                                    fontSize = 16.sp,
+                                    color = Color.White
+                                ),
                                 modifier = Modifier.padding(bottom = 16.dp)
                             )
                         }
@@ -283,7 +327,10 @@ fun OhPardonScreen(
                             if (currentDiceRoll != null && selectedPawnId != null) {
                                 Button(
                                     onClick = {
-                                        viewModel.attemptMovePawn(gameRoom!!.gameState.currentTurnUid, selectedPawnId.toString())
+                                        viewModel.attemptMovePawn(
+                                            gameRoom!!.gameState.currentTurnUid,
+                                            selectedPawnId.toString()
+                                        )
                                         selectedPawnId = null
                                     },
                                     modifier = buttonModifier,
@@ -313,84 +360,14 @@ fun OhPardonScreen(
                     CircularProgressIndicator()
                     Text(
                         "Loading game data...",
-                        style = TextStyle(fontFamily = pixelFont, fontSize = 16.sp, color = Color.White)
+                        style = TextStyle(
+                            fontFamily = pixelFont,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
                     )
                 }
             }
         }
     }
 }
-
-@Composable
-fun GameBoard(
-    board: List<List<BoardCell>>,
-    onPawnClick: (Int) -> Unit,
-    currentPlayer: Player?
-) {
-    Column {
-        board.forEach { row ->
-            Row {
-                row.forEach { cell ->
-                    BoardCellView(cell = cell, currentPlayer = currentPlayer, onPawnClick = onPawnClick)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun getPawnImageRes(color: Color?): Int {
-    return when (color) {
-        Color.Red -> R.drawable.pawn_red
-        Color.Blue -> R.drawable.pawn_blue
-        Color.Green -> R.drawable.pawn_green
-        Color.Yellow -> R.drawable.pawn_yellow
-        else -> R.drawable.pawn_default // fallback image
-    }
-}
-
-
-@Composable
-fun BoardCellView(cell: BoardCell, currentPlayer: Player?, onPawnClick: (Int) -> Unit) {
-    val isMyPawn = cell.pawn?.color == currentPlayer?.color
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    val cellSize = screenWidth / 12 // or dynamically based on board size
-
-    val backgroundColor = when (cell.type) {
-        CellType.EMPTY -> Color.LightGray
-        CellType.PATH -> cell.color ?: Color.White
-        CellType.HOME -> cell.color ?: Color.Cyan
-        CellType.GOAL -> cell.color ?: Color.Yellow
-        CellType.ENTRY -> cell.color ?: Color.Black
-    }
-
-    Box(
-        modifier = Modifier
-            .size(cellSize)
-            .border(1.dp, Color.Black)
-            .background(backgroundColor)
-            .clickable(enabled = isMyPawn) {
-                cell.pawn?.let { onPawnClick(it.id) }
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        cell.pawn?.let {
-            Box(
-                modifier = Modifier
-                    .size(cellSize)
-                    .background(Color.LightGray, shape = CircleShape)
-                    .border(1.dp, Color.DarkGray, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = getPawnImageRes(it.color)),
-                    contentDescription = "Pawn",
-                    modifier = Modifier.size(cellSize * 0.85f)
-                )
-            }
-
-        }
-
-    }
-}
-

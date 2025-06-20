@@ -112,8 +112,10 @@ fun BattleshipsInfo() {
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(10.dp))
-        Text("Players: 2", style = MaterialTheme.typography.bodyMedium ,
-            textAlign = TextAlign.Center)
+        Text(
+            "Players: 2", style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -121,13 +123,32 @@ fun BattleshipsInfo() {
 fun OhPardonInfo() {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            "A fast-paced party game of wit and humor.",
+            "A fast-paced party game of luck and humor.",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(10.dp))
-        Text("Great for groups. Laughter guaranteed!", style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center)
+        Text(
+            "Great for groups of 4 people. Laughter guaranteed! Roll the dice by shaking your phone to move around the game board, but be careful because opponents can send your pawn right back to the start if they land on it! To get your pawn onto the game board, you must roll a 6. Your task is to get all of your pawns into the victory zone, for this you must traverse the entire game board with all your pawns before the other players do.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun SpaceInvadersInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Can you defeat all the alien invaders and defend Earth?",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "The classic arcade game from the 80s! Move to the left or right by clicking the buttons, or by clicking on the tilt phone icon on the top right. Shooting enemies gives you points, the UFO is an especially valuable target! Bunkers will defend you from enemy bullets, but only for a while... Can you get the highest score out of all the players?", style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -140,8 +161,10 @@ fun SpyInfo() {
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(10.dp))
-        Text("Social deduction. Bluff and guess!", style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center)
+        Text(
+            "Social deduction. Bluff and guess!", style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -154,8 +177,11 @@ fun JorisJumpInfo() {
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(10.dp))
-        Text("Fast reflexes needed. Compete for the top!", style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center)
+        Text(
+            "Fast reflexes needed. Compete for the top!",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -170,6 +196,7 @@ fun GameDetailsContent(gameId: String) {
         "ohpardon" -> OhPardonInfo()
         "spy" -> SpyInfo()
         "jorisjump" -> JorisJumpInfo()
+        "spaceinvaders" -> SpaceInvadersInfo()
         // Add further games here...
         else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }

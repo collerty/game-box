@@ -88,116 +88,126 @@ fun SpyGameScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (gameState == "settings") {
-                // Settings UI
-                Text(
-                    text = "Game Settings",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = GameBoxFontFamily,
-                        color = Color.White
-                    )
-                )
-
-                Spacer(Modifier.height(32.dp))
-
-                // Number of Players
-                Text(
-                    text = "Number of Players: $numPlayers",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontFamily = GameBoxFontFamily,
-                        color = Color.White
-                    )
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    SpriteMenuButton(
-                        text = "-",
-                        onClick = { if (numPlayers > 3) numPlayers-- },
-                        modifier = Modifier.width(80.dp)
+                    Spacer(Modifier.weight(1f))
+                    // Settings UI
+                    Text(
+                        text = "Game Settings",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = GameBoxFontFamily,
+                            color = Color.White
+                        )
                     )
+                    Spacer(Modifier.height(32.dp))
+                    // Number of Players
+                    Text(
+                        text = "Number of Players: $numPlayers",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = GameBoxFontFamily,
+                            color = Color.White
+                        )
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        SpriteMenuButton(
+                            text = "-",
+                            onClick = { if (numPlayers > 3) numPlayers-- },
+                            modifier = Modifier.size(128.dp),
+                            minWidth = 0.dp,
+                            contentPadding = PaddingValues(top = 8.dp)
+                        )
+                        SpriteMenuButton(
+                            text = "+",
+                            onClick = { if (numPlayers < 8) numPlayers++ },
+                            modifier = Modifier.size(128.dp),
+                            minWidth = 0.dp,
+                            contentPadding = PaddingValues(top = 8.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    // Number of Spies
+                    Text(
+                        text = "Number of Spies: $numSpies",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = GameBoxFontFamily,
+                            color = Color.White
+                        )
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        SpriteMenuButton(
+                            text = "-",
+                            onClick = { if (numSpies > 1) numSpies-- },
+                            modifier = Modifier.size(128.dp),
+                            minWidth = 0.dp,
+                            contentPadding = PaddingValues(top = 8.dp)
+                        )
+                        SpriteMenuButton(
+                            text = "+",
+                            onClick = { if (numSpies < numPlayers - 1) numSpies++ },
+                            modifier = Modifier.size(128.dp),
+                            minWidth = 0.dp,
+                            contentPadding = PaddingValues(top = 8.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    // Timer
+                    Text(
+                        text = "Timer (minutes): $timerMinutes",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = GameBoxFontFamily,
+                            color = Color.White
+                        )
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        SpriteMenuButton(
+                            text = "-",
+                            onClick = { if (timerMinutes > 1) timerMinutes-- },
+                            modifier = Modifier.size(128.dp),
+                            minWidth = 0.dp,
+                            contentPadding = PaddingValues(top = 8.dp)
+                        )
+                        SpriteMenuButton(
+                            text = "+",
+                            onClick = { if (timerMinutes < 30) timerMinutes++ },
+                            modifier = Modifier.size(128.dp),
+                            minWidth = 0.dp,
+                            contentPadding = PaddingValues(top = 8.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(32.dp))
+                    // Start Game Button
                     SpriteMenuButton(
-                        text = "+",
-                        onClick = { if (numPlayers < 8) numPlayers++ },
-                        modifier = Modifier.width(80.dp)
+                        text = "Start Game",
+                        onClick = {
+                            // Generate random roles
+                            val roles = List(numPlayers) { "Civilian" }.toMutableList()
+                            repeat(numSpies) {
+                                var index: Int
+                                do {
+                                    index = (0 until numPlayers).random()
+                                } while (roles[index] == "Spy")
+                                roles[index] = "Spy"
+                            }
+                            playerRoles = roles
+                            timeRemaining = timerMinutes * 60
+                            gameState = "game"
+                            // Vibrate when game starts
+                            vibrate(500)
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-
-                Spacer(Modifier.height(16.dp))
-
-                // Number of Spies
-                Text(
-                    text = "Number of Spies: $numSpies",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontFamily = GameBoxFontFamily,
-                        color = Color.White
-                    )
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    SpriteMenuButton(
-                        text = "-",
-                        onClick = { if (numSpies > 1) numSpies-- },
-                        modifier = Modifier.width(80.dp)
-                    )
-                    SpriteMenuButton(
-                        text = "+",
-                        onClick = { if (numSpies < numPlayers - 1) numSpies++ },
-                        modifier = Modifier.width(80.dp)
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                // Timer
-                Text(
-                    text = "Timer (minutes): $timerMinutes",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontFamily = GameBoxFontFamily,
-                        color = Color.White
-                    )
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    SpriteMenuButton(
-                        text = "-",
-                        onClick = { if (timerMinutes > 1) timerMinutes-- },
-                        modifier = Modifier.width(80.dp)
-                    )
-                    SpriteMenuButton(
-                        text = "+",
-                        onClick = { if (timerMinutes < 30) timerMinutes++ },
-                        modifier = Modifier.width(80.dp)
-                    )
-                }
-
-                Spacer(Modifier.height(32.dp))
-
-                // Start Game Button
-                SpriteMenuButton(
-                    text = "Start Game",
-                    onClick = {
-                        // Generate random roles
-                        val roles = List(numPlayers) { "Civilian" }.toMutableList()
-                        repeat(numSpies) {
-                            var index: Int
-                            do {
-                                index = (0 until numPlayers).random()
-                            } while (roles[index] == "Spy")
-                            roles[index] = "Spy"
-                        }
-                        playerRoles = roles
-                        timeRemaining = timerMinutes * 60
-                        gameState = "game"
-                        // Vibrate when game starts
-                        vibrate(500)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
             } else {
                 // Game UI
                 if (!allRolesRevealed) {

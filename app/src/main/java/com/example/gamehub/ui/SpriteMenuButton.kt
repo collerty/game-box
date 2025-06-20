@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import com.example.gamehub.audio.SoundManager
+import androidx.compose.foundation.layout.PaddingValues
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -33,7 +35,9 @@ fun SpriteMenuButton(
     textStyle: TextStyle = TextStyle(
         fontSize = 22.sp,
         fontFamily = GameBoxFontFamily
-    )
+    ),
+    minWidth: Dp = 250.dp,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -45,7 +49,7 @@ fun SpriteMenuButton(
     Box(
         modifier = modifier
             .height(64.dp)
-            .widthIn(min = 250.dp)
+            .widthIn(min = minWidth)
             .fillMaxWidth()
             .clickable(
                 interactionSource = interactionSource,
@@ -66,7 +70,7 @@ fun SpriteMenuButton(
             text = text,
             style = textStyle,
             textAlign = TextAlign.Center,
-            modifier = Modifier.align(Alignment.Center).offset(y = textOffset),
+            modifier = Modifier.align(Alignment.Center).offset(y = textOffset).padding(contentPadding),
             color = androidx.compose.ui.graphics.Color(0xFFc08cdc)
         )
     }

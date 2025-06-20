@@ -3,23 +3,35 @@ package com.example.gamehub.ui
 import GameBoxFontFamily
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stairs
+import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.gamehub.R
 import com.example.gamehub.model.Game
 import com.example.gamehub.ui.components.NinePatchBorder
-import com.example.gamehub.R
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -36,7 +48,7 @@ fun GameInfoScreen(navController: NavController, gameId: String) {
             painter = painterResource(id = R.drawable.game_box_bg1),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            contentScale = ContentScale.Crop
         )
 
         Column(
@@ -190,6 +202,229 @@ fun JorisJumpInfo() {
     }
 }
 
+@Composable
+fun ScreamOSaurInfo() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.dinasourtemplate),
+            contentDescription = "Scream-O-Saur Dinosaur",
+            modifier = Modifier
+                .fillMaxWidth(0.6f)
+                .padding(bottom = 8.dp)
+        )
+
+        InfoRow(
+            icon = {
+                Icon(
+                    Icons.Default.Mic,
+                    contentDescription = "Microphone Icon",
+                    tint = Color(0xFFc08cdc),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            text = "Use your voice! Shout, sing, or roar to make the dinosaur jump."
+        )
+
+        InfoRow(
+            icon = {
+                Icon(
+                    Icons.Default.ArrowUpward,
+                    contentDescription = "Jump Icon",
+                    tint = Color(0xFFc08cdc),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            text = "Time your jumps to clear the approaching cacti."
+        )
+
+        Text(
+            text = "The sound meter shows your volume. Fill it past the line to jump!",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+        MiniSoundMeter()
+
+        Text(
+            text = "The game gets faster as you score higher. Good luck!",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+    }
+}
+
+@Composable
+fun MiniSoundMeter() {
+    Box(
+        modifier = Modifier
+            .height(20.dp)
+            .fillMaxWidth(0.8f)
+            .background(Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(0.6f) // Example fill level
+                .background(Color(0xFFc08cdc), RoundedCornerShape(10.dp))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(2.dp)
+                .align(Alignment.Center)
+                .background(Color.White)
+        )
+    }
+}
+
+@Composable
+private fun InfoRow(icon: @Composable () -> Unit, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            icon()
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFFc08cdc),
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+fun MemoryMatchInfo() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        Text(
+            text = "Test your memory and find all the pairs!",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc),
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        MiniCardGrid()
+
+        InfoRow(
+            icon = {
+                Icon(
+                    Icons.Default.Style,
+                    contentDescription = "Find Pairs",
+                    tint = Color(0xFFc08cdc),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            text = "Tap cards to flip them over and find matching pairs."
+        )
+
+        InfoRow(
+            icon = {
+                Icon(
+                    Icons.Default.Timer,
+                    contentDescription = "Timer",
+                    tint = Color(0xFFc08cdc),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            text = "Match all the cards before the timer runs out."
+        )
+
+        InfoRow(
+            icon = {
+                Icon(
+                    Icons.Default.ErrorOutline,
+                    contentDescription = "Mistakes",
+                    tint = Color(0xFFc08cdc),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            text = "Be careful! Too many incorrect matches will end the game."
+        )
+
+        InfoRow(
+            icon = {
+                Icon(
+                    Icons.Default.Stairs,
+                    contentDescription = "Difficulty",
+                    tint = Color(0xFFc08cdc),
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            text = "Choose from multiple difficulties for a greater challenge."
+        )
+    }
+}
+
+@Composable
+private fun MiniCardGrid() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(vertical = 8.dp)
+    ) {
+        // Column 1
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(
+                modifier = Modifier.size(50.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF9092D8)),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(Icons.Default.Style, contentDescription = null, tint = Color.White)
+                }
+            }
+            Card(
+                modifier = Modifier.size(50.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.old_card_back),
+                    contentDescription = "Card Back"
+                )
+            }
+        }
+        // Column 2
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(
+                modifier = Modifier.size(50.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.old_card_back),
+                    contentDescription = "Card Back"
+                )
+            }
+            Card(
+                modifier = Modifier.size(50.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF9092D8)),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(Icons.Default.Style, contentDescription = null, tint = Color.White)
+                }
+            }
+        }
+    }
+}
 // Add more per-game info as needed...
 
 // ====== GAME INFO DISPATCHER ======
@@ -202,6 +437,8 @@ fun GameDetailsContent(gameId: String) {
         "spy" -> SpyInfo()
         "jorisjump" -> JorisJumpInfo()
         "spaceinvaders" -> SpaceInvadersInfo()
+        "screamosaur" -> ScreamOSaurInfo()
+        "memoryMatching" -> MemoryMatchInfo()
         // Add further games here...
         else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }

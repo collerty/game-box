@@ -169,21 +169,44 @@ fun SpaceInvadersInfo() {
     }
 }
 
+
 @Composable
 fun SpyInfo() {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             "Can you uncover the spy among the players?",
             style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
         Spacer(Modifier.height(10.dp))
         Text(
             "Social deduction. Bluff and guess!", style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
         )
     }
 }
+
+@Composable
+fun CodenamesInfo() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "Give clever clues and guess words to outsmart the other team!",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Team-based word game. One player gives one-word clues to help their team guess the right words on the board.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = Color(0xFFc08cdc)
+        )
+    }
+}
+
 
 @Composable
 fun JorisJumpInfo() {

@@ -1,7 +1,7 @@
-# 🎮 GameBox
+# 🎮 GamHub
 
-**GameBox** is an all-in-one mobile app for Android, built in modern **Kotlin** using **Jetpack Compose**, that lets you play multiple mini-games—both singleplayer and multiplayer!  
-With a stylish unified menu and support for Firebase-backed multiplayer, GameBox is designed as a fun, extensible playground for your favorite classic and new games.
+**GameHub** is an all-in-one mobile app for Android, built in modern **Kotlin** using **Jetpack Compose**, that lets you play multiple mini-games—both singleplayer and multiplayer!  
+With a stylish unified menu and support for Firebase-backed multiplayer, GameHub is designed as a fun, extensible playground for your favorite classic and new games.
 
 ---
 
@@ -31,9 +31,9 @@ With a stylish unified menu and support for Firebase-backed multiplayer, GameBox
 
 ---
 
-## 🚀 How to Run GameBox
+## 🚀 How to Run GameHub
 
-You can **run GameBox in an emulator or on a real Android device**, or just sideload the provided APK.  
+You can **run GameHub in an emulator or on a real Android device**, or just sideload the provided APK.  
 These instructions are beginner-friendly and detailed for both devs and casual testers.
 
 ---
@@ -61,7 +61,7 @@ Accept all prompts to update plugins or install SDK components.
 3. ⚙️ Set Up the Android SDK & Emulator/Device
 Android SDK:
 
-GameBox targets Android 13+ (API level 33+).
+GameHub targets Android 13+ (API level 33+).
 
 Make sure you have this installed:
 Tools > SDK Manager in Android Studio.
@@ -88,7 +88,7 @@ Choose your device or emulator as the target.
 
 The app will build and install automatically.
 
-You’ll see the GameBox menu. Select any game to start!
+You’ll see the GameHub menu. Select any game to start!
 
 Troubleshooting Build Issues
 If you get build errors, try Build > Clean Project and then Build > Rebuild Project.
@@ -98,7 +98,7 @@ Make sure all your plugins and the Android SDK are up to date.
 Delete .gradle and .idea folders and re-sync if you run into strange issues.
 
 5. 📱 Install the APK Directly (No Android Studio Needed)
-If you just want to try GameBox on your phone:
+If you just want to try GameHub on your phone:
 
 Find the latest APK in the repository
 
@@ -112,8 +112,8 @@ If prompted, allow “Install unknown apps”.
 
 Tap “Install”. The app will appear in your launcher.
 
-💡 About GameBox
-GameBox is a modern, modular Android game launcher and playground built for fun and learning.
+💡 About GameHub
+GameHub is a modern, modular Android game launcher and playground built for fun and learning.
 
 Code is Kotlin-only, no legacy Java or XML layouts.
 

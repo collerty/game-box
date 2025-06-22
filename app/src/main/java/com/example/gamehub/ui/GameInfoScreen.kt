@@ -852,3 +852,5 @@ fun GameDetailsContent(gameId: String) {
         else -> Text("No info available yet.", style = MaterialTheme.typography.bodyLarge)
     }
 }
+
+

@@ -8,17 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.draw.shadow
-import com.example.gamehub.R
 import com.example.gamehub.features.ohpardon.models.Player
+import com.example.gamehub.features.ohpardon.ui.components.PawnView
 
 enum class CellType {
     EMPTY, PATH, HOME, GOAL, ENTRY
@@ -71,7 +68,7 @@ fun BoardCellView(
 ) {
     val isMyPawn = cell.pawn?.color == currentPlayer?.color
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    val cellSize = screenWidth / 12 // or dynamically based on board size
+    val cellSize = screenWidth / 12
 
     val backgroundColor = when (cell.type) {
         CellType.EMPTY -> Color.LightGray
@@ -91,44 +88,12 @@ fun BoardCellView(
             },
         contentAlignment = Alignment.Center
     ) {
-        cell.pawn?.let {
-            val pawnModifier = if (isSelected) {
-                Modifier
-                    .size(cellSize)
-                    .shadow(8.dp, CircleShape, spotColor = Color(0xFFF57C00))
-                    .background(Color.LightGray, shape = CircleShape)
-                    .border(4.dp, Color(0xFFF57C00), shape = CircleShape)
-            } else {
-                Modifier
-                    .size(cellSize)
-                    .background(Color.LightGray, shape = CircleShape)
-                    .border(1.dp, Color.DarkGray, shape = CircleShape)
-            }
-
-            Box(
-                modifier = pawnModifier,
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = getPawnImageRes(it.color)),
-                    contentDescription = "Pawn",
-                    modifier = Modifier.size(cellSize * 0.85f)
-                )
-            }
+        cell.pawn?.let { pawn ->
+            PawnView(
+                pawn = pawn,
+                cellSize = cellSize,
+                isSelected = isSelected
+            )
         }
-    }
-}
-
-/**
- * Returns the appropriate pawn image resource based on the pawn's color
- */
-@Composable
-fun getPawnImageRes(color: Color?): Int {
-    return when (color) {
-        Color.Red -> R.drawable.pawn_red
-        Color.Blue -> R.drawable.pawn_blue
-        Color.Green -> R.drawable.pawn_green
-        Color.Yellow -> R.drawable.pawn_yellow
-        else -> R.drawable.pawn_default // fallback image
     }
 }

@@ -49,6 +49,7 @@ import com.google.firebase.firestore.ktx.toObject
 import com.example.gamehub.ui.theme.ArcadeClassic
 import com.google.firebase.auth.FirebaseAuth
 import com.example.gamehub.audio.SoundManager
+import com.example.gamehub.repository.CodenamesRepository
 
 data class Clue(
     val word: String,
@@ -97,7 +98,7 @@ fun CodenamesScreen(
 
     Log.d("CodenamesDebug", "CodenamesScreen received masterTeam: $masterTeam")
 
-    val db = Firebase.firestore
+    val repository = remember { CodenamesRepository() }
     var gameState by remember { mutableStateOf<Map<String, Any>?>(null) }
     var currentTurn by remember { mutableStateOf("RED") }
     var redWordsRemaining by remember { mutableStateOf(9) }
@@ -150,20 +151,24 @@ fun CodenamesScreen(
                 if (!isMasterPhase) {
                     // If team phase ends, switch to next team's master phase
                     val nextTeam = if (currentTeam == "RED") "BLUE" else "RED"
-                    db.collection("rooms").document(roomId)
-                        .update(
-                            mapOf(
-                                "gameState.codenames.isMasterPhase" to true,
-                                "gameState.codenames.currentTeam" to nextTeam,
-                                "gameState.codenames.currentTurn" to nextTeam
-                            )
+                    repository.update(roomId,
+                        mapOf(
+                            "gameState.codenames.isMasterPhase" to true,
+                            "gameState.codenames.currentTeam" to nextTeam,
+                            "gameState.codenames.currentTurn" to nextTeam
                         )
-                        .addOnFailureListener { e -> Log.e("Codenames", "Error updating Firestore on timer end (team phase): $e") }
+                    ) { _ ->
+                        // Success handler for update
+                    } onFailure { e -> Log.e("Codenames", "Error updating Firestore on timer end (team phase): $e") }
                 } else {
                     // If master phase ends, switch to team phase
-                    db.collection("rooms").document(roomId)
-                        .update("gameState.codenames.isMasterPhase", false)
-                        .addOnFailureListener { e -> Log.e("Codenames", "Error updating Firestore on timer end (master phase): $e") }
+                    repository.update(roomId,
+                        mapOf(
+                            "gameState.codenames.isMasterPhase" to false
+                        )
+                    ) { _ ->
+                        // Success handler for update
+                    } onFailure { e -> Log.e("Codenames", "Error updating Firestore on timer end (master phase): $e") }
                 }
             }
         }
@@ -171,18 +176,15 @@ fun CodenamesScreen(
 
     // Listen for game state updates
     LaunchedEffect(roomId) {
-        db.collection("rooms").document(roomId)
-            .addSnapshotListener { snapshot, _ ->
-                if (snapshot != null && snapshot.exists()) {
-                    @Suppress("UNCHECKED_CAST")
-                    val state = snapshot.get("gameState.codenames") as? Map<String, Any>
-                    gameState = state
-                    currentTurn = state?.get("currentTurn") as? String ?: "RED"
-                    redWordsRemaining = (state?.get("redWordsRemaining") as? Number)?.toInt() ?: 9
-                    blueWordsRemaining = (state?.get("blueWordsRemaining") as? Number)?.toInt() ?: 8
-                    currentTeam = (state?.get("currentTeam") as? String)?.uppercase() ?: "RED"
-                    isMasterPhase = state?.get("isMasterPhase") as? Boolean ?: true
-                    winner = state?.get("winner") as? String
+        repository.listen(roomId, { document ->
+            val state = (document?.get("gameState") as? Map<*, *>)?.get("codenames") as? Map<String, Any>
+            gameState = state
+            currentTurn = state?.get("currentTurn") as? String ?: "RED"
+            redWordsRemaining = (state?.get("redWordsRemaining") as? Number)?.toInt() ?: 9
+            blueWordsRemaining = (state?.get("blueWordsRemaining") as? Number)?.toInt() ?: 8
+            currentTeam = (state?.get("currentTeam") as? String)?.uppercase() ?: "RED"
+            isMasterPhase = state?.get("isMasterPhase") as? Boolean ?: true
+            winner = state?.get("winner") as? String
 
                     // Debug logging for state updates
                     Log.d("CodenamesDebug", """
@@ -204,8 +206,7 @@ fun CodenamesScreen(
                         .map { Clue(it["word"] as String, "RED") }
                     blueClues = clues.filter { it["team"] == "BLUE" }
                         .map { Clue(it["word"] as String, "BLUE") }
-                }
-            }
+        }, { e -> Log.e("Codenames", "Error listening to game state", e) })
     }
 
     // Game Over Screen
@@ -416,92 +417,89 @@ fun CodenamesScreen(
                                             enabled = !isRevealed && !isMasterPhase && currentTeam == currentTurn && !isMaster && winner == null
                                         ) {
                                             // Update card's revealed state in Firestore
-                                            db.collection("rooms").document(roomId)
-                                                .get()
-                                                .addOnSuccessListener { document ->
-                                                    @Suppress("UNCHECKED_CAST")
-                                                    val state = document.get("gameState.codenames") as? Map<String, Any>
-                                                    @Suppress("UNCHECKED_CAST")
-                                                    val currentCards = state?.get("cards") as? List<Map<String, Any>> ?: emptyList()
+                                            repository.getDocument(roomId) { document ->
+                                                @Suppress("UNCHECKED_CAST")
+                                                val state = document?.get("gameState.codenames") as? Map<String, Any>
+                                                @Suppress("UNCHECKED_CAST")
+                                                val currentCards = state?.get("cards") as? List<Map<String, Any>> ?: emptyList()
 
-                                                    // Create updated cards list with the selected card marked as revealed
-                                                    val updatedCards = currentCards.toMutableList()
-                                                    updatedCards[cardIndex] = updatedCards[cardIndex].toMutableMap().apply {
-                                                        put("isRevealed", true)
-                                                    }
-
-                                                    // Vibrate when a card is revealed
-                                                    vibrate(500)
-
-                                                    // Update remaining words count based on the revealed card's color
-                                                    val updates = mutableMapOf<String, Any>(
-                                                        "gameState.codenames.cards" to updatedCards
-                                                    )
-
-                                                    when (color) {
-                                                        "RED" -> {
-                                                            if (currentTeam == "RED") {
-                                                                // Current team is Red and revealed a Red card - continue turn
-                                                                val newCount = redWordsRemaining - 1
-                                                                updates["gameState.codenames.redWordsRemaining"] = newCount
-                                                                if (newCount == 0) {
-                                                                    // Red team wins
-                                                                    updates["gameState.codenames.winner"] = "RED"
-                                                                    // Update room status to ended
-                                                                    updates["status"] = "ended"
-                                                                }
-                                                            } else {
-                                                                // Current team is Blue and revealed a Red card - switch turn to Red
-                                                                updates["gameState.codenames.currentTeam"] = "RED"
-                                                                updates["gameState.codenames.currentTurn"] = "RED"
-                                                                updates["gameState.codenames.isMasterPhase"] = true
-                                                                 // Optionally, you could decrement the revealed team's word count here, but the standard rule just ends the turn.
-                                                                 // val newCount = redWordsRemaining - 1
-                                                                 // updates["gameState.codenames.redWordsRemaining"] = newCount
-                                                            }
-                                                        }
-                                                        "BLUE" -> {
-                                                             if (currentTeam == "BLUE") {
-                                                                // Current team is Blue and revealed a Blue card - continue turn
-                                                                val newCount = blueWordsRemaining - 1
-                                                                updates["gameState.codenames.blueWordsRemaining"] = newCount
-                                                                if (newCount == 0) {
-                                                                    // Blue team wins
-                                                                    updates["gameState.codenames.winner"] = "BLUE"
-                                                                    // Update room status to ended
-                                                                    updates["status"] = "ended"
-                                                                }
-                                                            } else {
-                                                                // Current team is Red and revealed a Blue card - switch turn to Blue
-                                                                updates["gameState.codenames.currentTeam"] = "BLUE"
-                                                                updates["gameState.codenames.currentTurn"] = "BLUE"
-                                                                updates["gameState.codenames.isMasterPhase"] = true
-                                                                 // Optionally, you could decrement the revealed team's word count here.
-                                                                 // val newCount = blueWordsRemaining - 1
-                                                                 // updates["gameState.codenames.blueWordsRemaining"] = newCount
-                                                            }
-                                                        }
-                                                        "ASSASSIN" -> {
-                                                            // Game over - other team wins
-                                                            updates["gameState.codenames.winner"] = if (currentTeam == "RED") "BLUE" else "RED"
-                                                            // Update room status to ended
-                                                            updates["status"] = "ended"
-                                                        }
-                                                        "NEUTRAL" -> {
-                                                            // Revealed a Neutral card - switch turns
-                                                            val nextTeam = if (currentTeam == "RED") "BLUE" else "RED"
-                                                            updates["gameState.codenames.currentTeam"] = nextTeam
-                                                            updates["gameState.codenames.currentTurn"] = nextTeam
-                                                            updates["gameState.codenames.isMasterPhase"] = true
-                                                        }
-                                                    }
-
-                                                    // Update Firestore
-                                                    db.collection("rooms").document(roomId)
-                                                        .update(updates)
-                                                        .addOnFailureListener { e -> Log.e("Codenames", "Error updating Firestore after card click: $e") }
+                                                // Create updated cards list with the selected card marked as revealed
+                                                val updatedCards = currentCards.toMutableList()
+                                                updatedCards[cardIndex] = updatedCards[cardIndex].toMutableMap().apply {
+                                                    put("isRevealed", true)
                                                 }
-                                                .addOnFailureListener { e -> Log.e("Codenames", "Error getting document on card click: $e") }
+
+                                                // Vibrate when a card is revealed
+                                                vibrate(500)
+
+                                                // Update remaining words count based on the revealed card's color
+                                                val updates = mutableMapOf<String, Any>(
+                                                    "gameState.codenames.cards" to updatedCards
+                                                )
+
+                                                when (color) {
+                                                    "RED" -> {
+                                                        if (currentTeam == "RED") {
+                                                            // Current team is Red and revealed a Red card - continue turn
+                                                            val newCount = redWordsRemaining - 1
+                                                            updates["gameState.codenames.redWordsRemaining"] = newCount
+                                                            if (newCount == 0) {
+                                                                // Red team wins
+                                                                updates["gameState.codenames.winner"] = "RED"
+                                                                // Update room status to ended
+                                                                updates["status"] = "ended"
+                                                            }
+                                                        } else {
+                                                            // Current team is Blue and revealed a Red card - switch turn to Red
+                                                            updates["gameState.codenames.currentTeam"] = "RED"
+                                                            updates["gameState.codenames.currentTurn"] = "RED"
+                                                            updates["gameState.codenames.isMasterPhase"] = true
+                                                             // Optionally, you could decrement the revealed team's word count here, but the standard rule just ends the turn.
+                                                             // val newCount = redWordsRemaining - 1
+                                                             // updates["gameState.codenames.redWordsRemaining"] = newCount
+                                                        }
+                                                    }
+                                                    "BLUE" -> {
+                                                         if (currentTeam == "BLUE") {
+                                                            // Current team is Blue and revealed a Blue card - continue turn
+                                                            val newCount = blueWordsRemaining - 1
+                                                            updates["gameState.codenames.blueWordsRemaining"] = newCount
+                                                            if (newCount == 0) {
+                                                                // Blue team wins
+                                                                updates["gameState.codenames.winner"] = "BLUE"
+                                                                // Update room status to ended
+                                                                updates["status"] = "ended"
+                                                            }
+                                                        } else {
+                                                            // Current team is Red and revealed a Blue card - switch turn to Blue
+                                                            updates["gameState.codenames.currentTeam"] = "BLUE"
+                                                            updates["gameState.codenames.currentTurn"] = "BLUE"
+                                                            updates["gameState.codenames.isMasterPhase"] = true
+                                                             // Optionally, you could decrement the revealed team's word count here.
+                                                             // val newCount = blueWordsRemaining - 1
+                                                             // updates["gameState.codenames.blueWordsRemaining"] = newCount
+                                                        }
+                                                    }
+                                                    "ASSASSIN" -> {
+                                                        // Game over - other team wins
+                                                        updates["gameState.codenames.winner"] = if (currentTeam == "RED") "BLUE" else "RED"
+                                                        // Update room status to ended
+                                                        updates["status"] = "ended"
+                                                    }
+                                                    "NEUTRAL" -> {
+                                                        // Revealed a Neutral card - switch turns
+                                                        val nextTeam = if (currentTeam == "RED") "BLUE" else "RED"
+                                                        updates["gameState.codenames.currentTeam"] = nextTeam
+                                                        updates["gameState.codenames.currentTurn"] = nextTeam
+                                                        updates["gameState.codenames.isMasterPhase"] = true
+                                                    }
+                                                }
+
+                                                // Update Firestore
+                                                repository.update(roomId, updates) { _ ->
+                                                    // Success handler for update
+                                                } onFailure { e -> Log.e("Codenames", "Error updating Firestore after card click: $e") }
+                                            } onFailure { e -> Log.e("Codenames", "Error getting document on card click: $e") }
                                         },
                                     colors = CardDefaults.cardColors(
                                         containerColor = when {
@@ -661,43 +659,37 @@ fun CodenamesScreen(
 
                                     if (word.isNotEmpty()) {
                                         // Get current clues
-                                        db.collection("rooms").document(roomId)
-                                            .get()
-                                            .addOnSuccessListener { document ->
-                                                @Suppress("UNCHECKED_CAST")
-                                                val state = document.get("gameState.codenames") as? Map<String, Any>
-                                                @Suppress("UNCHECKED_CAST")
-                                                val currentClues = state?.get("clues") as? List<Map<String, Any>> ?: emptyList()
+                                        repository.getDocument(roomId) { document ->
+                                            @Suppress("UNCHECKED_CAST")
+                                            val state = document?.get("gameState.codenames") as? Map<String, Any>
+                                            @Suppress("UNCHECKED_CAST")
+                                            val currentClues = state?.get("clues") as? List<Map<String, Any>> ?: emptyList()
 
-                                                // Add new clue
-                                                val newClue = mapOf(
-                                                    "word" to clueText, // Store clue as "WORD X"
-                                                    "team" to currentTeam
+                                            // Add new clue
+                                            val newClue = mapOf(
+                                                "word" to clueText, // Store clue as "WORD X"
+                                                "team" to currentTeam
+                                            )
+
+                                            // Update Firestore with new clue and switch to team phase
+                                            repository.update(roomId,
+                                                mapOf(
+                                                    "gameState.codenames.clues" to (currentClues + newClue),
+                                                    "gameState.codenames.isMasterPhase" to false,
+                                                    "gameState.codenames.currentGuardingWordCount" to count, // Add guarding word count to state
+                                                    "gameState.codenames.guessesRemaining" to (count + 1) // Players get 1 more guess than the number provided
                                                 )
-
-                                                // Update Firestore with new clue and switch to team phase
-                                                db.collection("rooms").document(roomId)
-                                                    .update(
-                                                        mapOf(
-                                                            "gameState.codenames.clues" to (currentClues + newClue),
-                                                            "gameState.codenames.isMasterPhase" to false,
-                                                            "gameState.codenames.currentGuardingWordCount" to count, // Add guarding word count to state
-                                                            "gameState.codenames.guessesRemaining" to (count + 1) // Players get 1 more guess than the number provided
-                                                        )
-                                                    )
-                                                    .addOnSuccessListener {
-                                                        if (currentTeam == "RED") redMasterClue = "" else blueMasterClue = "" // Clear input field
-                                                        Toast.makeText(context, "Clue submitted!", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                    .addOnFailureListener { e ->
-                                                        Log.e("Codenames", "Error updating Firestore after clue submission: $e")
-                                                        Toast.makeText(context, "Failed to submit clue: ${e.message}", Toast.LENGTH_LONG).show()
-                                                    }
+                                            ) { _ ->
+                                                if (currentTeam == "RED") redMasterClue = "" else blueMasterClue = "" // Clear input field
+                                                Toast.makeText(context, "Clue submitted!", Toast.LENGTH_SHORT).show()
+                                            } onFailure { e ->
+                                                Log.e("Codenames", "Error updating Firestore after clue submission: $e")
+                                                Toast.makeText(context, "Failed to submit clue: ${e.message}", Toast.LENGTH_LONG).show()
                                             }
-                                            .addOnFailureListener { e ->
-                                                Log.e("Codenames", "Error getting document to submit clue: $e")
-                                                Toast.makeText(context, "Failed to get game state: ${e.message}", Toast.LENGTH_LONG).show()
-                                            }
+                                        } onFailure { e ->
+                                            Log.e("Codenames", "Error getting document to submit clue: $e")
+                                            Toast.makeText(context, "Failed to get game state: ${e.message}", Toast.LENGTH_LONG).show()
+                                        }
                                     } else {
                                         Toast.makeText(context, "Clue word cannot be empty", Toast.LENGTH_SHORT).show()
                                     }

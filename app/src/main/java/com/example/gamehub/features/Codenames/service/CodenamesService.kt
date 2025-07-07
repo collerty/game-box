@@ -3,13 +3,7 @@ package com.example.gamehub.features.codenames.service
 import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.features.codenames.model.CodenamesCard
 import kotlin.random.Random
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreSettings
-import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.FirebaseAuthException
+import com.example.gamehub.repository.CodenamesRepository
 
 class CodenamesService {
     companion object {
@@ -20,6 +14,8 @@ class CodenamesService {
             "YACHT", "ZEBRA", "AIRPLANE", "BASKET", "CANDLE", "DOLPHIN", "EAGLE", "FLOWER",
             "GARDEN", "HAT", "ICE", "JUICE", "KITE", "LEMON", "MOUNTAIN", "NIGHT"
         )
+
+        private val repository = CodenamesRepository()
 
         fun generateGameState(): Map<String, Any?> {
             // Shuffle the word list and take 25 words
@@ -70,63 +66,60 @@ class CodenamesService {
             roomId: String,
             clue: String,
             number: Int,
-            team: String
+            team: String,
+            onSuccess: () -> Unit = {},
+            onError: (Exception) -> Unit = {}
         ) {
-            val db = FirebaseFirestore.getInstance()
-            db.collection("rooms").document(roomId)
-                .update(
-                    mapOf(
-                        "gameState.codenames.currentClue" to clue,
-                        "gameState.codenames.currentClueNumber" to number,
-                        "gameState.codenames.isMasterPhase" to false
-                    )
-                )
+            val updates = mapOf(
+                "gameState.codenames.currentClue" to clue,
+                "gameState.codenames.currentClueNumber" to number,
+                "gameState.codenames.isMasterPhase" to false
+            )
+            repository.update(roomId, updates, onSuccess, onError)
         }
 
         fun revealCard(
             roomId: String,
-            cardIndex: Int
+            cardIndex: Int,
+            onSuccess: () -> Unit = {},
+            onError: (Exception) -> Unit = {}
         ) {
-            val db = FirebaseFirestore.getInstance()
-            db.collection("rooms").document(roomId)
-                .get()
-                .addOnSuccessListener { document ->
-                    @Suppress("UNCHECKED_CAST")
-                    val gameState = document.get("gameState.codenames") as? Map<String, Any>
-                    val cards = gameState?.get("cards") as? List<Map<String, Any>> ?: return@addOnSuccessListener
+            repository.getById(roomId, { document ->
+                val gameState = (document?.get("gameState") as? Map<*, *>)?.get("codenames") as? Map<String, Any?>
+                val cards = gameState?.get("cards") as? List<Map<String, Any?>> ?: return@getById
                     
-                    if (cardIndex >= cards.size) return@addOnSuccessListener
+                if (cardIndex >= cards.size) return@getById
                     
-                    val updatedCards = cards.toMutableList()
-                    val card = updatedCards[cardIndex].toMutableMap()
-                    card["isRevealed"] = true
-                    updatedCards[cardIndex] = card
+                val updatedCards = cards.toMutableList()
+                val card = updatedCards[cardIndex].toMutableMap()
+                card["isRevealed"] = true
+                updatedCards[cardIndex] = card
                     
-                    val color = card["color"] as? String ?: "NEUTRAL"
-                    val currentTeam = gameState["currentTeam"] as? String ?: "RED"
-                    val isMasterPhase = gameState["isMasterPhase"] as? Boolean ?: true
+                val color = card["color"] as? String ?: "NEUTRAL"
+                val currentTeam = gameState["currentTeam"] as? String ?: "RED"
+                val isMasterPhase = gameState["isMasterPhase"] as? Boolean ?: true
                     
-                    // Update game state based on revealed card
-                    val updates = mutableMapOf<String, Any>()
-                    updates["gameState.codenames.cards"] = updatedCards
+                // Update game state based on revealed card
+                val updates = mutableMapOf<String, Any>()
+                updates["gameState.codenames.cards"] = updatedCards
                     
-                    // If card is not the current team's color or is neutral, switch turns
-                    if (color != currentTeam || color == "NEUTRAL" || color == "ASSASSIN") {
-                        updates["gameState.codenames.currentTeam"] = if (currentTeam == "RED") "BLUE" else "RED"
-                        updates["gameState.codenames.isMasterPhase"] = true
-                    }
-                    
-                    // Update remaining words count
-                    if (color == "RED") {
-                        val redWordsRemaining = (gameState["redWordsRemaining"] as? Number)?.toInt() ?: 9
-                        updates["gameState.codenames.redWordsRemaining"] = redWordsRemaining - 1
-                    } else if (color == "BLUE") {
-                        val blueWordsRemaining = (gameState["blueWordsRemaining"] as? Number)?.toInt() ?: 8
-                        updates["gameState.codenames.blueWordsRemaining"] = blueWordsRemaining - 1
-                    }
-                    
-                    db.collection("rooms").document(roomId).update(updates)
+                // If card is not the current team's color or is neutral, switch turns
+                if (color != currentTeam || color == "NEUTRAL" || color == "ASSASSIN") {
+                    updates["gameState.codenames.currentTeam"] = if (currentTeam == "RED") "BLUE" else "RED"
+                    updates["gameState.codenames.isMasterPhase"] = true
                 }
+                    
+                // Update remaining words count
+                if (color == "RED") {
+                    val redWordsRemaining = (gameState["redWordsRemaining"] as? Number)?.toInt() ?: 9
+                    updates["gameState.codenames.redWordsRemaining"] = redWordsRemaining - 1
+                } else if (color == "BLUE") {
+                    val blueWordsRemaining = (gameState["blueWordsRemaining"] as? Number)?.toInt() ?: 8
+                    updates["gameState.codenames.blueWordsRemaining"] = blueWordsRemaining - 1
+                }
+                    
+                repository.update(roomId, updates, onSuccess, onError)
+            }, onError)
         }
     }
 } 

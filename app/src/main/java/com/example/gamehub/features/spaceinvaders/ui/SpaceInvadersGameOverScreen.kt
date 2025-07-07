@@ -5,19 +5,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.gamehub.R
+import com.example.gamehub.features.spaceinvaders.ui.components.GameButton
+import com.example.gamehub.features.spaceinvaders.ui.components.GameText
+import com.example.gamehub.features.spaceinvaders.ui.theme.SpaceInvadersTheme
 
 @Composable
 fun SpaceInvadersGameOverScreen(
@@ -25,53 +19,34 @@ fun SpaceInvadersGameOverScreen(
     onRestart: () -> Unit,
     onExit: () -> Unit,
 ) {
-    val gameBoxFont = FontFamily(Font(R.font.gamebox_font, FontWeight.Bold))
-    val greenTextColor = Color(0xFF00FF00)
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(SpaceInvadersTheme.backgroundColor),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "Game Over",
-                fontSize = 48.sp,
-                color = greenTextColor,
-                fontFamily = gameBoxFont
+            GameText(
+                text = "Game Over",
+                fontSize = SpaceInvadersTheme.FontSizes.large
             )
-            Text(
-                "Score: $score",
-                fontSize = 32.sp,
-                color = greenTextColor,
-                fontFamily = gameBoxFont,
+            GameText(
+                text = "Score: $score",
+                fontSize = SpaceInvadersTheme.FontSizes.medium,
                 modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
             )
 
-            Button(
+            GameButton(
+                text = "Restart",
                 onClick = onRestart,
-                modifier = Modifier
-                    .padding(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
-                    contentColor = Color(0xFF00FF00) // Green
-                )
-            ) {
-                Text("Restart", color = greenTextColor, fontFamily = gameBoxFont, fontSize = 28.sp)
-            }
+                fontSize = SpaceInvadersTheme.FontSizes.normal
+            )
 
-            Button(
+            GameButton(
+                text = "Exit Game",
                 onClick = onExit,
-                modifier = Modifier
-                    .padding(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
-                    contentColor = Color(0xFF00FF00) // Green
-                )
-            ) {
-                Text("Exit Game", color = greenTextColor, fontFamily = gameBoxFont, fontSize = 28.sp)
-            }
+                fontSize = SpaceInvadersTheme.FontSizes.normal
+            )
         }
     }
 }

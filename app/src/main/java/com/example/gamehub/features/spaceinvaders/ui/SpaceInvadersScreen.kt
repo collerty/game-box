@@ -4,10 +4,7 @@ import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,10 +17,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.geometry.Size
@@ -35,13 +30,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.features.spaceinvaders.classes.EnemyType
@@ -50,6 +41,10 @@ import com.example.gamehub.features.spaceinvaders.classes.SoundManager
 import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.EventBus
 import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
 import com.example.gamehub.features.spaceinvaders.classes.VibrationManager
+import com.example.gamehub.features.spaceinvaders.ui.components.GameControls
+import com.example.gamehub.features.spaceinvaders.ui.components.GameHUD
+import com.example.gamehub.features.spaceinvaders.ui.components.ShootButton
+import com.example.gamehub.features.spaceinvaders.ui.theme.SpaceInvadersTheme
 import com.example.gamehub.navigation.NavRoutes
 
 
@@ -77,9 +72,6 @@ fun SpaceInvadersScreen(
         val tiltToggleImage = ImageBitmap.imageResource(id = R.drawable.tilt_icon)
         val playerImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_player)
         val bunkerImage = ImageBitmap.imageResource(id = R.drawable.space_invaders_bunker)
-
-        val gameBoxFont = FontFamily(Font(R.font.gamebox_font, FontWeight.Bold))
-        val greenTextColor = Color(0xFF00FF00)
 
         val soundManager = remember { SoundManager(context) }
         val vibrationManager = remember { VibrationManager(context) }
@@ -148,7 +140,7 @@ fun SpaceInvadersScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black)
+                    .background(SpaceInvadersTheme.backgroundColor)
             ) {
 
                 // Top right image button for tilt toggle
@@ -166,28 +158,14 @@ fun SpaceInvadersScreen(
                         }
                 )
 
-                // Top left: Lives and Score
-                Box(
+                // Game HUD
+                GameHUD(
+                    lives = engine.playerLives,
+                    score = engine.score,
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(16.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "Lives: ${engine.playerLives}",
-                            color = greenTextColor,
-                            fontSize = 26.sp,
-                            fontFamily = gameBoxFont,
-                        )
-                        Text(
-                            text = "Score: ${engine.score}",
-                            color = greenTextColor,
-                            fontSize = 26.sp,
-                            fontFamily = gameBoxFont,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
+                )
 
                 // Game Canvas
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -272,71 +250,23 @@ fun SpaceInvadersScreen(
                 }
 
 
-                // Overlay control buttons
-                Row(
+                // Game Controls
+                GameControls(
+                    onMoveLeft = { isPressed -> engine.isMovingLeft = isPressed },
+                    onMoveRight = { isPressed -> engine.isMovingRight = isPressed },
+                    onShoot = { engine.playerController.shootBullet() },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = 32.dp, bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    // Left Button
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .background(greenTextColor.copy(alpha = 0.7f), shape = CircleShape)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        engine.isMovingLeft = true
-                                        tryAwaitRelease()
-                                        engine.isMovingLeft = false
-                                    }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("←", color = Color.Black, fontSize = 24.sp)
-                    }
+                        .padding(start = 32.dp, bottom = 32.dp)
+                )
 
-                    // Right Button
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .background(greenTextColor.copy(alpha = 0.7f), shape = CircleShape)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        engine.isMovingRight = true
-                                        tryAwaitRelease()
-                                        engine.isMovingRight = false
-                                    }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("→", color = Color.Black, fontSize = 24.sp)
-                    }
-                }
-
-                // Shoot Button in bottom right corner
-                Box(
+                // Shoot Button
+                ShootButton(
+                    onShoot = { engine.playerController.shootBullet() },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(end = 32.dp, bottom = 32.dp)
-                        .size(80.dp)
-                        .background(Color.Red.copy(alpha = 0.7f), shape = CircleShape)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = {
-                                    engine.playerController.shootBullet()
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Shoot", color = Color.Black, fontFamily = gameBoxFont, fontSize = 24.sp)
-                }
+                )
             }
         }
     }

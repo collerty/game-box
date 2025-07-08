@@ -31,7 +31,7 @@ fun CodenamesBottomControls(
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (isMaster && isMasterPhase && currentTeam == masterTeam?.uppercase()) {
+        if (isMaster && isMasterPhase && currentTeam.equals(masterTeam, ignoreCase = true)) {
             ClueInput(
                 clueText = clueText,
                 onClueTextChange = onClueTextChange,

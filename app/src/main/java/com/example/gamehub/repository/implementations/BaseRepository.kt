@@ -1,8 +1,12 @@
-package com.example.gamehub.repository
+package com.example.gamehub.repository.implementations
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 
+/**
+ * BaseRepository provides generic Firestore CRUD and real-time operations for any collection.
+ * Extend this class for specific repositories to avoid code duplication.
+ */
 abstract class BaseRepository(private val collectionName: String) {
     protected val db = FirebaseFirestore.getInstance()
     protected val collection = db.collection(collectionName)

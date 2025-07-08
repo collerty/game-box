@@ -1,9 +1,10 @@
-package com.example.gamehub.repository
+package com.example.gamehub.repository.implementations
 
 import com.example.gamehub.features.codenames.model.CodenamesGameState
 import com.example.gamehub.features.codenames.model.CodenamesCard
 import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.features.codenames.model.Clue
+import com.example.gamehub.repository.interfaces.ICodenamesRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 

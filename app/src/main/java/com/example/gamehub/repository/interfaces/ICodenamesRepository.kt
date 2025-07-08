@@ -1,4 +1,4 @@
-package com.example.gamehub.repository
+package com.example.gamehub.repository.interfaces
 
 import com.example.gamehub.features.codenames.model.CodenamesGameState
 

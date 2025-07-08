@@ -373,8 +373,6 @@ fun GameHubApp() {
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
                 GameInfoScreen(navController, gameId)
             }
-
-            composable(NavRoutes.VOICE_CHAT_TEST) { com.example.gamehub.features.test.VoiceChatTestPage() }
         }
     }
 }

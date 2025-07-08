@@ -63,6 +63,15 @@ import com.example.gamehub.features.codenames.ui.components.HideSystemBarsEffect
 import com.example.gamehub.features.codenames.ui.components.DebugLogger
 import com.example.gamehub.features.codenames.ui.components.VibrationEffectHandler
 import com.example.gamehub.features.codenames.ui.components.CodenamesBottomControls
+import android.app.Activity
+import android.content.pm.ActivityInfo
+
+@Composable
+fun LockScreenOrientation(orientation: Int) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    activity?.requestedOrientation = orientation
+}
 
 @Composable
 fun CodenamesScreen(
@@ -73,6 +82,7 @@ fun CodenamesScreen(
     repository: ICodenamesRepository,
     viewModel: CodenamesViewModel = viewModel(factory = CodenamesViewModelFactory(repository))
 ) {
+    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
     val context = LocalContext.current
     HideSystemBarsEffect()
     DebugLogger(

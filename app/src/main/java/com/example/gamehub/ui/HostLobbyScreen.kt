@@ -537,15 +537,7 @@ fun HostLobbyScreen(
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
                         "triviatoe"   -> NavRoutes.TRIVIATOE_INTRO_ANIM
                         "whereandwhen"-> NavRoutes.WHERE_AND_WHEN_GAME
-                        "codenames"   -> {
-                            val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
-                            val isMaster = currentPlayer?.get("role") == "master"
-                            // The CodenamesActivity intent is removed, so we navigate to the composable screen.
-                            // This part of the logic needs to be updated to navigate to the Codenames composable.
-                            // For now, we'll just set route to null as a placeholder.
-                            // A proper implementation would involve a new composable for Codenames.
-                            null
-                        }
+                        "codenames"   -> NavRoutes.CODENAMES_GAME
                         else -> null
                     }
                     route?.let {

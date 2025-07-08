@@ -99,19 +99,7 @@ fun GuestGameScreen(
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
                 "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME
                 "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
-                "codenames"   -> {
-                    val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
-                    val isMaster = currentPlayer?.get("role") == "master"
-                    val team = currentPlayer?.get("team") as? String ?: ""
-                    Log.d("CodenamesDebug", """
-                        GuestGameScreen Values:
-                        currentPlayer: $currentPlayer
-                        isMaster: $isMaster
-                        team: $team
-                        players: $players
-                    """.trimIndent())
-                    null
-                }
+                "codenames"   -> NavRoutes.CODENAMES_GAME
                 else          -> null
             }
             route?.let {

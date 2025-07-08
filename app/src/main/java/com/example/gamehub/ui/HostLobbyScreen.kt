@@ -443,8 +443,9 @@ fun HostLobbyScreen(
                                     updatesToSendToFirestore["gameState.whereandwhen.roundStartTimeMillis"] = System.currentTimeMillis()
                                     updatesToSendToFirestore["gameState.whereandwhen.roundStatus"] = WhereAndWhenGameState.STATUS_GUESSING
                                 } else {
+                                    // Fix type inference for mapOf and emptyMap usages:
                                     val initialGameStateForOtherGames = when (gameId) {
-                                        "battleships" -> mapOf(
+                                        "battleships" -> mapOf<String, Any?>(
                                             "player1Id" to players.getOrNull(0)?.get("uid"),
                                             "player2Id" to players.getOrNull(1)?.get("uid"),
                                             "currentTurn" to startingPlayerUid,
@@ -456,13 +457,13 @@ fun HostLobbyScreen(
                                             "chosenMap" to null,
                                             "powerUpMoves" to emptyList<String>()
                                         )
-                                        "ohpardon" -> mapOf(
+                                        "ohpardon" -> mapOf<String, Any?>(
                                             "currentPlayer" to startingPlayerUid,
                                             "scores" to emptyMap<String, Int>(),
                                             "gameResult" to null,
                                             "diceRoll" to null
                                         )
-                                        "triviatoe" -> mapOf(
+                                        "triviatoe" -> mapOf<String, Any?>(
                                             "players"      to players,
                                             "board"        to emptyList<Map<String, Any>>(),
                                             "moves"        to emptyList<Map<String, Any>>(),
@@ -476,12 +477,10 @@ fun HostLobbyScreen(
                                             "usedQuestions" to emptyList<Int>()
                                         )
                                         "codenames" -> CodenamesService.generateGameState()
-                                        else -> emptyMap()
+                                        else -> emptyMap<String, Any?>()
                                     }
 
-                                    if (initialGameStateForOtherGames.isNotEmpty()) {
-                                        updatesToSendToFirestore["gameState.$gameId"] = initialGameStateForOtherGames
-                                    }
+                                    updatesToSendToFirestore["gameState.$gameId"] = initialGameStateForOtherGames
 
                                     if(gameId == "battleships") {
                                         val rematchVotes = players.associate {

@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.example.gamehub.repository.implementations.CodenamesRepository
 import com.example.gamehub.ui.theme.GameHubTheme
 
 class CodenamesActivity : ComponentActivity() {
@@ -50,7 +51,8 @@ class CodenamesActivity : ComponentActivity() {
                         navController = navController,
                         roomId = roomId,
                         isMaster = isMaster,
-                        masterTeam = masterTeam
+                        masterTeam = masterTeam,
+                        repository = CodenamesRepository()
                     )
                 }
             }

@@ -6,7 +6,6 @@ import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.features.codenames.model.Clue
 import com.example.gamehub.repository.interfaces.ICodenamesRepository
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ListenerRegistration
 
 class CodenamesRepository : ICodenamesRepository {
     private val db = FirebaseFirestore.getInstance()
@@ -42,8 +41,8 @@ class CodenamesRepository : ICodenamesRepository {
         roomId: String,
         onDataChange: (CodenamesGameState?) -> Unit,
         onError: (Exception) -> Unit
-    ): ListenerRegistration {
-        return collection.document(roomId)
+    ) {
+        collection.document(roomId)
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
                     onError(e)

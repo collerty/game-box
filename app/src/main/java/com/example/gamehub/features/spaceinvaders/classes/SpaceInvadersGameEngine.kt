@@ -1,25 +1,32 @@
 package com.example.gamehub.features.spaceinvaders.classes
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.EventBus
-import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
-import kotlinx.coroutines.GlobalScope
+import com.example.gamehub.features.spaceinvaders.controllers.BunkerController
+import com.example.gamehub.features.spaceinvaders.controllers.EnemyController
+import com.example.gamehub.features.spaceinvaders.controllers.PlayerController
+import com.example.gamehub.features.spaceinvaders.controllers.UFOController
+import com.example.gamehub.features.spaceinvaders.models.Enemy
+import com.example.gamehub.features.spaceinvaders.models.EnemyType
+import com.example.gamehub.features.spaceinvaders.models.GameState
+import com.example.gamehub.features.spaceinvaders.models.Player
+import com.example.gamehub.features.spaceinvaders.util.AudioManager
+import com.example.gamehub.features.spaceinvaders.util.CollisionDetector
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-class SpaceInvadersGameEngine {
+class SpaceInvadersGameEngine(
+    private val audioManager: AudioManager,
+    private val coroutineScope: CoroutineScope
+) {
     var playerLives by mutableStateOf(3)
         private set
     var gameState by mutableStateOf(GameState.PLAYING)
         internal set
-    private val playerWidth = 100f
-    private val moveSpeed = 15f
-    private var enemyShootCooldown = 0
     var score = 0
         private set
+
     var screenWidthPx: Float = 0f
         set(value) {
             field = value
@@ -31,10 +38,31 @@ class SpaceInvadersGameEngine {
             playerController.screenHeightPx = value
         }
 
+    private val playerWidth = 100f
+    private val moveSpeed = 15f
+    private var enemyShootCooldown = 0
     var player = Player(x = 300f, y = 0f)
 
-    val playerController = PlayerController(player, playerWidth, moveSpeed)
-    val enemyController = EnemyController()
+    val playerController = PlayerController(
+        player = player,
+        playerWidth = playerWidth,
+        moveSpeed = moveSpeed,
+        audioManager = audioManager,
+        coroutineScope = coroutineScope
+    )
+
+    val enemyController = EnemyController(
+        audioManager = audioManager,
+        coroutineScope = coroutineScope
+    )
+
+    val ufoController = UFOController(
+        audioManager = audioManager,
+        coroutineScope = coroutineScope
+    )
+
+    val bunkerController = BunkerController()
+    val collisionDetector = CollisionDetector()
 
     var isMovingLeft: Boolean
         get() = playerController.isMovingLeft
@@ -48,168 +76,78 @@ class SpaceInvadersGameEngine {
             playerController.isMovingRight = value
         }
 
-    val bunkers: MutableList<Bunker> = mutableListOf()
-
-
-    private fun checkBulletEnemyCollisions() {
-        val bullets = playerController.playerBullets
-        val enemies = enemyController.enemies
-
-        bullets.forEach { bullet ->
-            if (!bullet.isActive) return@forEach
-
-            enemies.flatten().forEach { enemy ->
-                if (enemy.isAlive && bulletCollidesWithEnemy(bullet, enemy)) {
-                    bullet.isActive = false
-                    enemy.isAlive = false
-
-                    // Scoring logic
-                    val points = when (enemy.type) {
-                        EnemyType.SHOOTER -> 40
-                        EnemyType.MIDDLE -> 20
-                        EnemyType.BOTTOM -> 10
-                    }
-                    score += points
-
-                    GlobalScope.launch {
-                        EventBus.emit(UiEvent.PlayExplodeSound)
-                        EventBus.emit(UiEvent.Vibrate)
-                    }
-                }
-            }
+    private fun handleEnemyHit(enemy: Enemy) {
+        // Scoring logic
+        val points = when (enemy.type) {
+            EnemyType.SHOOTER -> 40
+            EnemyType.MIDDLE -> 20
+            EnemyType.BOTTOM -> 10
         }
+        score += points
 
-        // Check if UFO was hit
-        if (enemyController.ufo.isActive) {
-            val ufo = enemyController.ufo
-            val bulletWidth = 10f
-            val bulletHeight = 20f
-
-            playerController.playerBullets.forEach { bullet ->
-                if (!bullet.isActive) return@forEach
-
-                val collides = bullet.x < ufo.x + ufo.width &&
-                        bullet.x + bulletWidth > ufo.x &&
-                        bullet.y < ufo.y + ufo.height &&
-                        bullet.y + bulletHeight > ufo.y
-
-                if (collides) {
-                    bullet.isActive = false
-                    ufo.isActive = false
-
-                    score += listOf(50, 100, 150, 300).random()
-                    GlobalScope.launch {
-                        EventBus.emit(UiEvent.PlayExplodeSound)
-                        EventBus.emit(UiEvent.Vibrate)
-                    }
-                }
-            }
-        }
-
-    }
-
-    private fun bulletCollidesWithEnemy(bullet: Bullet, enemy: Enemy): Boolean {
-        val bulletWidth = 10f
-        val bulletHeight = 20f
-        val enemyWidth = 60f
-        val enemyHeight = 40f
-
-        return bullet.x < enemy.x + enemyWidth &&
-                bullet.x + bulletWidth > enemy.x &&
-                bullet.y < enemy.y + enemyHeight &&
-                bullet.y + bulletHeight > enemy.y
-    }
-
-    private fun checkPlayerHit() {
-
-        if (gameState == GameState.PLAYING) {
-            enemyController.enemyBullets.forEach { bullet ->
-                if (bullet.isActive && bulletHitsPlayer(bullet, player)) {
-                    bullet.isActive = false
-                    playerLives = (playerLives - 1).coerceAtLeast(0)
-                    if (playerLives == 0) {
-                        gameState = GameState.GAME_OVER
-                    }
-                    GlobalScope.launch {
-                        EventBus.emit(UiEvent.PlayTakeDamageSound)
-                        EventBus.emit(UiEvent.Vibrate)
-                    }
-                }
-            }
+        coroutineScope.launch {
+            audioManager.playExplodeSound()
+            audioManager.vibrate()
         }
     }
 
-    private fun bulletHitsPlayer(bullet: Bullet, player: Player): Boolean {
-        val bulletWidth = 10f
-        val bulletHeight = 20f
-        val playerWidth = 100f
-        val playerHeight = 30f
-
-        return bullet.x < player.x + playerWidth &&
-                bullet.x + bulletWidth > player.x &&
-                bullet.y < player.y + playerHeight &&
-                bullet.y + bulletHeight > player.y
-    }
-
-    var bunkersInitialized = false
-
-    fun initializeBunkers() {
-        if (bunkersInitialized) return
-
-        bunkers.clear()
-        val bunkerCount = 3
-        val spacing = screenWidthPx / (bunkerCount + 1)
-        val y = screenHeightPx - 400f
-
-        for (i in 0 until bunkerCount) {
-            val x = spacing * (i + 1) - 40f
-            bunkers.add(
-                Bunker(
-                    id = i, x = x, y = y,
-                    width = 200f,
-                    height = 100f,
-                    health = 15
-                )
-            )
-            Log.d("bunker id", "Bunker ID: ${i}, X: $x, Y: $y")
+    private fun handleUFOHit() {
+        score += listOf(50, 100, 150, 300).random()
+        coroutineScope.launch {
+            audioManager.playExplodeSound()
+            audioManager.vibrate()
         }
-
-        bunkersInitialized = true
     }
 
-
-
-
-    fun checkBunkerHits() {
-        val allBullets = playerController.playerBullets + enemyController.enemyBullets
-
-        allBullets.forEach { bullet ->
-            if (!bullet.isActive) return@forEach
-
-            for (bunker in bunkers) {
-                if (bunker.isHit(bullet.x, bullet.y)) {
-                    bullet.isActive = false
-                    bunker.takeDamage()
-                    break
-                }
-            }
+    private fun handlePlayerHit() {
+        playerLives = (playerLives - 1).coerceAtLeast(0)
+        if (playerLives == 0) {
+            gameState = GameState.GAME_OVER
         }
-
-        bunkers.removeAll { it.isDestroyed() }
+        coroutineScope.launch {
+            audioManager.playTakeDamageSound()
+            audioManager.vibrate()
+        }
     }
-
 
     fun updateGame() {
         enemyController.setBounds(screenWidthPx)
         playerController.updatePlayerMovement()
-        checkPlayerHit()
-        initializeBunkers()
+        bunkerController.initializeBunkers(screenWidthPx, screenHeightPx)
+
         player = playerController.getPlayer()
         playerController.updateBullets(screenHeightPx)
         enemyController.updateEnemies()
-        enemyController.updateUFO(screenWidthPx)
-        checkBulletEnemyCollisions()
-        checkBunkerHits()
+        ufoController.updateUFO(screenWidthPx)
+
+        // Collision detection
+        collisionDetector.checkBulletEnemyCollisions(
+            bullets = playerController.playerBullets,
+            enemies = enemyController.enemies,
+            onEnemyHit = this::handleEnemyHit
+        )
+
+        collisionDetector.checkBulletUfoCollision(
+            bullets = playerController.playerBullets,
+            ufo = ufoController.ufo,
+            onUfoHit = this::handleUFOHit
+        )
+
+        if (gameState == GameState.PLAYING) {
+            collisionDetector.checkBulletPlayerCollision(
+                bullets = enemyController.enemyBullets,
+                player = player,
+                onPlayerHit = this::handlePlayerHit
+            )
+        }
+
+        collisionDetector.checkBulletBunkerCollisions(
+            bullets = playerController.playerBullets + enemyController.enemyBullets,
+            bunkers = bunkerController.getBunkers()
+        )
+
+        bunkerController.removeDestroyedBunkers()
+
         if (enemyShootCooldown <= 0) {
             enemyController.enemyShoot()
             enemyShootCooldown = 60
@@ -227,5 +165,15 @@ class SpaceInvadersGameEngine {
         if (enemyController.hasEnemyReachedPlayerLine(player.y + -100f)) {
             gameState = GameState.GAME_OVER
         }
+    }
+
+    fun reset() {
+        playerLives = 3
+        score = 0
+        gameState = GameState.PLAYING
+        player = Player(x = 300f, y = screenHeightPx - 100f)
+        playerController.setPlayer(player)
+        bunkerController.reset()
+        enemyController.loadMap((enemyController.enemyMaps.indices).random())
     }
 }

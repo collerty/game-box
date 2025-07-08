@@ -6,24 +6,45 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.os.Build
-import android.os.VibrationEffect
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import kotlinx.coroutines.delay
+import com.example.gamehub.features.spaceinvaders.data.FirestoreHighScoreRepository
+import com.example.gamehub.features.spaceinvaders.util.EventBusAudioManager
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 class SpaceInvadersViewModel(application: Application) : AndroidViewModel(application), SensorEventListener {
 
-    private var _gameEngine = SpaceInvadersGameEngine()
+    sealed class UiEvent {
+        object PlayExplodeSound : UiEvent()
+        object PlayShootSound: UiEvent()
+        object PlayTakeDamageSound: UiEvent()
+        object PlayUFOSound: UiEvent()
+        object Vibrate : UiEvent()
+    }
+
+    object EventBus {
+        private val _uiEvent = MutableSharedFlow<UiEvent>()
+        val uiEvent = _uiEvent.asSharedFlow()
+
+        suspend fun emit(event: UiEvent) {
+            _uiEvent.emit(event)
+        }
+    }
+
+    private val audioManager = EventBusAudioManager { event ->
+        EventBus.emit(event)
+    }
+
+    private val highScoreRepository = FirestoreHighScoreRepository()
+
+    private var _gameEngine = SpaceInvadersGameEngine(
+        audioManager = audioManager,
+        coroutineScope = viewModelScope
+    )
     val gameEngine: SpaceInvadersGameEngine get() = _gameEngine
 
     private val _tick = mutableStateOf(0)
@@ -37,76 +58,21 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
     var tiltControlEnabled by mutableStateOf(false)
         private set
 
-    private val db = FirebaseFirestore.getInstance()
-
-    var playerName = MutableStateFlow("")
-        private set
-
-    val highScores = MutableStateFlow<List<PlayerScore>>(emptyList())
-
-    sealed class UiEvent {
-        object PlayExplodeSound : UiEvent()
-        object PlayShootSound: UiEvent()
-        object PlayTakeDamageSound: UiEvent()
-        object PlayUFOSound: UiEvent()
-        object Vibrate : UiEvent()
-    }
-
-
-    object EventBus {
-        private val _uiEvent = MutableSharedFlow<UiEvent>()
-        val uiEvent = _uiEvent.asSharedFlow()
-
-        suspend fun emit(event: UiEvent) {
-            _uiEvent.emit(event)
-        }
-    }
+    val playerName = highScoreRepository.playerName
+    val highScores = highScoreRepository.highScores
 
     fun onPlayerNameChanged(newName: String) {
-        playerName.value = newName
-    }
-
-    private fun fetchHighScores() {
-        db.collection("space-invaders")
-            .orderBy("score", Query.Direction.DESCENDING)
-            .limit(10)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null || snapshot == null) return@addSnapshotListener
-
-                val scores = snapshot.documents.mapNotNull {
-                    it.toObject(PlayerScore::class.java)
-                }
-                highScores.value = scores
-            }
+        highScoreRepository.onPlayerNameChanged(newName)
     }
 
     fun submitScore(playerName: String, newScore: Int) {
-        val docRef = db.collection("space-invaders")
-            .document(playerName.lowercase())
-
-        docRef.get()
-            .addOnSuccessListener { document ->
-                val currentScore = document.getLong("score")?.toInt() ?: 0
-                if (newScore > currentScore) {
-                    docRef.set(mapOf(
-                        "player" to playerName,
-                        "score" to newScore
-                    ))
-                    Log.d("Firestore", "New high score saved.")
-                } else {
-                    Log.d("Firestore", "Score not updated (not higher).")
-                }
-            }
-            .addOnFailureListener {
-                Log.e("Firestore", "Failed to read existing score", it)
-            }
+        highScoreRepository.submitScore(playerName, newScore)
     }
 
     private var screenSizeSet = false
 
     init {
-        fetchHighScores()
-        // Do not start game loop here
+        highScoreRepository.fetchHighScores()
     }
 
     fun setScreenSize(width: Float, height: Float) {
@@ -119,7 +85,7 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
             _gameEngine.playerController.setPlayer(
                 _gameEngine.player.copy(y = height - 100f)
             )
-            _gameEngine.initializeBunkers()
+            _gameEngine.bunkerController.initializeBunkers(height, width)
             screenSizeSet = true
             startGameLoop()
         }
@@ -137,7 +103,7 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
     private fun startGameLoop() {
         viewModelScope.launch {
             while (true) {
-                delay(16L) // ~60 FPS
+                kotlinx.coroutines.delay(16L) // ~60 FPS
                 if (tiltControlEnabled) {
                     gameEngine.playerController.updateFromTilt(xTilt)
                 }
@@ -151,8 +117,15 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
         if (tiltControlEnabled) {
             sensorManager.unregisterListener(this)
         }
+
         Log.d("SpaceInvaders", "Restarting game with screen size: $screenWidthPx x $screenHeightPx")
-        _gameEngine = SpaceInvadersGameEngine()
+
+        // Create a new game engine with all dependencies
+        _gameEngine = SpaceInvadersGameEngine(
+            audioManager = audioManager,
+            coroutineScope = viewModelScope
+        )
+
         // Set screen dimensions in engine
         _gameEngine.screenWidthPx = screenWidthPx
         _gameEngine.screenHeightPx = screenHeightPx
@@ -162,13 +135,13 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
         _gameEngine.playerController.setPlayer(
             _gameEngine.player.copy(y = screenHeightPx - 100f)
         )
+
         xTilt = 0f
         if (tiltControlEnabled) {
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME)
         }
-        _gameEngine.gameState = GameState.PLAYING
-        _gameEngine.bunkersInitialized = false
-        _gameEngine.initializeBunkers()
+
+        _gameEngine.reset()
         _tick.value++
     }
 

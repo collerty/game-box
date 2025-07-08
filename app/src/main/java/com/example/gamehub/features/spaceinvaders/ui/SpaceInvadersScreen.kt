@@ -35,8 +35,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.gamehub.R
-import com.example.gamehub.features.spaceinvaders.classes.EnemyType
-import com.example.gamehub.features.spaceinvaders.classes.GameState
+import com.example.gamehub.features.spaceinvaders.models.EnemyType
+import com.example.gamehub.features.spaceinvaders.models.GameState
 import com.example.gamehub.features.spaceinvaders.classes.SoundManager
 import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.EventBus
 import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel.UiEvent
@@ -218,7 +218,7 @@ fun SpaceInvadersScreen(
                         }
                     }
 
-                    engine.bunkers.forEach { bunker ->
+                    engine.bunkerController.getBunkers().forEach { bunker ->
                         val alpha = bunker.health / 3f
 
                         drawImage(

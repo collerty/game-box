@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.gamehub.ui.theme.ArcadeClassic
+import com.example.gamehub.features.codenames.ui.components.ClueHistory
+import com.example.gamehub.features.codenames.ui.components.TimerPanel
 
 @Composable
 fun TeamPanel(
@@ -64,27 +66,16 @@ fun TeamPanel(
                 fontFamily = ArcadeClassic
             )
             if (isCurrentTurn && timerSeconds != null) {
-                Text(
-                    text = "${timerSeconds}s",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    fontFamily = ArcadeClassic
+                TimerPanel(
+                    seconds = timerSeconds,
+                    modifier = Modifier,
+                    color = Color.White
                 )
             }
         }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) {
-            clues.forEach { clue ->
-                Text(
-                    text = clue,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                    fontFamily = ArcadeClassic
-                )
-            }
-        }
+        ClueHistory(
+            clues = clues,
+            modifier = Modifier.fillMaxWidth().weight(1f)
+        )
     }
 } 

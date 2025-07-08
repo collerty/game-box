@@ -57,6 +57,7 @@ import com.example.gamehub.ui.theme.GameHubTheme
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import com.example.gamehub.repository.implementations.CodenamesRepository
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -233,7 +234,8 @@ fun GameHubApp() {
                     navController = navController,
                     roomId = code,
                     isMaster = isMaster,
-                    masterTeam = masterTeam
+                    masterTeam = masterTeam,
+                    repository = CodenamesRepository()
                 ) }
                   composable(
                 "${NavRoutes.SPACE_INVADERS_GAME}/{name}",
@@ -371,8 +373,6 @@ fun GameHubApp() {
                 val gameId = backStack.arguments?.getString("gameId") ?: return@composable
                 GameInfoScreen(navController, gameId)
             }
-
-            composable(NavRoutes.VOICE_CHAT_TEST) { com.example.gamehub.features.test.VoiceChatTestPage() }
         }
     }
 }

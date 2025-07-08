@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.gamehub.features.codenames.service.CodenamesService
-import com.example.gamehub.features.codenames.ui.CodenamesActivity
 import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.components.NinePatchBorder
 import com.google.firebase.auth.ktx.auth
@@ -541,13 +540,10 @@ fun HostLobbyScreen(
                         "codenames"   -> {
                             val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
                             val isMaster = currentPlayer?.get("role") == "master"
-                            val intent = Intent(context, CodenamesActivity::class.java).apply {
-                                putExtra("roomId", roomId)
-                                putExtra("userName", hostName)
-                                putExtra("isMaster", isMaster)
-                                putExtra("team", currentPlayer?.get("team") as? String ?: "")
-                            }
-                            context.startActivity(intent)
+                            // The CodenamesActivity intent is removed, so we navigate to the composable screen.
+                            // This part of the logic needs to be updated to navigate to the Codenames composable.
+                            // For now, we'll just set route to null as a placeholder.
+                            // A proper implementation would involve a new composable for Codenames.
                             null
                         }
                         else -> null

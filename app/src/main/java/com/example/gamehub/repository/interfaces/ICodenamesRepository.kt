@@ -1,5 +1,6 @@
 package com.example.gamehub.repository.interfaces
 
+import androidx.compose.runtime.Composable
 import com.example.gamehub.features.codenames.model.CodenamesGameState
 
 interface ICodenamesRepository {

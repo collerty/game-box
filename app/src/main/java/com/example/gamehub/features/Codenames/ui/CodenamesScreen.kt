@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.gamehub.R
 import com.example.gamehub.features.codenames.model.CardColor
@@ -72,6 +73,7 @@ fun CodenamesScreen(
     repository: ICodenamesRepository,
     viewModel: CodenamesViewModel = viewModel(factory = CodenamesViewModelFactory(repository))
 ) {
+    val context = LocalContext.current
     HideSystemBarsEffect()
     DebugLogger(
         viewModel.currentTurn.collectAsState().value,
@@ -222,19 +224,19 @@ fun CodenamesScreen(
                 isMasterPhase = isMasterPhase,
                 currentTeam = currentTeam,
                 masterTeam = masterTeam,
-                clueText = if (currentTeam == "RED") viewModel.redMasterClue.value else viewModel.blueMasterClue.value,
+                clueText = if (currentTeam == "RED") viewModel.redMasterClue else viewModel.blueMasterClue,
                 onClueTextChange = {
-                    if (currentTeam == "RED") viewModel.redMasterClue.value = it else viewModel.blueMasterClue.value = it
+                    if (currentTeam == "RED") viewModel.redMasterClue = it else viewModel.blueMasterClue = it
                 },
                 onSubmitClue = {
-                    val clueText = if (currentTeam == "RED") viewModel.redMasterClue.value else viewModel.blueMasterClue.value
+                    val clueText = if (currentTeam == "RED") viewModel.redMasterClue else viewModel.blueMasterClue
                     // Basic validation for clue format (e.g., "WORD X")
                     val parts = clueText.split(" ")
                     if (parts.size == 2 && parts[1].toIntOrNull() != null) {
                         val word = parts[0]
                         val count = parts[1].toInt()
                         if (count < 0 || count > 9) {
-                            Toast.makeText(LocalContext.current, "Clue number must be between 0 and 9", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Clue number must be between 0 and 9", Toast.LENGTH_SHORT).show()
                             Log.e("Codenames", "Invalid clue number: $count")
                             return@CodenamesBottomControls
                         }
@@ -257,23 +259,23 @@ fun CodenamesScreen(
                                         guessesRemaining = count + 1
                                     ),
                                     onSuccess = {
-                                        if (currentTeam == "RED") viewModel.redMasterClue.value = "" else viewModel.blueMasterClue.value = ""
-                                        Toast.makeText(LocalContext.current, "Clue submitted!", Toast.LENGTH_SHORT).show()
+                                        if (currentTeam == "RED") viewModel.redMasterClue = "" else viewModel.blueMasterClue = ""
+                                        Toast.makeText(context, "Clue submitted!", Toast.LENGTH_SHORT).show()
                                     },
                                     onError = { e ->
                                         Log.e("Codenames", "Error updating Firestore after clue submission: $e")
-                                        Toast.makeText(LocalContext.current, "Failed to submit clue: ${e.message}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Failed to submit clue: ${e.message}", Toast.LENGTH_LONG).show()
                                     }
                                 )
                             }, onError = { e ->
                                 Log.e("Codenames", "Error getting game state to submit clue: $e")
-                                Toast.makeText(LocalContext.current, "Failed to get game state: ${e.message}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Fai    led to get game state: ${e.message}", Toast.LENGTH_LONG).show()
                             })
                         } else {
-                            Toast.makeText(LocalContext.current, "Clue word cannot be empty", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Clue word cannot be empty", Toast.LENGTH_SHORT).show()
                         }
                     } else {
-                        Toast.makeText(LocalContext.current, "Invalid clue format. Use 'WORD NUMBER'", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Invalid clue format. Use 'WORD NUMBER'", Toast.LENGTH_SHORT).show()
                         Log.e("Codenames", "Invalid clue format. Please use 'WORD NUMBER'. Input: $clueText")
                     }
                 },

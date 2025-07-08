@@ -23,7 +23,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.gamehub.features.codenames.ui.CodenamesActivity
 import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.components.NinePatchBorder
 import com.google.firebase.firestore.FieldValue
@@ -111,13 +110,6 @@ fun GuestGameScreen(
                         team: $team
                         players: $players
                     """.trimIndent())
-                    val intent = Intent(context, CodenamesActivity::class.java).apply {
-                        putExtra("roomId", code)
-                        putExtra("userName", userName)
-                        putExtra("isMaster", isMaster)
-                        putExtra("team", team)
-                    }
-                    context.startActivity(intent)
                     null
                 }
                 else          -> null

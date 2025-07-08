@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 class CodenamesViewModel(
     private val repository: ICodenamesRepository
@@ -44,6 +47,9 @@ class CodenamesViewModel(
 
     private val _timerSeconds = MutableStateFlow(0)
     val timerSeconds: StateFlow<Int> = _timerSeconds
+
+    var redMasterClue by mutableStateOf("")
+    var blueMasterClue by mutableStateOf("")
 
     private var timerJob: Job? = null
 

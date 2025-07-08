@@ -233,16 +233,16 @@ fun SpaceInvadersScreen(
 
 
                     // Draw UFO
-                    if (engine.enemyController.ufo.isActive) {
+                    if (engine.ufoController.ufo.isActive) {
                         drawImage(
                             image = ufoImage,
                             dstOffset = IntOffset(
-                                engine.enemyController.ufo.x.toInt(),
-                                engine.enemyController.ufo.y.toInt()
+                                engine.ufoController.ufo.x.toInt(),
+                                engine.ufoController.ufo.y.toInt()
                             ),
                             dstSize = IntSize(
-                                engine.enemyController.ufo.width.toInt(),
-                                engine.enemyController.ufo.height.toInt()
+                                engine.ufoController.ufo.width.toInt(),
+                                engine.ufoController.ufo.height.toInt()
                             )
                         )
                     }

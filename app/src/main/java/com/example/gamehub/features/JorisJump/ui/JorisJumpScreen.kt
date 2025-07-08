@@ -1,4 +1,4 @@
-package com.example.gamehub.features.jorisjump.ui
+package com.example.gamehub.features.JorisJump.ui
 
 import android.app.Activity // Required for Window operations
 import android.content.Context

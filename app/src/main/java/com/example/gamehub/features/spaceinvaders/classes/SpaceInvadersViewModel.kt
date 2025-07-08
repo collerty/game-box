@@ -10,8 +10,9 @@ import android.util.Log
 import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gamehub.features.spaceinvaders.data.FirestoreHighScoreRepository
 import com.example.gamehub.features.spaceinvaders.util.EventBusAudioManager
+import com.example.gamehub.repository.implementations.SpaceInvadersRepository
+import com.example.gamehub.repository.interfaces.ISpaceInvadersRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -39,7 +40,8 @@ class SpaceInvadersViewModel(application: Application) : AndroidViewModel(applic
         EventBus.emit(event)
     }
 
-    private val highScoreRepository = FirestoreHighScoreRepository()
+    // Replace FirestoreHighScoreRepository with our new repository
+    private val highScoreRepository: ISpaceInvadersRepository = SpaceInvadersRepository()
 
     private var _gameEngine = SpaceInvadersGameEngine(
         audioManager = audioManager,

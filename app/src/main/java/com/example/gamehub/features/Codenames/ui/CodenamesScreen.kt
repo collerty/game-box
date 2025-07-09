@@ -189,30 +189,7 @@ fun CodenamesScreen(
                     currentTurn = currentTurn,
                     winner = winner,
                     onCardClick = { cardIndex ->
-                        // Replicate the previous card click logic here
-                        val cards = gameState?.cards?.toMutableList() ?: return@CodenamesBoard
-                        val card = cards[cardIndex]
-                        if (!card.isRevealed) {
-                            cards[cardIndex] = card.copy(isRevealed = true)
-                            // Update the game state as before
-                            repository.updateGameState(
-                                roomId,
-                                CodenamesGameState(
-                                    currentTurn = currentTurn,
-                                    currentTeam = currentTeam,
-                                    isMasterPhase = isMasterPhase,
-                                    redWordsRemaining = redWordsRemaining,
-                                    blueWordsRemaining = blueWordsRemaining,
-                                    winner = winner,
-                                    clues = redClues + blueClues,
-                                    cards = cards,
-                                    currentGuardingWordCount = 0,
-                                    guessesRemaining = 0
-                                ),
-                                onSuccess = {},
-                                onError = { e -> Log.e("Codenames", "Error updating Firestore after card click: $e") }
-                            )
-                        }
+                        viewModel.makeGuess(roomId, cardIndex)
                     },
                     modifier = Modifier.weight(4f).fillMaxHeight().padding(horizontal = 4.dp)
                 )
@@ -240,55 +217,28 @@ fun CodenamesScreen(
                 },
                 onSubmitClue = {
                     val clueText = if (currentTeam == "RED") viewModel.redMasterClue else viewModel.blueMasterClue
-                                // Basic validation for clue format (e.g., "WORD X")
-                                val parts = clueText.split(" ")
-                                if (parts.size == 2 && parts[1].toIntOrNull() != null) {
-                                    val word = parts[0]
-                                    val count = parts[1].toInt()
+                    val parts = clueText.split(" ")
+                    if (parts.size == 2 && parts[1].toIntOrNull() != null) {
+                        val word = parts[0]
+                        val count = parts[1].toInt()
                         if (count < 0 || count > 9) {
-                                        Toast.makeText(context, "Clue number must be between 0 and 9", Toast.LENGTH_SHORT).show()
-                                        Log.e("Codenames", "Invalid clue number: $count")
+                            Toast.makeText(context, "Clue number must be between 0 and 9", Toast.LENGTH_SHORT).show()
+                            Log.e("Codenames", "Invalid clue number: $count")
                             return@CodenamesBottomControls
-                                    }
-                                    if (word.isNotEmpty()) {
-                            repository.getGameState(roomId, onSuccess = { state ->
-                                val currentClues: List<Clue> = state?.clues ?: emptyList()
-                                val newClue = Clue(clueText, currentTeam)
-                                repository.updateGameState(
-                                    roomId,
-                                    CodenamesGameState(
-                                        currentTurn = currentTurn,
-                                        currentTeam = currentTeam,
-                                        isMasterPhase = false,
-                                        redWordsRemaining = redWordsRemaining,
-                                        blueWordsRemaining = blueWordsRemaining,
-                                        winner = winner,
-                                        clues = currentClues + newClue,
-                                        cards = gameState?.cards ?: emptyList(),
-                                        currentGuardingWordCount = count,
-                                        guessesRemaining = count + 1
-                                    ),
-                                    onSuccess = {
-                                        if (currentTeam == "RED") viewModel.redMasterClue = "" else viewModel.blueMasterClue = ""
-                                                        Toast.makeText(context, "Clue submitted!", Toast.LENGTH_SHORT).show()
-                                    },
-                                    onError = { e ->
-                                                        Log.e("Codenames", "Error updating Firestore after clue submission: $e")
-                                                        Toast.makeText(context, "Failed to submit clue: ${e.message}", Toast.LENGTH_LONG).show()
-                                                    }
-                                )
-                            }, onError = { e ->
-                                Log.e("Codenames", "Error getting game state to submit clue: $e")
-                                Toast.makeText(context, "Fai    led to get game state: ${e.message}", Toast.LENGTH_LONG).show()
-                            })
-                                    } else {
-                                        Toast.makeText(context, "Clue word cannot be empty", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    Toast.makeText(context, "Invalid clue format. Use 'WORD NUMBER'", Toast.LENGTH_SHORT).show()
-                                    Log.e("Codenames", "Invalid clue format. Please use 'WORD NUMBER'. Input: $clueText")
-                                }
-                            },
+                        }
+                        if (word.isNotEmpty()) {
+                            val newClue = Clue(word, currentTeam)
+                            viewModel.submitClue(roomId, newClue, count)
+                            if (currentTeam == "RED") viewModel.redMasterClue = "" else viewModel.blueMasterClue = ""
+                            Toast.makeText(context, "Clue submitted!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Clue word cannot be empty", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Invalid clue format. Use 'WORD NUMBER'", Toast.LENGTH_SHORT).show()
+                        Log.e("Codenames", "Invalid clue format. Please use 'WORD NUMBER'. Input: $clueText")
+                    }
+                },
                 phaseStatus = {
                     PhaseStatusText(
                         currentTurn = currentTurn,

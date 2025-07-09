@@ -1,3 +1,4 @@
+// SHARED SOUND MANAGER SINGLETON FOR THE WHOLE APP
 package com.example.gamehub.audio
 
 import android.content.Context

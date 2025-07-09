@@ -23,7 +23,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.gamehub.features.codenames.ui.CodenamesActivity
 import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.components.NinePatchBorder
 import com.google.firebase.firestore.FieldValue
@@ -100,26 +99,7 @@ fun GuestGameScreen(
                 "ohpardon"    -> NavRoutes.OHPARDON_GAME
                 "whereandwhen" -> NavRoutes.WHERE_AND_WHEN_GAME
                 "triviatoe" -> NavRoutes.TRIVIATOE_INTRO_ANIM
-                "codenames"   -> {
-                    val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
-                    val isMaster = currentPlayer?.get("role") == "master"
-                    val team = currentPlayer?.get("team") as? String ?: ""
-                    Log.d("CodenamesDebug", """
-                        GuestGameScreen Values:
-                        currentPlayer: $currentPlayer
-                        isMaster: $isMaster
-                        team: $team
-                        players: $players
-                    """.trimIndent())
-                    val intent = Intent(context, CodenamesActivity::class.java).apply {
-                        putExtra("roomId", code)
-                        putExtra("userName", userName)
-                        putExtra("isMaster", isMaster)
-                        putExtra("team", team)
-                    }
-                    context.startActivity(intent)
-                    null
-                }
+                "codenames"   -> NavRoutes.CODENAMES_GAME
                 else          -> null
             }
             route?.let {
@@ -430,6 +410,15 @@ private fun minPlayersRequired(gameId: String) = when (gameId) {
     "battleships" -> 2
     "ohpardon" -> 2
     "triviatoe" -> 2
-    "codenames" -> 4
+    "codenames" -> 1
     else -> 2
+}
+
+private fun canStartGame(gameId: String, players: List<Map<String, Any>>, maxPlayers: Int): Boolean = when (gameId) {
+    "whereandwhen" -> players.size in 2..maxPlayers
+    "battleships" -> players.size == maxPlayers
+    "ohpardon" -> players.size >= 2 && players.size <= maxPlayers
+    "triviatoe" -> players.size == maxPlayers
+    "codenames" -> players.size >= 1 && players.size <= maxPlayers
+    else -> players.size >= 2 && players.size <= maxPlayers
 }

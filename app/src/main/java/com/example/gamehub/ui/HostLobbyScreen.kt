@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.gamehub.features.codenames.service.CodenamesService
-import com.example.gamehub.features.codenames.ui.CodenamesActivity
 import com.example.gamehub.navigation.NavRoutes
 import com.example.gamehub.ui.components.NinePatchBorder
 import com.google.firebase.auth.ktx.auth
@@ -443,8 +442,9 @@ fun HostLobbyScreen(
                                     updatesToSendToFirestore["gameState.whereandwhen.roundStartTimeMillis"] = System.currentTimeMillis()
                                     updatesToSendToFirestore["gameState.whereandwhen.roundStatus"] = WhereAndWhenGameState.STATUS_GUESSING
                                 } else {
+                                    // Fix type inference for mapOf and emptyMap usages:
                                     val initialGameStateForOtherGames = when (gameId) {
-                                        "battleships" -> mapOf(
+                                        "battleships" -> mapOf<String, Any?>(
                                             "player1Id" to players.getOrNull(0)?.get("uid"),
                                             "player2Id" to players.getOrNull(1)?.get("uid"),
                                             "currentTurn" to startingPlayerUid,
@@ -456,13 +456,13 @@ fun HostLobbyScreen(
                                             "chosenMap" to null,
                                             "powerUpMoves" to emptyList<String>()
                                         )
-                                        "ohpardon" -> mapOf(
+                                        "ohpardon" -> mapOf<String, Any?>(
                                             "currentPlayer" to startingPlayerUid,
                                             "scores" to emptyMap<String, Int>(),
                                             "gameResult" to null,
                                             "diceRoll" to null
                                         )
-                                        "triviatoe" -> mapOf(
+                                        "triviatoe" -> mapOf<String, Any?>(
                                             "players"      to players,
                                             "board"        to emptyList<Map<String, Any>>(),
                                             "moves"        to emptyList<Map<String, Any>>(),
@@ -476,12 +476,10 @@ fun HostLobbyScreen(
                                             "usedQuestions" to emptyList<Int>()
                                         )
                                         "codenames" -> CodenamesService.generateGameState()
-                                        else -> emptyMap()
+                                        else -> emptyMap<String, Any?>()
                                     }
 
-                                    if (initialGameStateForOtherGames.isNotEmpty()) {
-                                        updatesToSendToFirestore["gameState.$gameId"] = initialGameStateForOtherGames
-                                    }
+                                    updatesToSendToFirestore["gameState.$gameId"] = initialGameStateForOtherGames
 
                                     if(gameId == "battleships") {
                                         val rematchVotes = players.associate {
@@ -539,18 +537,7 @@ fun HostLobbyScreen(
                         "ohpardon"    -> NavRoutes.OHPARDON_GAME
                         "triviatoe"   -> NavRoutes.TRIVIATOE_INTRO_ANIM
                         "whereandwhen"-> NavRoutes.WHERE_AND_WHEN_GAME
-                        "codenames"   -> {
-                            val currentPlayer = players.find { it["uid"] == auth.currentUser?.uid }
-                            val isMaster = currentPlayer?.get("role") == "master"
-                            val intent = Intent(context, CodenamesActivity::class.java).apply {
-                                putExtra("roomId", roomId)
-                                putExtra("userName", hostName)
-                                putExtra("isMaster", isMaster)
-                                putExtra("team", currentPlayer?.get("team") as? String ?: "")
-                            }
-                            context.startActivity(intent)
-                            null
-                        }
+                        "codenames"   -> NavRoutes.CODENAMES_GAME
                         else -> null
                     }
                     route?.let {
@@ -571,7 +558,7 @@ private fun minPlayersRequired(gameId: String) = when (gameId) {
     "battleships" -> 2
     "ohpardon" -> 2
     "triviatoe" -> 2
-    "codenames" -> 4
+    "codenames" -> 1
     else -> 2
 }
 private fun canStartGame(gameId: String, players: List<Map<String, Any>>, maxPlayers: Int): Boolean = when (gameId) {
@@ -579,6 +566,6 @@ private fun canStartGame(gameId: String, players: List<Map<String, Any>>, maxPla
     "battleships" -> players.size == maxPlayers
     "ohpardon" -> players.size >= 2 && players.size <= maxPlayers
     "triviatoe" -> players.size == maxPlayers
-    "codenames" -> players.size >= 4 && players.size <= maxPlayers
+    "codenames" -> players.size >= 1 && players.size <= maxPlayers
     else -> players.size >= 2 && players.size <= maxPlayers
 }

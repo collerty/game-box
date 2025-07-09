@@ -7,7 +7,7 @@ import android.widget.ImageButton
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.gamehub.R
-import com.example.gamehub.features.spy.data.Location
+import com.example.gamehub.features.spy.model.Location
 
 class LocationsAdapter(
     private var locations: List<Location>,

@@ -1,12 +1,16 @@
 package com.example.gamehub.features.spy.ui
 
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Context
-import android.widget.NumberPicker
 import android.widget.LinearLayout
-import android.widget.CheckBox
+import android.widget.NumberPicker
 import android.widget.ScrollView
+import android.widget.CheckBox
 import android.view.ViewGroup
+import com.example.gamehub.features.spy.model.SpyGameSettings
+
+const val DIALOG_PADDING = 32
 
 object SpyGameDialogs {
     fun showNumberPickerDialog(
@@ -41,7 +45,7 @@ object SpyGameDialogs {
         val scrollView = ScrollView(context)
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 32, 32, 32)
+            setPadding(DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING)
         }
 
         SpyGameSettings.defaultLocations.forEach { location ->

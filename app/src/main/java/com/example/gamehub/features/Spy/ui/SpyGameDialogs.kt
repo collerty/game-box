@@ -1,5 +1,7 @@
 package com.example.gamehub.features.spy.ui
 
+const val DIALOG_PADDING = 32
+
 import android.app.AlertDialog
 import android.content.Context
 import android.widget.NumberPicker
@@ -42,7 +44,7 @@ object SpyGameDialogs {
         val scrollView = ScrollView(context)
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 32, 32, 32)
+            setPadding(DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING)
         }
 
         SpyGameSettings.defaultLocations.forEach { location ->

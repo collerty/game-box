@@ -4,6 +4,11 @@ import android.os.CountDownTimer
 import com.example.gamehub.features.spy.model.LocationManager
 import com.example.gamehub.features.spy.model.SpyGameSettings
 import com.example.gamehub.features.spy.model.SpyGameState
+import com.example.gamehub.features.spy.model.DEFAULT_NUMBER_OF_PLAYERS
+import com.example.gamehub.features.spy.model.DEFAULT_NUMBER_OF_SPIES
+import com.example.gamehub.features.spy.model.DEFAULT_TIMER_MINUTES
+
+const val TIMER_TICK_MILLIS = 1000L
 
 class SpyGameService(private val locationManager: LocationManager) {
     var gameSettings: SpyGameSettings = SpyGameSettings()
@@ -15,9 +20,9 @@ class SpyGameService(private val locationManager: LocationManager) {
     fun setupGameSettings() {
         val locations = locationManager.getLocations().map { it.name }
         gameSettings = SpyGameSettings(
-            numberOfPlayers = 4,
-            numberOfSpies = 1,
-            timerMinutes = 5,
+            numberOfPlayers = DEFAULT_NUMBER_OF_PLAYERS,
+            numberOfSpies = DEFAULT_NUMBER_OF_SPIES,
+            timerMinutes = DEFAULT_TIMER_MINUTES,
             selectedLocations = locations
         )
         gameState = SpyGameState(gameSettings)
@@ -39,7 +44,7 @@ class SpyGameService(private val locationManager: LocationManager) {
     fun startTimer(onTick: (Int) -> Unit, onFinish: () -> Unit) {
         timerListener = onTick
         timerFinishListener = onFinish
-        timer = object : CountDownTimer(gameSettings.timerMinutes * 60 * 1000L, 1000) {
+        timer = object : CountDownTimer(gameSettings.timerMinutes * 60 * TIMER_TICK_MILLIS, TIMER_TICK_MILLIS) {
             override fun onTick(millisUntilFinished: Long) {
                 val seconds = (millisUntilFinished / 1000).toInt()
                 gameState.updateTimer(seconds)

@@ -1,9 +1,13 @@
 package com.example.gamehub.features.spy.model
 
+const val DEFAULT_NUMBER_OF_PLAYERS = 4
+const val DEFAULT_NUMBER_OF_SPIES = 1
+const val DEFAULT_TIMER_MINUTES = 5
+
 data class SpyGameSettings(
-    var numberOfPlayers: Int = 4,
-    var numberOfSpies: Int = 1,
-    var timerMinutes: Int = 5,
+    var numberOfPlayers: Int = DEFAULT_NUMBER_OF_PLAYERS,
+    var numberOfSpies: Int = DEFAULT_NUMBER_OF_SPIES,
+    var timerMinutes: Int = DEFAULT_TIMER_MINUTES,
     var selectedLocations: List<String> = defaultLocations
 ) {
     companion object {

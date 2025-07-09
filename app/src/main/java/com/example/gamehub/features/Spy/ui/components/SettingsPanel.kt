@@ -1,12 +1,6 @@
 package com.example.gamehub.features.spy.ui.components
 
-const val MIN_PLAYERS = 3
-const val MAX_PLAYERS = 10
-const val MIN_SPIES = 1
-const val MIN_TIMER = 1
-const val MAX_TIMER = 30
-
-import androidx.compose.foundation.layout.*
+import androidx.compose.add foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,6 +8,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.gamehub.features.spy.service.SpyGameService.SettingsSummary
+
+const val MIN_PLAYERS = 3
+const val MAX_PLAYERS = 10
+const val MIN_SPIES = 1
+const val MIN_TIMER = 1
+const val MAX_TIMER = 30
 
 @Composable
 fun SettingsPanel(

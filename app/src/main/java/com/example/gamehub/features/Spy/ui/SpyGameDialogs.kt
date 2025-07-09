@@ -1,15 +1,16 @@
 package com.example.gamehub.features.spy.ui
 
-const val DIALOG_PADDING = 32
-
 import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Context
-import android.widget.NumberPicker
 import android.widget.LinearLayout
-import android.widget.CheckBox
+import android.widget.NumberPicker
 import android.widget.ScrollView
+import android.widget.CheckBox
 import android.view.ViewGroup
 import com.example.gamehub.features.spy.model.SpyGameSettings
+
+const val DIALOG_PADDING = 32
 
 object SpyGameDialogs {
     fun showNumberPickerDialog(

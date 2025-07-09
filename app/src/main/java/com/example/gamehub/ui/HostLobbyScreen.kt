@@ -1,4 +1,4 @@
-import GameBoxFontFamily
+import com.example.gamehub.ui.GameBoxFontFamily
 import android.content.Intent
 import android.content.Context
 import android.net.Uri

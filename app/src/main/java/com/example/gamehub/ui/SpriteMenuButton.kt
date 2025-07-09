@@ -1,6 +1,6 @@
 package com.example.gamehub.ui
 
-import GameBoxFontFamily
+import com.example.gamehub.ui.GameBoxFontFamily
 import android.media.MediaPlayer
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -71,6 +71,53 @@ fun SpriteMenuButton(
             style = textStyle,
             textAlign = TextAlign.Center,
             modifier = Modifier.align(Alignment.Center).offset(y = textOffset).padding(contentPadding),
+            color = androidx.compose.ui.graphics.Color(0xFFc08cdc)
+        )
+    }
+}
+
+@Composable
+fun SpriteIconButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    normalRes: Int = R.drawable.menu_button,
+    pressedRes: Int = R.drawable.menu_button_long_pressed,
+    textStyle: TextStyle = TextStyle(
+        fontSize = 18.sp,
+        fontFamily = GameBoxFontFamily
+    ),
+    size: Dp = 40.dp
+) {
+    val context = LocalContext.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val textOffset = if (isPressed) 0.dp else (-2).dp
+    val buttonRes = if (isPressed) pressedRes else normalRes
+
+    Box(
+        modifier = modifier
+            .size(size, size)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    SoundManager.playEffect(context, R.raw.menu_button_press)
+                    onClick()
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(buttonRes),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize()
+        )
+        Text(
+            text = text,
+            style = textStyle,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.align(Alignment.Center).offset(y = textOffset),
             color = androidx.compose.ui.graphics.Color(0xFFc08cdc)
         )
     }

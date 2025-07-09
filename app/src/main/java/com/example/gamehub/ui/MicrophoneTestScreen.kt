@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.example.gamehub.R
+import com.example.gamehub.ui.GameBoxFontFamily
 import com.example.gamehub.ui.components.NinePatchBorder
 
 @RequiresApi(Build.VERSION_CODES.O)

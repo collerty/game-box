@@ -1,5 +1,7 @@
 package com.example.gamehub.ui.theme
 
+package com.example.gamehub.ui.theme
+
 import GameBoxTypography
 import android.os.Build
 import androidx.annotation.RequiresApi

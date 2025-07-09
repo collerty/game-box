@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import com.example.gamehub.R
 import com.example.gamehub.audio.SoundManager
 import androidx.compose.foundation.background
+import com.example.gamehub.ui.GameBoxFontFamily
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

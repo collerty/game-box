@@ -23,6 +23,11 @@ import com.example.gamehub.features.spy.ui.components.PlayerCard
 import com.example.gamehub.features.spy.ui.components.SettingsPanel
 import com.example.gamehub.features.spy.ui.components.TimerPanel
 import com.example.gamehub.features.spy.ui.components.GameOverDialog
+import com.example.gamehub.ui.SpriteMenuButton
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 
 @Composable
 fun SpyGameScreen(
@@ -71,9 +76,7 @@ fun SpyGameScreen(
                         onTimerChange = { viewModel.updateTimerMinutes(it) }
                     )
                     Spacer(modifier = Modifier.height(32.dp))
-                    androidx.compose.material3.Button(onClick = { viewModel.startGame() }) {
-                        androidx.compose.material3.Text("Start Game")
-                    }
+                    SpriteMenuButton(text = "Start Game", onClick = { viewModel.startGame() })
                 }
                 GamePhase.REVEAL -> {
                     playerCardInfo?.let { info ->
@@ -90,7 +93,23 @@ fun SpyGameScreen(
                     }
                 }
                 GamePhase.TIMER -> {
-                    TimerPanel(timer = timer)
+                    val context = LocalContext.current
+                    TimerPanel(timer = timer, onVibrationEvent = {
+                        val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val vm = context.getSystemService(VibratorManager::class.java)!!
+                            vm.defaultVibrator
+                        } else {
+                            @Suppress("DEPRECATION")
+                            context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as Vibrator
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            val effect = VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE)
+                            vibrator.vibrate(effect)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            vibrator.vibrate(300)
+                        }
+                    })
                 }
                 GamePhase.GAME_OVER -> {
                     GameOverDialog(onRestart = { viewModel.resetGame() })

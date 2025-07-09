@@ -30,6 +30,7 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.auth.ktx.auth
 import kotlinx.coroutines.launch
+import com.example.gamehub.ui.GameBoxFontFamily
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

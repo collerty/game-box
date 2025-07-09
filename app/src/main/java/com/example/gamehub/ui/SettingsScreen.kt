@@ -1,6 +1,6 @@
 package com.example.gamehub.ui
 
-import GameBoxFontFamily
+import com.example.gamehub.ui.GameBoxFontFamily
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image

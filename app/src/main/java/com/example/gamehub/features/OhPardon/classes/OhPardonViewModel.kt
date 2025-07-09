@@ -3,7 +3,6 @@ package com.example.gamehub.features.ohpardon
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.gamehub.features.ohpardon.data.OhPardonDatabase
 import com.example.gamehub.features.ohpardon.logic.OhPardonGameLogic
 import com.example.gamehub.features.ohpardon.models.GameRoom
 import com.example.gamehub.features.ohpardon.models.Player
@@ -11,11 +10,13 @@ import com.example.gamehub.features.ohpardon.models.UiEvent
 import com.example.gamehub.features.ohpardon.ui.BoardCell
 import com.example.gamehub.features.ohpardon.ui.mappers.BoardMapper
 import com.example.gamehub.features.ohpardon.util.ShakeDetector
+import com.example.gamehub.repository.implementations.OhPardonRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class OhPardonViewModel(
@@ -33,18 +34,25 @@ class OhPardonViewModel(
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
-    private val repository = OhPardonDatabase(roomCode)
+    private val repository = OhPardonRepository()
     private val gameLogic = OhPardonGameLogic()
     private val boardMapper = BoardMapper()
     private val shakeDetector = ShakeDetector(application) { attemptRollDice(currentUserName) }
 
     init {
-        listenToRoomChanges()
+        joinRoom()
+        observeGameRoom()
     }
 
-    private fun listenToRoomChanges() {
-        repository.listenToRoomChanges { gameRoom ->
-            _gameRoom.value = gameRoom
+    private fun joinRoom() {
+        repository.joinRoom(roomCode)
+    }
+
+    private fun observeGameRoom() {
+        viewModelScope.launch {
+            repository.gameRoom.collectLatest { gameRoom ->
+                _gameRoom.value = gameRoom
+            }
         }
     }
 
@@ -131,6 +139,6 @@ class OhPardonViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        repository.removeListeners()
+        repository.leaveRoom()
     }
 }

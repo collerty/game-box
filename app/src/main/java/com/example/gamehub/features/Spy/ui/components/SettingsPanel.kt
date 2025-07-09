@@ -3,6 +3,7 @@ package com.example.gamehub.features.spy.ui.components
 import com.example.gamehub.ui.SpriteIconButton
 import com.example.gamehub.features.spy.service.SpyGameService.SettingsSummary
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,23 +34,23 @@ fun SettingsPanel(
     ) {
         Text(text = "Players: ${summary.players}", fontSize = 24.sp, color = Color(0xFFEEEEEE))
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-            SpriteIconButton(text = "-", onClick = { if (summary.players > MIN_PLAYERS) onPlayersChange(summary.players - 1) }, size = 40.dp)
+            SpriteIconButton(text = "-", onClick = { if (summary.players > MIN_PLAYERS) onPlayersChange(summary.players - 1) })
             Spacer(modifier = Modifier.width(8.dp))
-            SpriteIconButton(text = "+", onClick = { if (summary.players < MAX_PLAYERS) onPlayersChange(summary.players + 1) }, size = 40.dp)
+            SpriteIconButton(text = "+", onClick = { if (summary.players < MAX_PLAYERS) onPlayersChange(summary.players + 1) })
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Spies: ${summary.spies}", fontSize = 24.sp, color = Color(0xFFEEEEEE))
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-            SpriteIconButton(text = "-", onClick = { if (summary.spies > MIN_SPIES) onSpiesChange(summary.spies - 1) }, size = 40.dp)
+            SpriteIconButton(text = "-", onClick = { if (summary.spies > MIN_SPIES) onSpiesChange(summary.spies - 1) })
             Spacer(modifier = Modifier.width(8.dp))
-            SpriteIconButton(text = "+", onClick = { if (summary.spies < summary.players - 1) onSpiesChange(summary.spies + 1) }, size = 40.dp)
+            SpriteIconButton(text = "+", onClick = { if (summary.spies < summary.players - 1) onSpiesChange(summary.spies + 1) })
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Timer: ${summary.timer} min", fontSize = 24.sp, color = Color(0xFFEEEEEE))
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-            SpriteIconButton(text = "-", onClick = { if (summary.timer > MIN_TIMER) onTimerChange(summary.timer - 1) }, size = 40.dp)
+            SpriteIconButton(text = "-", onClick = { if (summary.timer > MIN_TIMER) onTimerChange(summary.timer - 1) })
             Spacer(modifier = Modifier.width(8.dp))
-            SpriteIconButton(text = "+", onClick = { if (summary.timer < MAX_TIMER) onTimerChange(summary.timer + 1) }, size = 40.dp)
+            SpriteIconButton(text = "+", onClick = { if (summary.timer < MAX_TIMER) onTimerChange(summary.timer + 1) })
         }
     }
 } 

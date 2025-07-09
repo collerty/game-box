@@ -1,6 +1,5 @@
 package com.example.gamehub.ui
 
-import GameBoxFontFamily
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast

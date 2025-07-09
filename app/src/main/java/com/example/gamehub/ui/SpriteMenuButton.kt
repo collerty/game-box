@@ -84,10 +84,12 @@ fun SpriteIconButton(
     normalRes: Int = R.drawable.menu_button,
     pressedRes: Int = R.drawable.menu_button_long_pressed,
     textStyle: TextStyle = TextStyle(
-        fontSize = 18.sp,
+        fontSize = 32.sp,
         fontFamily = GameBoxFontFamily
     ),
-    size: Dp = 40.dp
+    width: Dp = 144.dp, // Even wider
+    height: Dp = 144.dp, // Even taller
+    contentPadding: PaddingValues = PaddingValues(20.dp)
 ) {
     val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -97,7 +99,8 @@ fun SpriteIconButton(
 
     Box(
         modifier = modifier
-            .size(size, size)
+            .width(width)
+            .height(height)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -117,7 +120,7 @@ fun SpriteIconButton(
             text = text,
             style = textStyle,
             textAlign = TextAlign.Center,
-            modifier = Modifier.align(Alignment.Center).offset(y = textOffset),
+            modifier = Modifier.align(Alignment.Center).offset(y = textOffset).padding(contentPadding),
             color = androidx.compose.ui.graphics.Color(0xFFc08cdc)
         )
     }

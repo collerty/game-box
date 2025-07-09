@@ -6,6 +6,9 @@ import com.example.gamehub.features.spaceinvaders.models.Bunker
 class BunkerController {
     private val bunkers = mutableListOf<Bunker>()
     private var initialized = false
+    private val bunkerHealth = 15
+    private val bunkerWidth = 200f
+    private val bunkerHeight = 100f
 
     fun getBunkers(): List<Bunker> = bunkers
 
@@ -24,9 +27,9 @@ class BunkerController {
                     id = i,
                     x = x,
                     y = y,
-                    width = 200f,
-                    height = 100f,
-                    health = 15
+                    width = bunkerWidth,
+                    height = bunkerHeight,
+                    health = bunkerHealth
                 )
             )
             Log.d("bunker id", "Bunker ID: ${i}, X: $x, Y: $y")

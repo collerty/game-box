@@ -33,6 +33,12 @@ data class Enemy(
 
 enum class EnemyType { SHOOTER, BOTTOM, MIDDLE }
 
+enum class EnemyDirection {
+    LEFT,
+    RIGHT
+}
+
+
 // UFO entity
 data class UFO(
     override var x: Float,
@@ -41,7 +47,7 @@ data class UFO(
     override val height: Float = 40f,
     override var isActive: Boolean = false,
     var speed: Float = 8f,
-    var direction: Int = 1, // 1 = right, -1 = left
+    var direction: EnemyDirection = EnemyDirection.RIGHT
 ) : GameEntity
 
 // Score data class
@@ -87,3 +93,4 @@ enum class GameState {
     PLAYING,
     GAME_OVER
 }
+

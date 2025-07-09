@@ -4,16 +4,20 @@ import com.example.gamehub.features.spaceinvaders.util.AudioManager
 import com.example.gamehub.features.spaceinvaders.classes.SpaceInvadersViewModel
 import com.example.gamehub.features.spaceinvaders.models.Bullet
 import com.example.gamehub.features.spaceinvaders.models.Enemy
+import com.example.gamehub.features.spaceinvaders.models.EnemyDirection
 import com.example.gamehub.features.spaceinvaders.models.EnemyType
 import com.example.gamehub.features.spaceinvaders.models.UFO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
-class EnemyController(
-    private val audioManager: AudioManager,
-    private val coroutineScope: CoroutineScope
-) {
+class EnemyController {
+
+    private val bulletSpeed = 10f
+    private val deadEnemyPosition = -100f
+    private val enemyHeight = 40f
+    private val dropDownDistance = 20f
+
 
     // All available maps
     val enemyMaps: List<Array<Array<Int>>> = listOf(
@@ -57,7 +61,7 @@ class EnemyController(
     lateinit var enemies: Array<Array<Enemy>>
     val enemyBullets = mutableListOf<Bullet>()
 
-    var direction = 1 // 1 = right, -1 = left
+    var direction = EnemyDirection.RIGHT
     val speed = 5f
     val enemyWidth = 60f
 
@@ -80,7 +84,7 @@ class EnemyController(
         val shooter = shooters.randomOrNull() ?: return
         val bulletX = shooter.x + enemyWidth / 2 - 5f
         val bulletY = shooter.y + 40f // enemy height
-        enemyBullets.add(Bullet(x = bulletX, y = bulletY, isActive = true, speed = 10f))
+        enemyBullets.add(Bullet(x = bulletX, y = bulletY, isActive = true, speed = bulletSpeed))
     }
 
     fun isWaveCleared(): Boolean {
@@ -88,7 +92,6 @@ class EnemyController(
     }
 
     fun createEnemies(enemyMap: Array<Array<Int>>): Array<Array<Enemy>> {
-        val enemyHeight = 40f
         val spacingX = 20f
         val spacingY = 20f
 
@@ -97,8 +100,8 @@ class EnemyController(
                 val value = enemyMap[rowIndex][colIndex]
                 if (value == 0) {
                     Enemy(
-                        x = -100f,
-                        y = -100f,
+                        x = deadEnemyPosition,
+                        y = deadEnemyPosition,
                         isAlive = false,
                         type = EnemyType.MIDDLE
                     ) // Off-screen, dead
@@ -133,16 +136,18 @@ class EnemyController(
         val maxX = allEnemies.maxOf { it.x }
 
         // Change direction if at edge
-        if (direction == 1 && maxX + enemyWidth >= rightBound) {
-            direction = -1
+        if (direction == EnemyDirection.RIGHT && maxX + enemyWidth >= rightBound) {
+            direction = EnemyDirection.LEFT
             moveEnemiesDown()
-        } else if (direction == -1 && minX <= leftBound) {
-            direction = 1
+        } else if (direction == EnemyDirection.LEFT && minX <= leftBound) {
+            direction = EnemyDirection.RIGHT
             moveEnemiesDown()
         }
 
+        val directionModifier = if (direction == EnemyDirection.RIGHT) 1 else -1
+
         // Move enemies horizontally
-        allEnemies.forEach { it.x += speed * direction }
+        allEnemies.forEach { it.x += speed * directionModifier }
     }
 
     fun updateEnemyBullets(screenHeight: Float) {
@@ -156,11 +161,11 @@ class EnemyController(
 
     fun hasEnemyReachedPlayerLine(playerY: Float): Boolean {
         val allEnemies = enemies.flatten().filter { it.isAlive }
-        return allEnemies.any { it.y + 40f >= playerY } // 40f is enemy height
+        return allEnemies.any { it.y + enemyHeight >= playerY } // 40f is enemy height
     }
 
     fun moveEnemiesDown() {
         val allEnemies = enemies.flatten().filter { it.isAlive }
-        allEnemies.forEach { it.y += 20f } // drop down by 20 pixels
+        allEnemies.forEach { it.y += dropDownDistance } // drop down by 20 pixels
     }
 }

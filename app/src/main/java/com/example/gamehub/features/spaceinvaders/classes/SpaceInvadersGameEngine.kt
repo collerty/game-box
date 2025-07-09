@@ -51,10 +51,7 @@ class SpaceInvadersGameEngine(
         coroutineScope = coroutineScope
     )
 
-    val enemyController = EnemyController(
-        audioManager = audioManager,
-        coroutineScope = coroutineScope
-    )
+    val enemyController = EnemyController()
 
     val ufoController = UFOController(
         audioManager = audioManager,

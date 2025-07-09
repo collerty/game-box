@@ -6,6 +6,7 @@ import com.example.gamehub.features.codenames.model.CodenamesGameState
 import com.example.gamehub.features.codenames.model.Clue
 import com.example.gamehub.repository.interfaces.ICodenamesRepository
 import kotlin.random.Random
+import com.example.gamehub.features.codenames.model.CodenamesConstants
 
 class CodenamesService(private val repository: ICodenamesRepository) {
     companion object {
@@ -18,11 +19,11 @@ class CodenamesService(private val repository: ICodenamesRepository) {
         )
 
         fun generateGameState(): CodenamesGameState {
-            val shuffledWords = WORD_LIST.shuffled().take(25)
-            val redCards = 9
-            val blueCards = 8
-            val neutralCards = 7
-            val assassinCards = 1
+            val shuffledWords = WORD_LIST.shuffled().take(CodenamesConstants.TOTAL_CARDS)
+            val redCards = CodenamesConstants.RED_CARDS
+            val blueCards = CodenamesConstants.BLUE_CARDS
+            val neutralCards = CodenamesConstants.NEUTRAL_CARDS
+            val assassinCards = CodenamesConstants.ASSASSIN_CARDS
             val colors = mutableListOf<CardColor>().apply {
                 repeat(redCards) { add(CardColor.RED) }
                 repeat(blueCards) { add(CardColor.BLUE) }

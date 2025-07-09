@@ -23,6 +23,7 @@ import com.example.gamehub.features.codenames.ui.components.CodenamesBottomContr
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import androidx.compose.ui.unit.dp
+import com.example.gamehub.features.codenames.model.CodenamesConstants
 
 @Composable
 fun LockScreenOrientation(orientation: Int) {
@@ -184,8 +185,8 @@ fun CodenamesScreen(
                     if (parts.size == 2 && parts[1].toIntOrNull() != null) {
                         val word = parts[0]
                         val count = parts[1].toInt()
-                        if (count < 0 || count > 9) {
-                            Toast.makeText(context, "Clue number must be between 0 and 9", Toast.LENGTH_SHORT).show()
+                        if (count < 0 || count > CodenamesConstants.RED_CARDS) {
+                            Toast.makeText(context, "Clue number must be between 0 and ${CodenamesConstants.RED_CARDS}", Toast.LENGTH_SHORT).show()
                             Log.e("Codenames", "Invalid clue number: $count")
                             return@CodenamesBottomControls
                         }

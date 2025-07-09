@@ -6,6 +6,7 @@ import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.features.codenames.model.Clue
 import com.example.gamehub.repository.interfaces.ICodenamesRepository
 import com.google.firebase.firestore.FirebaseFirestore
+import com.example.gamehub.features.codenames.model.CodenamesConstants
 
 class CodenamesRepository : ICodenamesRepository {
     private val db = FirebaseFirestore.getInstance()
@@ -71,8 +72,8 @@ class CodenamesRepository : ICodenamesRepository {
         return CodenamesGameState(
             cards = cards,
             currentTurn = map["currentTurn"] as? String ?: "RED",
-            redWordsRemaining = (map["redWordsRemaining"] as? Number)?.toInt() ?: 9,
-            blueWordsRemaining = (map["blueWordsRemaining"] as? Number)?.toInt() ?: 8,
+            redWordsRemaining = (map["redWordsRemaining"] as? Number)?.toInt() ?: CodenamesConstants.DEFAULT_RED_WORDS,
+            blueWordsRemaining = (map["blueWordsRemaining"] as? Number)?.toInt() ?: CodenamesConstants.DEFAULT_BLUE_WORDS,
             currentTeam = map["currentTeam"] as? String ?: "RED",
             isMasterPhase = map["isMasterPhase"] as? Boolean ?: true,
             currentClue = map["currentClue"] as? String,

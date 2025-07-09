@@ -1,6 +1,6 @@
 package com.example.gamehub.features.spy.ui.components
 
-import androidx.compose.add foundation.layout.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable

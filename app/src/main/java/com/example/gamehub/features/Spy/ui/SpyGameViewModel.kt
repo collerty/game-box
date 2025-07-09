@@ -1,0 +1,113 @@
+package com.example.gamehub.features.spy.ui
+
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import com.example.gamehub.features.spy.data.Location
+import com.example.gamehub.features.spy.data.LocationManager
+import com.example.gamehub.features.spy.service.SpyGameService
+import com.example.gamehub.features.spy.service.SpyGameService.PlayerCardInfo
+import com.example.gamehub.features.spy.service.SpyGameService.SettingsSummary
+
+class SpyGameViewModel(private val locationManager: LocationManager) : ViewModel() {
+    private val service = SpyGameService(locationManager)
+
+    private val _playerCardInfo = MutableLiveData<PlayerCardInfo>()
+    val playerCardInfo: LiveData<PlayerCardInfo> = _playerCardInfo
+
+    private val _settingsSummary = MutableLiveData<SettingsSummary>()
+    val settingsSummary: LiveData<SettingsSummary> = _settingsSummary
+
+    private val _timer = MutableLiveData<Int>()
+    val timer: LiveData<Int> = _timer
+
+    private val _gameOver = MutableLiveData<Boolean>()
+    val gameOver: LiveData<Boolean> = _gameOver
+
+    private val _locations = MutableLiveData<List<Location>>()
+    val locations: LiveData<List<Location>> = _locations
+
+    init {
+        service.setupGameSettings()
+        updateAll()
+    }
+
+    fun startGame() {
+        if (!service.canStartGame()) return
+        service.startGame()
+        updateAll()
+    }
+
+    fun revealRole() {
+        service.revealRole()
+        updatePlayerCard()
+    }
+
+    fun advancePlayer() {
+        if (service.advancePlayer()) {
+            updatePlayerCard()
+        } else {
+            startTimer()
+        }
+    }
+
+    fun startTimer() {
+        service.startTimer(
+            onTick = { seconds -> _timer.postValue(seconds) },
+            onFinish = { _timer.postValue(0); _gameOver.postValue(true) }
+        )
+    }
+
+    fun resetGame() {
+        service.resetGame()
+        updateAll()
+    }
+
+    fun updateNumberOfPlayers(newValue: Int) {
+        service.updateNumberOfPlayers(newValue)
+        updateSettingsSummary()
+    }
+    fun updateNumberOfSpies(newValue: Int) {
+        service.updateNumberOfSpies(newValue)
+        updateSettingsSummary()
+    }
+    fun updateTimerMinutes(newValue: Int) {
+        service.updateTimerMinutes(newValue)
+        updateSettingsSummary()
+    }
+    fun addLocation(name: String, description: String) {
+        service.addLocation(name, description)
+        updateLocations()
+        updateSettingsSummary()
+    }
+    fun updateLocation(old: Location, new: Location) {
+        service.updateLocation(old, new)
+        updateLocations()
+        updateSettingsSummary()
+    }
+    fun removeLocation(location: Location) {
+        service.removeLocation(location)
+        updateLocations()
+        updateSettingsSummary()
+    }
+
+    private fun updateAll() {
+        updatePlayerCard()
+        updateSettingsSummary()
+        updateLocations()
+    }
+    private fun updatePlayerCard() {
+        _playerCardInfo.postValue(service.getPlayerCardInfo())
+    }
+    private fun updateSettingsSummary() {
+        _settingsSummary.postValue(service.getSettingsSummary())
+    }
+    private fun updateLocations() {
+        _locations.postValue(service.getLocations())
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        service.cancelTimer()
+    }
+} 

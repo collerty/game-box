@@ -1,4 +1,4 @@
-package com.example.gamehub.features.spy.ui
+package com.example.gamehub.features.spy.model
 
 data class SpyGameSettings(
     var numberOfPlayers: Int = 4,

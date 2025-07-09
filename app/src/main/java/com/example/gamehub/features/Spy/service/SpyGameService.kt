@@ -1,9 +1,9 @@
 package com.example.gamehub.features.spy.service
 
 import android.os.CountDownTimer
-import com.example.gamehub.features.spy.data.LocationManager
-import com.example.gamehub.features.spy.ui.SpyGameSettings
-import com.example.gamehub.features.spy.ui.SpyGameState
+import com.example.gamehub.features.spy.model.LocationManager
+import com.example.gamehub.features.spy.model.SpyGameSettings
+import com.example.gamehub.features.spy.model.SpyGameState
 
 class SpyGameService(private val locationManager: LocationManager) {
     var gameSettings: SpyGameSettings = SpyGameSettings()
@@ -131,14 +131,14 @@ class SpyGameService(private val locationManager: LocationManager) {
 
     // Location management helpers
     fun addLocation(name: String, description: String) {
-        locationManager.addLocation(com.example.gamehub.features.spy.data.Location(name, description))
+        locationManager.addLocation(com.example.gamehub.features.spy.model.Location(name, description))
         updateLocations(locationManager.getLocations().map { it.name })
     }
-    fun updateLocation(old: com.example.gamehub.features.spy.data.Location, new: com.example.gamehub.features.spy.data.Location) {
+    fun updateLocation(old: com.example.gamehub.features.spy.model.Location, new: com.example.gamehub.features.spy.model.Location) {
         locationManager.updateLocation(old, new)
         updateLocations(locationManager.getLocations().map { it.name })
     }
-    fun removeLocation(location: com.example.gamehub.features.spy.data.Location) {
+    fun removeLocation(location: com.example.gamehub.features.spy.model.Location) {
         locationManager.removeLocation(location)
         updateLocations(locationManager.getLocations().map { it.name })
     }

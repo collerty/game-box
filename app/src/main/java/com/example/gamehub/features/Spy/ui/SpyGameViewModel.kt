@@ -3,8 +3,8 @@ package com.example.gamehub.features.spy.ui
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.example.gamehub.features.spy.data.Location
-import com.example.gamehub.features.spy.data.LocationManager
+import com.example.gamehub.features.spy.model.Location
+import com.example.gamehub.features.spy.model.LocationManager
 import com.example.gamehub.features.spy.service.SpyGameService
 import com.example.gamehub.features.spy.service.SpyGameService.PlayerCardInfo
 import com.example.gamehub.features.spy.service.SpyGameService.SettingsSummary

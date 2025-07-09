@@ -7,6 +7,7 @@ import android.widget.LinearLayout
 import android.widget.CheckBox
 import android.widget.ScrollView
 import android.view.ViewGroup
+import com.example.gamehub.features.spy.model.SpyGameSettings
 
 object SpyGameDialogs {
     fun showNumberPickerDialog(

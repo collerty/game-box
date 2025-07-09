@@ -1,4 +1,4 @@
-package com.example.gamehub.features.spy.data
+package com.example.gamehub.features.spy.model
 
 data class Location(
     val name: String,

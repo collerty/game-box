@@ -17,8 +17,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import android.view.ViewGroup
-import com.example.gamehub.features.spy.data.Location
-import com.example.gamehub.features.spy.data.LocationManager
+import com.example.gamehub.features.spy.model.Location
+import com.example.gamehub.features.spy.model.LocationManager
+import com.example.gamehub.features.spy.model.SpyGameSettings
+import com.example.gamehub.features.spy.model.SpyGameState
 import com.example.gamehub.features.spy.service.SpyGameService
 
 class SpyGameActivity : AppCompatActivity() {

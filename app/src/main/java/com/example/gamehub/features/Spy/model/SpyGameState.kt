@@ -1,4 +1,4 @@
-package com.example.gamehub.features.spy.ui
+package com.example.gamehub.features.spy.model
 
 import kotlin.random.Random
 

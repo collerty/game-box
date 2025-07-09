@@ -200,6 +200,4 @@ class CodenamesService(private val repository: ICodenamesRepository) {
             repository.updateGameState(roomId, updatedState, onSuccess, onError)
         }, onError = onError)
     }
-
-    // Add business logic methods as needed, using the strongly-typed model
-} 
+}

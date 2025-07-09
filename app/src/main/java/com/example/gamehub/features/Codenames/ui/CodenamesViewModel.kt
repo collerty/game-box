@@ -14,6 +14,9 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 class CodenamesViewModel(
     private val repository: ICodenamesRepository
@@ -48,10 +51,20 @@ class CodenamesViewModel(
     private val _timerSeconds = MutableStateFlow(0)
     val timerSeconds: StateFlow<Int> = _timerSeconds
 
+    private val _currentPlayerRole = MutableStateFlow<String?>(null)
+    val currentPlayerRole: StateFlow<String?> = _currentPlayerRole
+    private val _currentPlayerTeam = MutableStateFlow<String?>(null)
+    val currentPlayerTeam: StateFlow<String?> = _currentPlayerTeam
+    private val db = Firebase.firestore
+    private val auth = Firebase.auth
+
     var redMasterClue by mutableStateOf("")
     var blueMasterClue by mutableStateOf("")
 
     private var timerJob: Job? = null
+    private var playerListener: com.google.firebase.firestore.ListenerRegistration? = null
+
+    private val codenamesService = com.example.gamehub.features.codenames.service.CodenamesService(repository)
 
     fun startListening(roomId: String) {
         repository.listenToGameState(
@@ -67,8 +80,37 @@ class CodenamesViewModel(
                 val clues = state?.clues ?: emptyList()
                 _redClues.value = clues.filter { it.team == "RED" }
                 _blueClues.value = clues.filter { it.team == "BLUE" }
+
+                // Real-time listener for current player's role and team
+                val uid = auth.currentUser?.uid
+                android.util.Log.d("CodenamesDebug", "Current Firebase UID: $uid")
+                playerListener?.remove() // Remove previous listener if any
+                if (uid != null) {
+                    playerListener = db.collection("rooms").document(roomId)
+                        .addSnapshotListener { doc, e ->
+                            if (e != null) {
+                                android.util.Log.e("CodenamesDebug", "Player snapshot error", e)
+                                return@addSnapshotListener
+                            }
+                            if (doc != null && doc.exists()) {
+                                @Suppress("UNCHECKED_CAST")
+                                val players = doc.get("players") as? List<Map<String, Any>> ?: emptyList()
+                                val currentPlayer = players.find { it["uid"] == uid }
+                                android.util.Log.d("CodenamesDebug", "Fetched player: $currentPlayer from players: $players")
+                                _currentPlayerRole.value = currentPlayer?.get("role") as? String
+                                _currentPlayerTeam.value = currentPlayer?.get("team") as? String
+                            } else {
+                                android.util.Log.d("CodenamesDebug", "Room doc missing or null")
+                                _currentPlayerRole.value = null
+                                _currentPlayerTeam.value = null
+                            }
+                        }
+                } else {
+                    _currentPlayerRole.value = null
+                    _currentPlayerTeam.value = null
+                }
             },
-            onError = { /* handle error, e.g. log or show message */ }
+            onError = { e -> android.util.Log.e("CodenamesDebug", "Game state error", e) }
         )
     }
 
@@ -123,18 +165,44 @@ class CodenamesViewModel(
         }
     }
 
-    fun submitClue(roomId: String, newState: CodenamesGameState) {
+    fun submitClue(roomId: String, clue: com.example.gamehub.features.codenames.model.Clue, clueNumber: Int) {
         viewModelScope.launch {
-            repository.updateGameState(
+            codenamesService.submitClue(
                 roomId,
-                newState,
-                onSuccess = { /* handle success, e.g. show toast */ },
+                clue,
+                clueNumber,
+                onSuccess = { /* handle success */ },
                 onError = { /* handle error */ }
             )
         }
     }
 
-    // Add more methods for card click, etc.
+    fun makeGuess(roomId: String, cardIndex: Int) {
+        viewModelScope.launch {
+            codenamesService.makeGuess(
+                roomId,
+                cardIndex,
+                onSuccess = { /* handle success */ },
+                onError = { /* handle error */ }
+            )
+        }
+    }
+
+    fun endGuessingPhase(roomId: String) {
+        viewModelScope.launch {
+            codenamesService.endGuessingPhase(
+                roomId,
+                onSuccess = { /* handle success */ },
+                onError = { /* handle error */ }
+            )
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        playerListener?.remove()
+    }
+
 }
 
 class CodenamesViewModelFactory(

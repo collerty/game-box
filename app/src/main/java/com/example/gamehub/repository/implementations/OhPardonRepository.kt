@@ -199,4 +199,38 @@ class OhPardonRepository : BaseRepository("rooms"), IOhPardonRepository {
         currentRoomCode = null
         _gameRoom.value = null
     }
+
+    override fun deleteRoom(roomCode: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+        firestore.collection("rooms").document(roomCode)
+            .delete()
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { exception -> onError(exception) }
+    }
+
+    override fun removePlayerFromRoom(
+        roomCode: String, 
+        playerName: String, 
+        hostUid: String, 
+        onSuccess: () -> Unit, 
+        onError: (Exception) -> Unit
+    ) {
+        val roomRef = firestore.collection("rooms").document(roomCode)
+        
+        roomRef.get().addOnSuccessListener { document ->
+            val players = document.get("players") as? List<Map<String, Any>>
+            
+            // Reset game state for next player
+            roomRef.update("gameState.ohpardon.diceRoll", null)
+            roomRef.update("gameState.ohpardon.currentPlayer", hostUid)
+            
+            val playerToRemove = players?.find { it["name"] == playerName }
+            if (playerToRemove != null) {
+                roomRef.update("players", com.google.firebase.firestore.FieldValue.arrayRemove(playerToRemove))
+                    .addOnSuccessListener { onSuccess() }
+                    .addOnFailureListener { exception -> onError(exception) }
+            } else {
+                onSuccess() // Player not found, but continue
+            }
+        }.addOnFailureListener { exception -> onError(exception) }
+    }
 }

@@ -50,7 +50,10 @@ fun GameControls(
         // Roll Dice Button
         if (currentDiceRoll == null) {
             Button(
-                onClick = onRollDice,
+                onClick = {
+                    android.util.Log.d("GameControls", "Roll Dice button clicked!")
+                    onRollDice()
+                },
                 modifier = buttonModifier,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                 shape = RectangleShape,

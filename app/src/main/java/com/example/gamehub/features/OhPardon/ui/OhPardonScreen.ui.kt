@@ -34,7 +34,6 @@ import com.example.gamehub.features.ohpardon.classes.VibrationManager
 import com.example.gamehub.features.ohpardon.models.UiEvent
 import com.example.gamehub.features.ohpardon.ui.components.*
 import com.example.gamehub.navigation.NavRoutes
-import com.google.firebase.firestore.FirebaseFirestore
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -45,7 +44,6 @@ fun OhPardonScreen(
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as Application
-    val firestore = FirebaseFirestore.getInstance()
 
     val soundManager = remember { SoundManager(context) }
     val vibrationManager = remember { VibrationManager(context) }
@@ -54,6 +52,9 @@ fun OhPardonScreen(
     val viewModel: OhPardonViewModel = viewModel(
         factory = OhPardonViewModelFactory(application, code, userName)
     )
+    
+    // Get repository instance from ViewModel for UI operations
+    val repository = viewModel.repository
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
@@ -134,9 +135,15 @@ fun OhPardonScreen(
         isHost = isHost,
         onVictoryConfirm = {
             if (isHost) {
-                firestore.collection("rooms").document(code)
-                    .delete()
-                    .addOnSuccessListener { navController.popBackStack() }
+                repository.deleteRoom(
+                    roomCode = code,
+                    onSuccess = { navController.popBackStack() },
+                    onError = { exception -> 
+                        // Handle error - could show toast or log
+                        android.util.Log.e("OhPardonScreen", "Failed to delete room", exception)
+                        navController.popBackStack() // Still navigate back
+                    }
+                )
             } else {
                 navController.popBackStack()
             }
@@ -144,23 +151,25 @@ fun OhPardonScreen(
         onVictoryDismiss = { },
         onExitConfirm = {
             if (isHost) {
-                firestore.collection("rooms").document(code)
-                    .delete()
-                    .addOnSuccessListener { navController.popBackStack() }
-            } else {
-                val roomRef = firestore.collection("rooms").document(code)
-                roomRef.get().addOnSuccessListener { document ->
-                    val players = document.get("players") as? List<Map<String, Any>>
-                    roomRef.update("gameState.ohpardon.diceRoll", null)
-                    roomRef.update("gameState.ohpardon.currentPlayer", gameRoom?.hostUid)
-                    val playerToRemove = players?.find { it["name"] == userName }
-                    if (playerToRemove != null) {
-                        roomRef.update("players", com.google.firebase.firestore.FieldValue.arrayRemove(playerToRemove))
-                            .addOnSuccessListener { navController.navigate(NavRoutes.GAMES_LIST) }
-                    } else {
-                        navController.navigate(NavRoutes.GAMES_LIST)
+                repository.deleteRoom(
+                    roomCode = code,
+                    onSuccess = { navController.popBackStack() },
+                    onError = { exception -> 
+                        android.util.Log.e("OhPardonScreen", "Failed to delete room", exception)
+                        navController.popBackStack()
                     }
-                }
+                )
+            } else {
+                repository.removePlayerFromRoom(
+                    roomCode = code,
+                    playerName = userName,
+                    hostUid = gameRoom?.hostUid ?: "",
+                    onSuccess = { navController.navigate(NavRoutes.GAMES_LIST) },
+                    onError = { exception -> 
+                        android.util.Log.e("OhPardonScreen", "Failed to remove player", exception)
+                        navController.navigate(NavRoutes.GAMES_LIST) // Still navigate
+                    }
+                )
             }
         },
         onExitDismiss = { }
@@ -204,6 +213,12 @@ fun OhPardonScreen(
                     )
 
                     val isMyTurn = gameRoom!!.gameState.currentTurnUid == currentPlayer?.uid
+                    
+                    android.util.Log.d("OhPardonScreen", "=== TURN DEBUG ===")
+                    android.util.Log.d("OhPardonScreen", "Current turn UID: ${gameRoom!!.gameState.currentTurnUid}")
+                    android.util.Log.d("OhPardonScreen", "Current player UID: ${currentPlayer?.uid}")
+                    android.util.Log.d("OhPardonScreen", "Is my turn: $isMyTurn")
+                    android.util.Log.d("OhPardonScreen", "Current dice roll: $currentDiceRoll")
 
                     GameControls(
                         isMyTurn = isMyTurn,

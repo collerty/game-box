@@ -15,5 +15,9 @@ interface IOhPardonRepository {
     fun endGame(winnerName: String)
     fun parseColor(colorStr: String): Color
     fun leaveRoom()
+    
+    // Room management methods
+    fun deleteRoom(roomCode: String, onSuccess: () -> Unit, onError: (Exception) -> Unit)
+    fun removePlayerFromRoom(roomCode: String, playerName: String, hostUid: String, onSuccess: () -> Unit, onError: (Exception) -> Unit)
 }
 

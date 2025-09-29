@@ -34,7 +34,7 @@ class OhPardonViewModel(
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
-    private val repository = OhPardonRepository()
+    val repository = OhPardonRepository()
     private val gameLogic = OhPardonGameLogic()
     private val boardMapper = BoardMapper()
     private val shakeDetector = ShakeDetector(application) { attemptRollDice(currentUserName) }
@@ -69,14 +69,34 @@ class OhPardonViewModel(
     }
 
     fun attemptRollDice(currentUserName: String) {
-        val currentGame = _gameRoom.value ?: return
+        android.util.Log.d("OhPardonViewModel", "=== DICE ROLL ATTEMPT ===")
+        android.util.Log.d("OhPardonViewModel", "Attempting dice roll for: $currentUserName")
+        
+        val currentGame = _gameRoom.value
+        if (currentGame == null) {
+            android.util.Log.e("OhPardonViewModel", "Game room is null!")
+            return
+        }
+        
         val currentPlayer = currentGame.players.find { it.name == currentUserName }
+        android.util.Log.d("OhPardonViewModel", "Current turn UID: ${currentGame.gameState.currentTurnUid}")
+        android.util.Log.d("OhPardonViewModel", "Current player UID: ${currentPlayer?.uid}")
+        android.util.Log.d("OhPardonViewModel", "Dice roll: ${currentGame.gameState.diceRoll}")
 
-        if (!gameLogic.canRollDice(currentGame, currentPlayer?.uid)) {
+        if (currentPlayer == null) {
+            android.util.Log.e("OhPardonViewModel", "Player not found: $currentUserName")
+            _toastMessage.value = "Player not found in game!"
+            return
+        }
+
+        if (!gameLogic.canRollDice(currentGame, currentPlayer.uid)) {
+            android.util.Log.w("OhPardonViewModel", "Cannot roll dice - not turn or already rolled")
+            _toastMessage.value = "It's not your turn or dice already rolled!"
             return
         }
 
         val diceRoll = rollDice()
+        android.util.Log.d("OhPardonViewModel", "Rolling dice: $diceRoll")
         repository.updateDiceRoll(diceRoll)
     }
 

@@ -20,6 +20,10 @@ class OhPardonGameLogic {
     fun canRollDice(gameRoom: GameRoom, playerUid: String?): Boolean {
         val gameState = gameRoom.gameState
         
+        Log.d("OhPardonLogic", "canRollDice - Current turn UID: ${gameState.currentTurnUid}")
+        Log.d("OhPardonLogic", "canRollDice - Player UID: $playerUid")
+        Log.d("OhPardonLogic", "canRollDice - Dice roll: ${gameState.diceRoll}")
+        
         // Check if it's the player's turn
         if (gameState.currentTurnUid != playerUid) {
             Log.w("OhPardonLogic", "Not player's turn to roll dice")
@@ -32,6 +36,7 @@ class OhPardonGameLogic {
             return false
         }
         
+        Log.d("OhPardonLogic", "Player can roll dice")
         return true
     }
 

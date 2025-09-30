@@ -8,4 +8,9 @@ object CodenamesConstants {
     const val ASSASSIN_CARDS = 1
     const val DEFAULT_RED_WORDS = RED_CARDS
     const val DEFAULT_BLUE_WORDS = BLUE_CARDS
+    
+    // Additional constants for ViewModel
+    const val INITIAL_RED_WORDS = RED_CARDS
+    const val INITIAL_BLUE_WORDS = BLUE_CARDS
+    const val TIMER_DURATION = 60 // seconds
 } 

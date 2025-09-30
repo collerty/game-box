@@ -22,4 +22,13 @@ interface ICodenamesRepository {
         onDataChange: (CodenamesGameState?) -> Unit,
         onError: (Exception) -> Unit
     )
+
+    fun listenToPlayerInfo(
+        roomId: String,
+        playerUid: String,
+        onDataChange: (String?, String?) -> Unit, // role, team
+        onError: (Exception) -> Unit
+    ): com.google.firebase.firestore.ListenerRegistration
+
+    fun getCurrentUserUid(): String?
 } 

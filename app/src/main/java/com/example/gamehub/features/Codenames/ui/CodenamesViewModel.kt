@@ -14,9 +14,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
+import com.example.gamehub.features.codenames.model.CodenamesConstants
 
 class CodenamesViewModel(
     private val repository: ICodenamesRepository
@@ -27,10 +25,10 @@ class CodenamesViewModel(
     private val _currentTurn = MutableStateFlow("RED")
     val currentTurn: StateFlow<String> = _currentTurn
 
-    private val _redWordsRemaining = MutableStateFlow(9)
+    private val _redWordsRemaining = MutableStateFlow<Int>(CodenamesConstants.INITIAL_RED_WORDS)
     val redWordsRemaining: StateFlow<Int> = _redWordsRemaining
 
-    private val _blueWordsRemaining = MutableStateFlow(8)
+    private val _blueWordsRemaining = MutableStateFlow<Int>(CodenamesConstants.INITIAL_BLUE_WORDS)
     val blueWordsRemaining: StateFlow<Int> = _blueWordsRemaining
 
     private val _winner = MutableStateFlow<String?>(null)
@@ -55,8 +53,6 @@ class CodenamesViewModel(
     val currentPlayerRole: StateFlow<String?> = _currentPlayerRole
     private val _currentPlayerTeam = MutableStateFlow<String?>(null)
     val currentPlayerTeam: StateFlow<String?> = _currentPlayerTeam
-    private val db = Firebase.firestore
-    private val auth = Firebase.auth
 
     var redMasterClue by mutableStateOf("")
     var blueMasterClue by mutableStateOf("")
@@ -67,13 +63,13 @@ class CodenamesViewModel(
     private val codenamesService = com.example.gamehub.features.codenames.service.CodenamesService(repository)
 
     fun startListening(roomId: String) {
-        repository.listenToGameState(
+        codenamesService.listenToGameState(
             roomId,
             onDataChange = { state ->
                 _gameState.value = state
                 _currentTurn.value = state?.currentTurn ?: "RED"
-                _redWordsRemaining.value = state?.redWordsRemaining ?: 9
-                _blueWordsRemaining.value = state?.blueWordsRemaining ?: 8
+                _redWordsRemaining.value = state?.redWordsRemaining ?: CodenamesConstants.INITIAL_RED_WORDS
+                _blueWordsRemaining.value = state?.blueWordsRemaining ?: CodenamesConstants.INITIAL_BLUE_WORDS
                 _currentTeam.value = state?.currentTeam ?: "RED"
                 _isMasterPhase.value = state?.isMasterPhase ?: true
                 _winner.value = state?.winner
@@ -82,29 +78,24 @@ class CodenamesViewModel(
                 _blueClues.value = clues.filter { it.team == "BLUE" }
 
                 // Real-time listener for current player's role and team
-                val uid = auth.currentUser?.uid
+                val uid = repository.getCurrentUserUid()
                 android.util.Log.d("CodenamesDebug", "Current Firebase UID: $uid")
                 playerListener?.remove() // Remove previous listener if any
                 if (uid != null) {
-                    playerListener = db.collection("rooms").document(roomId)
-                        .addSnapshotListener { doc, e ->
-                            if (e != null) {
-                                android.util.Log.e("CodenamesDebug", "Player snapshot error", e)
-                                return@addSnapshotListener
-                            }
-                            if (doc != null && doc.exists()) {
-                                @Suppress("UNCHECKED_CAST")
-                                val players = doc.get("players") as? List<Map<String, Any>> ?: emptyList()
-                                val currentPlayer = players.find { it["uid"] == uid }
-                                android.util.Log.d("CodenamesDebug", "Fetched player: $currentPlayer from players: $players")
-                                _currentPlayerRole.value = currentPlayer?.get("role") as? String
-                                _currentPlayerTeam.value = currentPlayer?.get("team") as? String
-                            } else {
-                                android.util.Log.d("CodenamesDebug", "Room doc missing or null")
-                                _currentPlayerRole.value = null
-                                _currentPlayerTeam.value = null
-                            }
+                    playerListener = repository.listenToPlayerInfo(
+                        roomId = roomId,
+                        playerUid = uid,
+                        onDataChange = { role, team ->
+                            android.util.Log.d("CodenamesDebug", "Player info updated - Role: $role, Team: $team")
+                            _currentPlayerRole.value = role
+                            _currentPlayerTeam.value = team
+                        },
+                        onError = { e ->
+                            android.util.Log.e("CodenamesDebug", "Player info error", e)
+                            _currentPlayerRole.value = null
+                            _currentPlayerTeam.value = null
                         }
+                    )
                 } else {
                     _currentPlayerRole.value = null
                     _currentPlayerTeam.value = null
@@ -117,7 +108,7 @@ class CodenamesViewModel(
     fun startTimer(isMasterPhase: Boolean, currentTeam: String, roomId: String) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
-            _timerSeconds.value = 60
+            _timerSeconds.value = CodenamesConstants.TIMER_DURATION
             while (_timerSeconds.value > 0 && _winner.value == null) {
                 delay(1000)
                 _timerSeconds.value = _timerSeconds.value - 1
@@ -125,7 +116,7 @@ class CodenamesViewModel(
             if (_winner.value == null) {
                 if (!isMasterPhase) {
                     val nextTeam = if (currentTeam == "RED") "BLUE" else "RED"
-                    repository.updateGameState(
+                    codenamesService.updateGameState(
                         roomId,
                         CodenamesGameState(
                             currentTurn = nextTeam,
@@ -143,7 +134,7 @@ class CodenamesViewModel(
                         onError = { }
                     )
                 } else {
-                    repository.updateGameState(
+                    codenamesService.updateGameState(
                         roomId,
                         CodenamesGameState(
                             currentTurn = _currentTurn.value,

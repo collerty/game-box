@@ -6,11 +6,14 @@ import com.example.gamehub.features.codenames.model.CardColor
 import com.example.gamehub.features.codenames.model.Clue
 import com.example.gamehub.repository.interfaces.ICodenamesRepository
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import com.example.gamehub.features.codenames.model.CodenamesConstants
 
 class CodenamesRepository : ICodenamesRepository {
     private val db = FirebaseFirestore.getInstance()
     private val collection = db.collection("rooms")
+    private val auth = Firebase.auth
 
     override fun getGameState(
         roomId: String,
@@ -52,6 +55,35 @@ class CodenamesRepository : ICodenamesRepository {
                     onDataChange(state?.let { mapToGameState(it) })
                 }
             }
+    }
+
+    override fun listenToPlayerInfo(
+        roomId: String,
+        playerUid: String,
+        onDataChange: (String?, String?) -> Unit,
+        onError: (Exception) -> Unit
+    ): com.google.firebase.firestore.ListenerRegistration {
+        return collection.document(roomId)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    onError(e)
+                } else {
+                    if (snapshot != null && snapshot.exists()) {
+                        @Suppress("UNCHECKED_CAST")
+                        val players = snapshot.get("players") as? List<Map<String, Any>> ?: emptyList()
+                        val currentPlayer = players.find { it["uid"] == playerUid }
+                        val role = currentPlayer?.get("role") as? String
+                        val team = currentPlayer?.get("team") as? String
+                        onDataChange(role, team)
+                    } else {
+                        onDataChange(null, null)
+                    }
+                }
+            }
+    }
+
+    override fun getCurrentUserUid(): String? {
+        return auth.currentUser?.uid
     }
 
     // --- Mapping helpers ---

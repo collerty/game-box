@@ -79,7 +79,7 @@ private val TOTAL_ROUNDS = 5
 fun WhereAndWhenScreen(
     navController: NavController,
     roomCode: String,
-    currentUserName: String
+    currentUserName: String,
 ) {
     val context = LocalContext.current
     val view = LocalView.current

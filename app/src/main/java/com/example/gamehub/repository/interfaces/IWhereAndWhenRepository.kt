@@ -1,73 +1,29 @@
-package com.example.gamehub.repository.interfaces
-
 import com.example.gamehub.features.whereandwhe.model.WWPlayerGuess
-import com.example.gamehub.features.whereandwhe.model.WWRoundResultsContainer
-import com.google.firebase.firestore.ListenerRegistration
+import com.example.gamehub.features.whereandwhe.model.WhereAndWhenGameState
+import kotlinx.coroutines.flow.StateFlow
+
+// IWhereAndWhenRepository.kt
 
 interface IWhereAndWhenRepository {
-    
-    // Room listening
-    fun listenToRoomState(
+    // State Flow (Read)
+    val gameState: StateFlow<WhereAndWhenGameState?>
+    val roomData: StateFlow<Map<String, Any>?> // For room-level data like 'players', 'hostUid'
+
+    // Lifecycle/Setup
+    fun joinRoom(roomCode: String)
+    fun leaveRoom() // Optional cleanup
+
+    // Write Operations (Player Actions)
+    suspend fun submitGuess(playerId: String, guess: WWPlayerGuess)
+    suspend fun markPlayerReadyForNextPhase(playerId: String, currentStatus: String)
+
+    // Write Operations (Host Actions - The implementation must handle all the complex logic)
+    suspend fun runHostStateTransition(
         roomCode: String,
-        onDataChange: (Map<String, Any?>) -> Unit,
-        onError: (Exception) -> Unit
-    ): ListenerRegistration
-    
-    // Player operations
-    fun submitPlayerGuess(
-        roomCode: String,
-        playerId: String,
-        guess: WWPlayerGuess,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
+        activePlayerUids: List<String>,
+        totalRounds: Int
     )
-    
-    // Host operations
-    fun updateGameState(
-        roomCode: String,
-        updates: Map<String, Any?>,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    )
-    
-    fun updatePlayerScores(
-        roomCode: String,
-        playerScores: Map<String, Any>,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    )
-    
-    fun transitionToMapReveal(
-        roomCode: String,
-        resultsContainer: WWRoundResultsContainer,
-        updatedPlayers: List<Map<String, Any>>,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    )
-    
-    fun transitionToLeaderboard(
-        roomCode: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    )
-    
-    fun transitionToNextRound(
-        roomCode: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    )
-    
-    fun markPlayerReadyForLeaderboard(
-        roomCode: String,
-        playerId: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    )
-    
-    // Cleanup
-    fun deleteRoom(
-        roomCode: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    )
+
+    // Initial Host Setup (optional, or merge into joinRoom if host)
+    // suspend fun initializeGame(roomCode: String, challengeOrder: List<String>)
 }

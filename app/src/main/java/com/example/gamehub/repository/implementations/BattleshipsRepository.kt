@@ -248,6 +248,10 @@ class BattleshipsRepository : BaseRepository("rooms"), IBattleShipsRepository {
     private fun parseBattleshipsGameState(data: Map<String, Any?>?): BattleshipsGameState {
         if (data == null) return BattleshipsGameState()
 
+        // Parse the 'ready' map
+        val rawReady = (data["ready"] as? Map<*, *>) ?: emptyMap<Any, Any>()
+        val ready: Map<String, Boolean> = rawReady.mapKeys { it.key.toString() }.mapValues { it.value == true }
+
         val rawMoves = data["moves"] as? List<Map<String, Any?>> ?: emptyList()
         val moves = rawMoves.mapNotNull { moveMap -> try { parseMove(moveMap) } catch (e: Exception) { null } }
 

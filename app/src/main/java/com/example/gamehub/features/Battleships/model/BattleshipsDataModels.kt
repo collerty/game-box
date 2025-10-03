@@ -20,6 +20,7 @@ data class Ship(
 }
 
 data class BattleshipsGameState(
+    val ready: Map<String, Boolean> = emptyMap(),
     val currentTurnUid: String = "",
     val moves: List<Move> = emptyList(),
     val ships: Map<String, List<Ship>> = emptyMap(), // Map<PlayerId, List<Ship>>

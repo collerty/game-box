@@ -14,12 +14,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.gamehub.features.battleships.model.Cell
 import com.example.gamehub.features.battleships.model.MapRepository
@@ -29,18 +27,19 @@ import com.example.gamehub.lobby.model.GameSession
 import com.example.gamehub.lobby.model.Move
 import com.example.gamehub.lobby.model.PowerUp as DomainPowerUp
 import com.example.gamehub.lobby.codec.BattleshipsCodec
+import com.example.gamehub.navigation.NavRoutes
+import com.example.gamehub.repository.interfaces.IBattleShipsRepository // <-- Repository Import
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import com.example.gamehub.navigation.NavRoutes
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.ktx.firestore
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.launch
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.content.Context
+import android.util.Log // Used for debugging, though not strictly required for the UI logic
+
+// --- UTILITY FUNCTIONS ---
 
 private fun UiShip.coveredCells(): List<Cell> = if (orientation == Orientation.Horizontal) {
     (0 until size).map { offset -> Cell(startRow, startCol + offset) }
@@ -127,24 +126,61 @@ private fun buildAttackMap(
                 AttackResult.Miss
         }
 
+fun vibrateDevice(context: Context, duration: Long = 500) {
+    // FIX for deprecated VIBRATOR_SERVICE
+    @Suppress("DEPRECATION")
+    val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+
+    if (vibrator.hasVibrator()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(duration, 255)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(duration)
+        }
+    }
+}
+
+// --- MAIN SCREEN COMPOSABLE ---
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BattleshipsPlayScreen(
     navController: NavHostController,
     roomCode: String,
-    userName: String
+    userName: String,
+    battleshipsRepository: IBattleShipsRepository // <-- Injected Dependency
 ) {
     val context = LocalContext.current
     val uid = Firebase.auth.uid ?: return
     val scope = rememberCoroutineScope()
-    val db = Firebase.firestore
-    val roomRef = remember { db.collection("rooms").document(roomCode) }
 
+    // NOTE: Removed: val db = Firebase.firestore
+    // NOTE: Removed: val roomRef = remember { db.collection("rooms").document(roomCode) }
+
+    // 1. Core Game State Observation (Still using FirestoreSession for complex state)
     val session = remember { FirestoreSession(roomCode, BattleshipsCodec) }
     val state by session.stateFlow.collectAsState(initial = GameSession.empty(roomCode))
+
+    // 2. Repository-driven State Setup and Observation
+    DisposableEffect(roomCode) {
+        battleshipsRepository.joinRoom(roomCode) // Starts the internal listener
+        onDispose { /* battleshipsRepository.leaveRoom() // Optional cleanup */ }
+    }
+
+    // Collect the state flows provided by the Repository
+    val gameRoom by battleshipsRepository.gameRoom.collectAsState()
+    val rematchVotes by battleshipsRepository.rematchVotes.collectAsState()
+
+    // Use values from the collected flows to determine UI state
+    val lobbyStatus = gameRoom?.status
+    val surrenderedUserId = gameRoom?.gameState?.gameResult?.takeIf { it != "" }
+
     val isMyTurn = state.currentTurn == uid
 
-    // Selected map and shape
+    // ... (All other local state setup remains the same, relying on 'state') ...
     val chosenMapId = state.chosenMap ?: 0
     val mapDef = remember(chosenMapId) { MapRepository.allMaps.first { it.id == chosenMapId } }
     val mapCells = mapDef.validCells
@@ -157,29 +193,12 @@ fun BattleshipsPlayScreen(
         .filterNotNull()
         .firstOrNull { it != uid } ?: ""
 
-    val myShips: List<UiShip> = (state.ships[uid] ?: emptyList()).map { ds ->
-        UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation)
-    }
-    val oppShips: List<UiShip> = (state.ships[opponentId] ?: emptyList()).map { ds ->
-        UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation)
-    }
+    val myShips: List<UiShip> = (state.ships[uid] ?: emptyList()).map { ds -> UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation) }
+    val oppShips: List<UiShip> = (state.ships[opponentId] ?: emptyList()).map { ds -> UiShip(ds.startRow, ds.startCol, ds.size, ds.orientation) }
 
-    val myDestroyedShips = myShips.filter { ship ->
-        ship.coveredCells().all { cell ->
-            state.moves.filter { it.playerId == opponentId }
-                .any { it.x == cell.col && it.y == cell.row }
-        }
-    }
-    val oppDestroyedShips = oppShips.filter { ship ->
-        ship.coveredCells().all { cell ->
-            state.moves.filter { it.playerId == uid }
-                .any { it.x == cell.col && it.y == cell.row }
-        }
-    }
+    val myDestroyedShips = myShips.filter { ship -> ship.coveredCells().all { cell -> state.moves.filter { it.playerId == opponentId }.any { it.x == cell.col && it.y == cell.row } } }
+    val oppDestroyedShips = oppShips.filter { ship -> ship.coveredCells().all { cell -> state.moves.filter { it.playerId == uid }.any { it.x == cell.col && it.y == cell.row } } }
 
-    var rematchVotes by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
-    var lobbyStatus by remember { mutableStateOf<String?>(null) }
-    var surrenderedUserId by remember { mutableStateOf<String?>(null) }
     var showSurrenderDialog by remember { mutableStateOf(false) }
 
     var animatingMove by remember { mutableStateOf<Cell?>(null) }
@@ -193,28 +212,10 @@ fun BattleshipsPlayScreen(
     val iSunkOpponent = havePlacedShips && areAllShipsSunk(oppShips, myMoves)
     val opponentSunkMe = havePlacedShips && areAllShipsSunk(myShips, oppMoves)
 
-    val wasHit = remember(lastOppMove) {
-        lastOppMove?.let { move ->
-            myShips.any { it.covers(move.y, move.x) }
-        } ?: false
-    }
-
-    fun vibrateDevice(context: Context, duration: Long = 500) {
-        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(
-                VibrationEffect.createOneShot(duration, 255)
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(duration)
-        }
-    }
+    val wasHit = remember(lastOppMove) { lastOppMove?.let { move -> myShips.any { it.covers(move.y, move.x) } } ?: false }
 
     LaunchedEffect(lastOppMove) {
-        if (wasHit && lastOppMove != null) {
-            vibrateDevice(context)
-        }
+        if (wasHit && lastOppMove != null) { vibrateDevice(context) }
     }
 
     val gameResult = state.gameResult
@@ -231,23 +232,10 @@ fun BattleshipsPlayScreen(
     var minesAtTurnStart by remember(state.currentTurn) { mutableStateOf(myMines.size) }
     val hasPlacedMineThisTurn = myMines.size > minesAtTurnStart
 
-    suspend fun spendEnergy(roomRef: com.google.firebase.firestore.DocumentReference, uid: String, amount: Int) {
-        roomRef.update(
-            "gameState.battleships.energy.$uid",
-            FieldValue.increment(-amount.toLong())
-        ).await()
-    }
+    // Helper function is cleaner now
+    // Note: The energy update is done directly within the PowerUp logic below.
 
-    DisposableEffect(roomCode) {
-        val reg = roomRef.addSnapshotListener { snap, _ ->
-            val bs = ((snap?.get("gameState") as? Map<*, *>)?.get("battleships") as? Map<*, *>) ?: return@addSnapshotListener
-            val votes = (bs["rematchVotes"] as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value == true } ?: emptyMap()
-            rematchVotes = votes
-            lobbyStatus = snap.get("status") as? String
-            surrenderedUserId = bs["surrendered"] as? String
-        }
-        onDispose { reg.remove() }
-    }
+    // --- 3. Launched Effects (Now relies on repo-driven flows) ---
 
     LaunchedEffect(lobbyStatus) {
         if (lobbyStatus == "ended") {
@@ -261,28 +249,16 @@ fun BattleshipsPlayScreen(
     LaunchedEffect(rematchVotes) {
         if (rematchVotes.size == 2 && rematchVotes.values.all { it }) {
             scope.launch {
-                roomRef.update(mapOf(
-                    "gameState.battleships.moves" to emptyList<Any>(),
-                    "gameState.battleships.availablePowerUps" to emptyMap<String,Any>(),
-                    "gameState.battleships.energy" to emptyMap<String,Any>(),
-                    "gameState.battleships.powerUpMoves" to emptyList<Any>(),
-                    "gameState.battleships.mapVotes" to emptyMap<String,Any>(),
-                    "gameState.battleships.chosenMap" to null,
-                    "gameState.battleships.ready" to emptyMap<String,Any>(),
-                    "gameState.battleships.ships" to emptyMap<String,Any>(),
-                    "gameState.battleships.gameResult" to null,
-                    "gameState.battleships.rematchVotes" to emptyMap<String,Any>(),
-                    "gameState.battleships.surrendered" to null
-                )).await()
+                // REPLACEMENT: Use repository's reset method
+                battleshipsRepository.resetGame(roomCode)
+
                 delay(250)
                 navController.navigate(
                     NavRoutes.BATTLE_VOTE
                         .replace("{code}", roomCode)
                         .replace("{userName}", java.net.URLEncoder.encode(userName, "UTF-8"))
                 ) {
-                    popUpTo(NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")) {
-                        inclusive = true
-                    }
+                    popUpTo(NavRoutes.LOBBY_MENU.replace("{gameId}", "battleships")) { inclusive = true }
                 }
             }
         }
@@ -303,32 +279,20 @@ fun BattleshipsPlayScreen(
         }
     }
 
+    // --- UI Structure ---
     Box(modifier = Modifier.fillMaxSize()) {
-        // --- FULLSCREEN BACKGROUND IMAGE ---
-        Image(
-            painter = painterResource(com.example.gamehub.R.drawable.bg_battleships),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        Image(painter = painterResource(com.example.gamehub.R.drawable.bg_battleships), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
 
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { Text("🐋 Battleships", color = Color.White) },
                     actions = {
-                        IconButton(
-                            onClick = { showSurrenderDialog = true }
-                        ) {
+                        IconButton(onClick = { showSurrenderDialog = true }) {
                             Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Surrender", tint = Color.White)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Black,
-                        titleContentColor = Color.White,
-                        actionIconContentColor = Color.White,
-                        navigationIconContentColor = Color.White
-                    )
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black, titleContentColor = Color.White, actionIconContentColor = Color.White, navigationIconContentColor = Color.White)
                 )
             },
             containerColor = Color.Transparent
@@ -355,115 +319,78 @@ fun BattleshipsPlayScreen(
                     Box(
                         modifier = Modifier.size(32.dp * 10)
                     ) {
-                        if (placingMine) {
-                            BattleshipMap(
-                                gridSize = 10,
-                                cellSize = 32.dp,
-                                ships = myShips,
-                                destroyedShips = myDestroyedShips,
-                                mineCells = myMines,
-                                triggeredMines = myTriggeredMines,
-                                attacks = buildAttackMap(myShips, oppMoves),
-                                validCells = mapCells,
-                                onCellClick = { row, col ->
-                                    val isMineHere = myMines.any { it.row == row && it.col == col }
-                                    val alreadyHit = oppMoves.any { it.x == col && it.y == row }
-                                    if (!isMineHere && !alreadyHit && (state.energy[uid] ?: 0) >= PowerUp.Mine.cost) {
-                                        scope.launch {
-                                            try {
-                                                spendEnergy(roomRef, uid, PowerUp.Mine.cost)
-                                                val updatedMines = myMines + Cell(row, col)
-                                                roomRef.update(
-                                                    "gameState.battleships.placedMines.$uid",
-                                                    updatedMines.map { mapOf("row" to it.row, "col" to it.col) }
-                                                ).await()
-                                                placingMine = false
+
+                        val boardShips = if (placingMine || !isMyTurn) myShips else emptyList()
+                        val boardAttacks = if (placingMine || !isMyTurn) buildAttackMap(myShips, oppMoves) else buildAttackMap(oppShips, myMoves)
+                        val boardMines = if (placingMine || !isMyTurn) myMines else emptyList()
+                        val boardTriggeredMines = if (placingMine || !isMyTurn) myTriggeredMines else enemyTriggeredMines
+                        val boardDestroyedShips = if (placingMine || !isMyTurn) myDestroyedShips else oppDestroyedShips
+
+                        BattleshipMap(
+                            gridSize = 10,
+                            cellSize = 32.dp,
+                            ships = boardShips,
+                            destroyedShips = boardDestroyedShips,
+                            mineCells = boardMines,
+                            triggeredMines = boardTriggeredMines,
+                            attacks = boardAttacks,
+                            validCells = mapCells,
+                            onCellClick = { row, col ->
+                                if (!isMyTurn || isLocallyGameOver) return@BattleshipMap
+
+                                when (selectedPowerUp) {
+                                    PowerUp.Mine -> {
+                                        val isMineHere = myMines.any { it.row == row && it.col == col }
+                                        val alreadyHit = oppMoves.any { it.x == col && it.y == row }
+                                        if (!isMineHere && !alreadyHit && (state.energy[uid] ?: 0) >= PowerUp.Mine.cost) {
+                                            scope.launch {
+                                                try {
+                                                    // REPLACEMENT: Use repository methods for both update and energy change
+                                                    battleshipsRepository.updateEnergy(uid, -PowerUp.Mine.cost)
+                                                    battleshipsRepository.placeMine(uid, Cell(row, col))
+                                                    placingMine = false
+                                                    selectedPowerUp = null
+                                                } catch (e: Exception) {
+                                                    Log.e("PlayScreen", "Mine error: ${e.message}")
+                                                }
+                                            }
+                                        }
+                                    }
+                                    PowerUp.Bomb2x2 -> {
+                                        if (row in 0 until 9 && col in 0 until 9 && (state.energy[uid] ?: 0) >= PowerUp.Bomb2x2.cost) {
+                                            scope.launch {
+                                                battleshipsRepository.updateEnergy(uid, -PowerUp.Bomb2x2.cost)
+                                                val targets = PowerUp.Bomb2x2.expand(Cell(row, col))
+                                                // session.submitMove is fine if it wraps the repo's submitMove
+                                                targets.forEach { targetCell -> session.submitMove(targetCell.col, targetCell.row, uid) }
                                                 selectedPowerUp = null
-                                            } catch (e: Exception) {
-                                                println("ERROR PLACING MINE: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                    PowerUp.Laser -> {
+                                        if ((state.energy[uid] ?: 0) >= PowerUp.Laser.cost) {
+                                            scope.launch {
+                                                battleshipsRepository.updateEnergy(uid, -PowerUp.Laser.cost)
+                                                val targets = if (laserOrientation == Orientation.Horizontal) { (0 until 10).map { c -> Cell(row, c) } } else { (0 until 10).map { r -> Cell(r, col) } }
+                                                targets.forEach { targetCell -> session.submitMove(targetCell.col, targetCell.row, uid) }
+                                                selectedPowerUp = null
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        val cell = Cell(row, col)
+                                        val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
+                                        if (cell !in myHitCells && animatingMove == null) {
+                                            val startedAt = System.currentTimeMillis()
+                                            scope.launch {
+                                                // REPLACEMENT: Use repository method
+                                                battleshipsRepository.updateCurrentAttack(col, row, uid, startedAt)
                                             }
                                         }
                                     }
                                 }
-                            )
-                        } else {
-                            if (isMyTurn) {
-                                val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
-                                BattleshipMap(
-                                    gridSize = 10,
-                                    cellSize = 32.dp,
-                                    ships = emptyList(),
-                                    destroyedShips = oppDestroyedShips,
-                                    mineCells = emptyList(),
-                                    triggeredMines = enemyTriggeredMines,
-                                    attacks = buildAttackMap(oppShips, myMoves),
-                                    validCells = mapCells,
-                                    onCellClick = { row, col ->
-                                        if (!isMyTurn || isLocallyGameOver) return@BattleshipMap
-                                        val cell = Cell(row, col)
-                                        val myHitCells = myMoves.map { Cell(it.y, it.x) }.toSet()
-
-                                        when (selectedPowerUp) {
-                                            PowerUp.Bomb2x2 -> {
-                                                if (row in 0 until 9 && col in 0 until 9 && (state.energy[uid] ?: 0) >= PowerUp.Bomb2x2.cost) {
-                                                    scope.launch {
-                                                        spendEnergy(roomRef, uid, PowerUp.Bomb2x2.cost)
-                                                        val targets = PowerUp.Bomb2x2.expand(Cell(row, col))
-                                                        targets.forEach { targetCell ->
-                                                            session.submitMove(targetCell.col, targetCell.row, uid)
-                                                        }
-                                                        selectedPowerUp = null
-                                                    }
-                                                }
-                                            }
-                                            PowerUp.Laser -> {
-                                                if ((state.energy[uid] ?: 0) >= PowerUp.Laser.cost) {
-                                                    scope.launch {
-                                                        spendEnergy(roomRef, uid, PowerUp.Laser.cost)
-                                                        val targets = if (laserOrientation == Orientation.Horizontal) {
-                                                            (0 until 10).map { c -> Cell(row, c) }
-                                                        } else {
-                                                            (0 until 10).map { r -> Cell(r, col) }
-                                                        }
-                                                        targets.forEach { targetCell ->
-                                                            session.submitMove(targetCell.col, targetCell.row, uid)
-                                                        }
-                                                        selectedPowerUp = null
-                                                    }
-                                                }
-                                            }
-                                            else -> {
-                                                if (cell !in myHitCells && animatingMove == null) {
-                                                    val startedAt = System.currentTimeMillis()
-                                                    scope.launch {
-                                                        roomRef.update(
-                                                            mapOf("gameState.battleships.currentAttack" to mapOf(
-                                                                "x" to col,
-                                                                "y" to row,
-                                                                "playerId" to uid,
-                                                                "startedAt" to startedAt
-                                                            ))
-                                                        ).await()
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                )
-                            } else {
-                                BattleshipMap(
-                                    gridSize = 10,
-                                    cellSize = 32.dp,
-                                    ships = myShips,
-                                    destroyedShips = myDestroyedShips,
-                                    mineCells = myMines,
-                                    triggeredMines = myTriggeredMines,
-                                    attacks = buildAttackMap(myShips, oppMoves),
-                                    validCells = mapCells,
-                                    onCellClick = { _, _ -> }
-                                )
                             }
-                        }
+                        )
 
                         // --- Cannon Attack Animation ---
                         if (animatingMove != null) {
@@ -481,7 +408,8 @@ fun BattleshipsPlayScreen(
                                                 currentAttack.y,
                                                 currentAttack.playerId
                                             )
-                                            roomRef.update(mapOf("gameState.battleships.currentAttack" to FieldValue.delete())).await()
+                                            // REPLACEMENT: Use repository method
+                                            battleshipsRepository.clearCurrentAttack()
                                         }
                                     }
                                     animatingMove = null
@@ -583,6 +511,8 @@ fun BattleshipsPlayScreen(
                 }
             }
 
+            // --- Dialogs (Final Replacements) ---
+
             if (showSurrenderDialog) {
                 AlertDialog(
                     onDismissRequest = { showSurrenderDialog = false },
@@ -593,7 +523,8 @@ fun BattleshipsPlayScreen(
                             onClick = {
                                 showSurrenderDialog = false
                                 scope.launch {
-                                    roomRef.update("gameState.battleships.surrendered", uid).await()
+                                    // REPLACEMENT: Use repository method
+                                    battleshipsRepository.surrender(uid)
                                 }
                             }
                         ) { Text("Surrender") }
@@ -622,7 +553,8 @@ fun BattleshipsPlayScreen(
                         Button(
                             onClick = {
                                 scope.launch {
-                                    roomRef.update("gameState.battleships.rematchVotes.$uid", true).await()
+                                    // REPLACEMENT: Use repository method
+                                    battleshipsRepository.voteForRematch(uid)
                                 }
                             },
                             enabled = !(rematchVotes[uid] == true)
@@ -634,7 +566,8 @@ fun BattleshipsPlayScreen(
                         Button(
                             onClick = {
                                 scope.launch {
-                                    roomRef.update("status", "ended").await()
+                                    // REPLACEMENT: Use repository method
+                                    battleshipsRepository.endGame(roomCode)
                                 }
                                 navController.navigate(NavRoutes.MAIN_MENU) {
                                     popUpTo(0)

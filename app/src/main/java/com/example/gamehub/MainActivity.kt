@@ -57,6 +57,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.example.gamehub.repository.implementations.CodenamesRepository
+import com.example.gamehub.repository.implementations.BattleshipsRepository
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
@@ -83,6 +84,8 @@ fun GameHubApp() {
     val navController = rememberNavController()
     val context = LocalContext.current
     Log.d("MainActivity", "GameHubApp composable created")
+
+    val battleshipsRepository = remember { BattleshipsRepository() }
 
     Scaffold { innerPadding ->
         NavHost(
@@ -173,7 +176,7 @@ fun GameHubApp() {
             ) { backStack ->
                 val code     = backStack.arguments?.getString("code")     ?: return@composable
                 val userName = backStack.arguments?.getString("userName") ?: return@composable
-                BattleshipsPlayScreen(navController, code, userName)
+                BattleshipsPlayScreen(navController, code, userName, battleshipsRepository = BattleshipsRepository())
             }
 
             // Placement screen via route wrapper
@@ -188,7 +191,7 @@ fun GameHubApp() {
                 val code     = backStack.arguments!!.getString("code")!!
                 val userName = backStack.arguments!!.getString("userName")!!
                 val mapId    = backStack.arguments!!.getInt("mapId")
-                ShipPlacementRoute(navController, code, userName, mapId)
+                ShipPlacementRoute(navController, code, userName,             mapId,        battleshipsRepository = battleshipsRepository )
             }
 
             composable(
